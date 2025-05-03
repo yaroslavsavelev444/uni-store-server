@@ -1,0 +1,36 @@
+{{#extend "baseLayout" title="Новая заявка"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        <h2 style="margin: 0 0 24px; font-size: 24px; color: #2c3e50;">🚗 Здравствуйте, {{name}}!</h2>
+        <p style="margin: 0 0 20px; font-size: 16px; color: #555;">
+          У вас новая заявка, ознакомьтесь с деталями ниже.
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+          <tr>
+            <td style="padding: 10px 0; font-size: 16px; color: #333;">
+              <strong>Номер заявки:</strong> {{id}}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; font-size: 16px; color: #333;">
+              <strong>Дата:</strong> {{date}}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; font-size: 16px; color: #333;">
+              <strong>Автомобиль:</strong> {{brand}} {{model}} ({{licensePlate}})
+            </td>
+          </tr>
+        </table>
+
+        <div style="text-align: center;">
+          <a href="{{link}}" target="_blank" style="display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 16px;">
+            Перейти в личный кабинет
+          </a>
+        </div>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

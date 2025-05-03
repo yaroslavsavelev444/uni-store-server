@@ -1,0 +1,40 @@
+const { Schema, model, Types } = require('mongoose');
+
+const ProductSchema = new Schema({
+  // Basic info
+  title: { type: String, required: true }, 
+  description: { type: String, required: true }, 
+  isAvailable: { type: Boolean, required: true }, 
+
+  // Pricing
+  priceIndividual: { type: Number, required: true }, 
+  priceLegalEntity: { type: Number, required: true }, 
+  discountPersentage: { type: Number, default: 0 }, 
+  discountFromQuantity: { type: Number, default: 0 }, 
+  status : { type: String, enum: ['active', 'archived', 'preorder'], required: true, default: 'active' },
+  // Quantity
+  totalQuantity: { type: Number, required: true }, 
+
+  // Media
+  
+  // Category
+  categoryId: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
+
+  // Visibility
+  showOnMainPage: { type: Boolean, default: false }, 
+
+  images: [String], // массив путей к изображениям
+  instructionPath: { type: String }, // путь к инструкции
+
+  // Dynamic product features
+  customAttributes: [{
+    name: { type: String, required: true }, 
+    value: { type: String, required: true },
+  }],
+
+  relatedProducts: [{ type: Types.ObjectId, ref: 'Product' }], 
+}, {
+  timestamps: true
+});
+
+module.exports = model('Product', ProductSchema);

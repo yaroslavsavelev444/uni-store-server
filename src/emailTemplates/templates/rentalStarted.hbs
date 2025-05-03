@@ -1,0 +1,51 @@
+{{#extend "baseLayout" title="Аренда началась"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        <h2 style="color: #28a745; font-size: 22px; margin: 0 0 20px;">🚗 Аренда началась</h2>
+
+        <p style="font-size: 16px; color: #333; margin: 0 0 12px;">
+          Здравствуйте, <strong>{{name}}</strong>,
+        </p>
+        <p style="font-size: 16px; color: #555; margin: 0 20px 20px 0;">
+          Ваша аренда автомобиля <strong>{{car.brand}} {{car.model}}</strong> успешно началась. Ниже указаны подробности аренды:
+        </p>
+
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 24px;">
+          <tr>
+            <td style="padding: 6px 0;"><strong>Автомобиль:</strong></td>
+            <td style="padding: 6px 0;">{{car.brand}} {{car.model}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0;"><strong>Госномер:</strong></td>
+            <td style="padding: 6px 0;">{{car.licensePlate}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0;"><strong>Период аренды:</strong></td>
+            <td style="padding: 6px 0;">{{rental.startDate}} – {{rental.endDate}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0;"><strong>Место получения:</strong></td>
+            <td style="padding: 6px 0;">{{pickupLocation}}</td>
+          </tr>
+          {{#if pickupTime}}
+          <tr>
+            <td style="padding: 6px 0;"><strong>Время получения:</strong></td>
+            <td style="padding: 6px 0;">{{pickupTime}}</td>
+          </tr>
+          {{/if}}
+        </table>
+
+        <div style="text-align: center; margin-bottom: 20px;">
+          <a href="{{link}}" target="_blank" style="display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 16px;">
+            Перейти в кабинет
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Если у вас возникли вопросы — <a href="{{supportLink}}" target="_blank" style="color: #007bff;">свяжитесь с поддержкой</a>.
+        </p>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

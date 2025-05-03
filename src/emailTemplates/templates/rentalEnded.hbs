@@ -1,0 +1,42 @@
+{{#extend "baseLayout" title="Аренда завершена"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        <h2 style="margin: 0 0 16px; font-size: 24px; color: #27ae60;">✅ Аренда завершена</h2>
+
+        <p style="font-size: 16px; color: #333; margin: 0 0 16px;">
+          Здравствуйте, <strong>{{name}}</strong>,
+        </p>
+
+        <p style="font-size: 16px; color: #555; margin: 0 0 24px;">
+          Ваша аренда автомобиля успешно завершена. Спасибо, что выбрали наш сервис!
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+          <tr>
+            <td style="padding: 8px 0; font-size: 15px; color: #444;"><strong>Автомобиль:</strong></td>
+            <td style="padding: 8px 0; font-size: 15px; color: #000;">{{car.brand}} {{car.model}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-size: 15px; color: #444;"><strong>Госномер:</strong></td>
+            <td style="padding: 8px 0; font-size: 15px; color: #000;">{{car.licensePlate}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-size: 15px; color: #444;"><strong>Период аренды:</strong></td>
+            <td style="padding: 8px 0; font-size: 15px; color: #000;">{{rental.startDate}} – {{rental.endDate}}</td>
+          </tr>
+        </table>
+
+        <div style="text-align: center; margin-bottom: 16px;">
+          <a href="{{reviewLink}}" target="_blank" style="display: inline-block; background-color: #f39c12; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 16px;">
+            Оставить отзыв
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #777; text-align: center; margin: 0;">
+          Если у вас есть вопросы — <a href="{{supportLink}}" target="_blank" style="color: #3498db;">свяжитесь с поддержкой</a>.
+        </p>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

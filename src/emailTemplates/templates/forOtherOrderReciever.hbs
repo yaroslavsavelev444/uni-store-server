@@ -1,0 +1,46 @@
+{{#extend "baseLayout" title="Вы назначены получателем заказа"}}
+  {{#content "body"}}
+    <tr>
+      <td style="font-size: 16px; color: #333; padding: 20px;">
+        <h2 style="margin: 0 0 16px;">📦 Здравствуйте, {{name}}!</h2>
+        <p style="margin: 0 0 16px;">
+          {{ownerName}} назначил Вас получателем заказа <strong>#{{orderId}}</strong>.
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+          <tr>
+            <td style="padding: 8px; border: 1px solid #eee;"><strong>Номер заказа:</strong></td>
+            <td style="padding: 8px; border: 1px solid #eee;">{{orderId}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #eee;"><strong>Дата оформления:</strong></td>
+            <td style="padding: 8px; border: 1px solid #eee;">{{createdAt}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #eee;"><strong>Автомобиль:</strong></td>
+            <td style="padding: 8px; border: 1px solid #eee;"> {{carData.model}} {{carData.brand}} {{carData.color}} </td>
+          </tr>
+        </table>
+
+        {{#if addressDetails}}
+          <h3 style="margin: 20px 0 8px;">Адрес доставки:</h3>
+          <ul style="margin: 0 0 16px; padding: 0; list-style: none;">
+            <li><strong>Адрес:</strong> {{addressDetails.toAddress}}</li>
+            <li><strong>Дом:</strong> {{addressDetails.toAdressHouseNumber}}</li>
+
+            {{#unless addressDetails.toAdressIsPrivateHouse}}
+  <li><strong>Квартира:</strong> {{addressDetails.toAdressApartmentNumber}}</li>
+  <li><strong>Этаж:</strong> {{addressDetails.toAdressFloor}}</li>
+{{/unless}}
+          </ul>
+        {{/if}}
+
+        <blockquote style="margin: 20px 0; padding: 10px 15px; background: #fff; border-left: 5px solid #3498db;">
+          Пожалуйста, убедитесь, что вы готовы принять доставку. Если возникли вопросы — свяжитесь с отправителем.
+        </blockquote>
+      </td>
+    </tr>
+
+    {{> button text="📍 Посмотреть адрес" link=mapLink }}
+  {{/content}}
+{{/extend}}
