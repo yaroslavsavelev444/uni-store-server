@@ -16,10 +16,10 @@ const toggleAssignAdminRules = async (userId) => {
 };
 
 
-const getUsers = async () => {
+const getUsers = async (userId) => {
   try {
-    // Используем метод .select() для исключения чувствительных данных
-    const users = await UserModel.find().select("-password");
+    const users = await UserModel.find({ _id: { $ne: userId } }) // исключаем userId
+      .select("-password"); // исключаем пароль
     return users;
   } catch (error) {
     throw ApiError.InternalServerError(error.message || "Произошла ошибка");

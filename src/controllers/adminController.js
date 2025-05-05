@@ -107,7 +107,7 @@ const uploadOrgData = async (req, res, next) => {
         console.log(req.file);
         console.log(req.uploadPath);
         console.log(req.savedFilename);
-        
+
         const {
           companyName,
           workTime,
@@ -190,7 +190,7 @@ const deleteOrgData = async (req, res, next) => {
 //USERS
 const getUsers = async (req, res, next) => {
   try {
-    const result = await userService.getUsers();
+    const result = await userService.getUsers(req.user.id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -355,13 +355,22 @@ const clearCategory = async (req, res, next) => {
 
 //CONTACTS
 
-const deleteContact = async (req, res, next) => {
+const getContacts = async (req, res, next) => {
   try {
-    const { contactId } = req.body;
-    if (!contactId) {
-      throw ApiError.BadRequest("Отсутствует contactId");
+    const result = await contactsService.getContacts();
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const updateContactStatus = async (req, res, next) => {
+  try {
+    const { contactId, status } = req.body;
+    if (!contactId || !status) {
+      throw ApiError.BadRequest("Отсутствует contactData");
     }
-    const result = await contactsService.deleteContact(contactId);
+    const result = await contactsService.updateContactStatus(contactId, status);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -370,26 +379,13 @@ const deleteContact = async (req, res, next) => {
 
 //REVIEWS
 
-const submitReview = async (req, res, next) => {
+const updateReviewStatus = async (req, res, next) => {
   try {
-    const { reviewId, status } = req.body;
-    if (!reviewId || !status) {
+    const { id, status } = req.body;
+    if (!id || !status) {
       throw ApiError.BadRequest("Отсутствует reviewData");
     }
-    const result = await reviewService.submitReviewService(reviewId, status);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const deleteReview = async (req, res, next) => {
-  try {
-    const { reviewId } = req.body;
-    if (!reviewId) {
-      throw ApiError.BadRequest("Отсутствует reviewId");
-    }
-    const result = await reviewService.deleteReviewService(reviewId);
+    const result = await reviewService.updateReviewStatus(id, status);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -398,8 +394,7 @@ const deleteReview = async (req, res, next) => {
 
 module.exports = {
   deleteProduct,
-  deleteReview,
-  submitReview,
+  updateReviewStatus,
   createProduct,
   archieveProduct,
   updateProductData,
@@ -412,14 +407,14 @@ module.exports = {
   deleteCategory,
   changeCategoryData,
   clearCategory,
-  deleteContact,
+  updateContactStatus,
   uploadOrderFile,
   getUsers,
   createCategory,
   updateCategory,
   editProduct,
   editOrgData,
-
+  getContacts,
   deleteOrgData,
   uploadOrgData
 };

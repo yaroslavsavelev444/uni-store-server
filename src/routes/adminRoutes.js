@@ -6,7 +6,7 @@ const adminController = require("../controllers/adminController");
 const { uploadOrgLogoForEdit } = require("../middleware/uploadOrgLogoForEdit");
 const orgEdit = require("../middleware/uploadOrgLogoForEdit");
 
-// Роут для добавления продукта
+// ПРОДУКТ
 router.post(
   "/addProduct",
   upload.uploadProduct.fields([
@@ -24,6 +24,8 @@ router.post(
   ]),
   adminController.editProduct
 );
+
+router.delete("/deleteProduct", adminController.deleteProduct);
 
 //КАТЕГОРИИ
 router.post(
@@ -44,19 +46,26 @@ router.post("/addOrgData", upload.uploadOrgLogo.single("image"), adminController
 router.put("/editOrgData", orgEdit.uploadOrgLogoForEdit.single("image"), adminController.editOrgData);
 router.delete("/deleteOrgData/:id", adminController.deleteOrgData);
 
-router.post("/archieveProduct", adminController.archieveProduct);
-router.delete("/deleteProduct", adminController.deleteProduct);
-router.post("/updateProductData", upload.uploadCategory.single("image"), adminController.updateProductData);
+//ПОЛЬЗОВАТЕЛИ
 router.post("/toggleAssignAdminRules", adminController.toggleAssignAdminRules);
 router.get("/getUsers", adminController.getUsers);
 router.delete("/deleteUser", adminController.deleteUser);
 
+
+//ОТЗЫВЫ 
+router.post("/updateReviewStatus", adminController.updateReviewStatus);
+
+
+//КОНТАКТЫ 
+router.get("/getContacts", adminController.getContacts);
+router.post("/updateContactStatus", adminController.updateContactStatus);
+
+//ЗАКАЗЫ
+// router.post("/getOrders", adminController.getOrders);
 router.post("/changeStatusOrder", adminController.changeStatusOrder);
-router.post("/uploadProductFile", upload.uploadCategory.single("image"), adminController.uploadProductFile);
 router.post("/uploadOrderFile", upload.uploadCategory.single("image"), adminController.uploadOrderFile);
 router.delete("/deleteUploadedFile", adminController.deleteUploadedFile);
 router.post("/changeCategoryData", adminController.changeCategoryData);
 router.post("/clearCategory", adminController.clearCategory);
-router.delete("/deleteContact", adminController.deleteContact);
 
 module.exports = router;

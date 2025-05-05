@@ -9,10 +9,10 @@ const getCart = async (req, res, next) => {
   }
 };
 
-const addToCartProduct = async (req, res, next) => {
+const setCartItem = async (req, res, next) => {
   try {
-    const { productId, quantity } = req.body;
-    const cart = await cartService.addToCartProduct(req.user.id, productId, quantity);
+    const { id, quantity } = req.body;
+    const cart = await cartService.setCartItem(req.user.id, id, quantity);
     res.status(200).json(cart);
   } catch (e) {
     next(e);
@@ -40,7 +40,7 @@ const clearCart = async (req, res, next) => {
 
 module.exports = {
   getCart,
-  addToCartProduct,
+  setCartItem,
   removeFromCartProduct,
   clearCart,
 };

@@ -7,15 +7,22 @@ const findById = async (id) => {
     return CategoryModel.findById(id);
   };
 
-const getCategories = async () => {
+  const getCategories = async () => {
     try {
-        const res =  await CategoryModel.find();
-        console.log(res);
-        return res;
+      const res = await CategoryModel.find().lean();
+  
+      const withCounts = await Promise.all(
+        res.map(async (category) => {
+          const count = await ProductModel.countDocuments({ categoryId: category._id });
+          return { ...category, productCount: count };
+        })
+      );
+  
+      return withCounts;
     } catch (error) {
-        throw ApiError.InternalServerError(error.message || "Произошла ошибка");
-    };
-}
+      throw ApiError.InternalServerError(error.message || 'Произошла ошибка');
+    }
+  };
 
 const createCategory = async (categoryData) => {
   try {

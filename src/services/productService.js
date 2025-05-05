@@ -3,13 +3,30 @@ const { ProductModel } = require("../models/indexModels");
 const path = require("path");
 const fs = require("fs");
 
-const getProducts = async () => {
+const getProducts = async (categoryId, showOnMainPage) => {
   try {
-    return await ProductModel.find();
+    if (categoryId) {
+      return await ProductModel.find({ categoryId });
+    }
+
+    if (showOnMainPage === 'true') {
+      return await ProductModel.find({ showOnMainPage: true });
+    }
+
+    return await ProductModel.find(); // если ничего не передано
   } catch (e) {
     throw ApiError.InternalServerError(
       e.message || "Ошибка получения продуктов"
     );
+  }
+};
+
+const getProductDetails = async (id) => {
+  try {
+    const product = await ProductModel.findById(id);
+    return product;
+  } catch (e) {
+    throw ApiError.InternalServerError(e.message || "Ошибка получения продукта");
   }
 };
 
@@ -158,5 +175,6 @@ module.exports = {
   archieveProduct,
   deleteProduct,
   uploadProductFile,
-  editProduct
+  editProduct,
+  getProductDetails
 };

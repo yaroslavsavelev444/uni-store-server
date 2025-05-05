@@ -2,30 +2,52 @@ const ApiError = require("../exceptions/api-error");
 const { ContactModel } = require("../models/indexModels");
 const { sendEmailNotification } = require("../queues/taskQueues");
 
-const submitContacts = async (name, email, message) => {
+const submitContacts = async (name, email, phone, message) => {
   try {
-    const newContact = new ContactModel({ name, email, message });
+    const newContact = new ContactModel({ name, email, phone, message });
     await newContact.save();
 
-    await sendEmailNotification(process.env.ADMIN_EMAIL, "newContact", {
-      name,
-      email,
-      message,
-      created: Date.now(),
-    });
+    // await sendEmailNotification(process.env.ADMIN_EMAIL, "newContact", {
+    //   name,
+    //   email,
+    //   phone,
+    //   message,
+    //   created: Date.now(),
+    // });
+
+    return newContact;
   } catch (error) {
-    console.log(error);
-    throw ApiError.InternalServerError(error);
+    console.error("Ошибка сохранения контакта:", error);
+    throw ApiError.InternalServerError(error.message);
   }
 };
 
-const deleteContact = async (contactId) => {
+const getContacts = async () => {
   try {
-    await ContactModel.findByIdAndDelete(contactId);
+    const contacts = await ContactModel.find();
+    return contacts;
   } catch (error) {
-    console.log(error);
-    throw ApiError.InternalServerError(error);
+    console.error("Ошибка получения контактов:", error);
+    throw ApiError.InternalServerError(error.message);
   }
 };
 
-module.exports = { submitContacts, deleteContact };
+const updateContactStatus = async (contactId, status) => {
+  try {
+    const contact = await ContactModel.findById(contactId);
+    if (!contact) {
+      throw ApiError.NotFound("Контакт не найден");
+    }
+    if(status === 'delete'){
+        await ContactModel.findByIdAndDelete(contactId);
+        return contact;
+    }
+    contact.status = status;
+    await contact.save();
+    return contact;
+  } catch (error) {
+    console.error("Ошибка обновления статуса контакта:", error);
+    throw ApiError.InternalServerError(error.message);
+  }
+};
+module.exports = { submitContacts, getContacts, updateContactStatus };

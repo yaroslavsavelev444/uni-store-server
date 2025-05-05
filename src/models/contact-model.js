@@ -20,11 +20,6 @@ const contactSchema = new Schema({
     required: true,
     trim: true,
     maxlength: 2000 // чтобы ограничить слишком длинные сообщения
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'viewed', 'replied'],
-    default: 'pending'
   }
 }, {
   timestamps: true

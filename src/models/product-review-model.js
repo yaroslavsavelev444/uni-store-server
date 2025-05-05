@@ -1,6 +1,6 @@
 const { Schema, model } = require("mongoose");
 
-const ReviewShema = new Schema(
+const ProductReviewShema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, ref: "User" },
     productId: { type: Schema.Types.ObjectId, ref: "Product" },
@@ -13,4 +13,4 @@ const ReviewShema = new Schema(
   }
 );
 
-module.exports = model("Review", ReviewShema);
+module.exports = model("ProductReview", ProductReviewShema);
