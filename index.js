@@ -15,6 +15,7 @@ const adminMiddleware = require('./src/middleware/adminMiddleware');
 const cartRoutes = require('./src/routes/cartRoutes');
 const categoriesRoutes = require('./src/routes/categoriesRoutes');
 const orgRoutes = require('./src/routes/orgRoutes');
+const ordersRoutes = require('./src/routes/ordersRoutes');
 require('dotenv').config();
 const bullBoardRouter = require('./src/queues/bullBoard');
 const app = express();
@@ -48,8 +49,9 @@ app.use('/contacts',authMiddleware, contactsRoutes);
 app.use('/org', orgRoutes);
 app.use('/categories', categoriesRoutes);
 app.use('/reviews', authMiddleware, reviewsRoutes);
+app.use('/orders', authMiddleware, ordersRoutes);
 app.use('/cart', authMiddleware, cartRoutes);
-app.use('/admin', adminRoutes);
+app.use('/admin',authMiddleware, adminMiddleware, adminRoutes);
 app.use('/admin/queues', bullBoardRouter);
 app.use(errorHandler);
 

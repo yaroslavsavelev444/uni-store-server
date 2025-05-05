@@ -223,6 +223,15 @@ const deleteUser = async (req, res, next) => {
 };
 
 //ORDERS
+
+const getOrders = async (req, res, next) => {
+  try {
+    const result = await orderService.getOrders();
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
 const changeStatusOrder = async (req, res, next) => {
   try {
     const { orderId, text, status } = req.body;
@@ -416,5 +425,6 @@ module.exports = {
   editOrgData,
   getContacts,
   deleteOrgData,
-  uploadOrgData
+  uploadOrgData,
+  getOrders
 };

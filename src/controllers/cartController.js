@@ -1,3 +1,4 @@
+const ApiError = require("../exceptions/api-error");
 const cartService = require("../services/cartService");
 
 const getCart = async (req, res, next) => {
@@ -38,9 +39,24 @@ const clearCart = async (req, res, next) => {
   }
 };
 
+
+const createOrder = async (req, res, next) => {
+  try {
+    const data = req.body;
+    if(!data) {
+      throw ApiError.BadRequest("Отсутствует data");
+    }
+    const order = await cartService.createOrder(req.user, data);
+    res.status(200).json(order);
+  } catch (e) {
+    next(e);
+  }
+};
+
 module.exports = {
   getCart,
   setCartItem,
   removeFromCartProduct,
   clearCart,
+  createOrder
 };

@@ -1,6 +1,15 @@
 const ApiError = require("../exceptions/api-error");
 const { OrderModel } = require("../models/indexModels");
 
+const getOrders = async () => {
+    try {
+        const orders = await OrderModel.find().populate("products.product").populate("user").populate("companyData.company");
+        console.log(orders);
+        return orders;
+    } catch (error) {
+        throw ApiError.InternalServerError(error.message || "Произошла ошибка");
+    }
+};
 const changeStatusOrder = async (status, orderId, text) => {
     try {
         const order = await OrderModel.findById(orderId);
@@ -37,5 +46,6 @@ const deleteUploadedFile = async (fileId) => {
 module.exports = {
     changeStatusOrder,
     uploadOrderFile,
-    deleteUploadedFile
+    deleteUploadedFile,
+    getOrders
 };

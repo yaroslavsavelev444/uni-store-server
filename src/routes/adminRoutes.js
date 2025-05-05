@@ -61,7 +61,7 @@ router.get("/getContacts", adminController.getContacts);
 router.post("/updateContactStatus", adminController.updateContactStatus);
 
 //ЗАКАЗЫ
-// router.post("/getOrders", adminController.getOrders);
+router.get("/getOrders", adminController.getOrders);
 router.post("/changeStatusOrder", adminController.changeStatusOrder);
 router.post("/uploadOrderFile", upload.uploadCategory.single("image"), adminController.uploadOrderFile);
 router.delete("/deleteUploadedFile", adminController.deleteUploadedFile);

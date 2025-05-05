@@ -20,6 +20,11 @@ const getProductReviews = async (productId) => {
     const reviews = await ProductReviewModel.find({ productId });
     return reviews;
 };
+const getUserReviews = async (userId) => {
+    const reviews = await ProductReviewModel.find({ userId }).populate("user", "name")
+    .sort({ createdAt: -1 });;
+    return reviews;
+};
 //ADMIN
 const updateReviewStatus = async (id, status) => {
     if(status === 'delete') { 
@@ -36,5 +41,6 @@ module.exports = {
     addOrgReview,
     updateReviewStatus,
     getOrgReviews,
-    getProductReviews
+    getProductReviews,
+    getUserReviews
 };

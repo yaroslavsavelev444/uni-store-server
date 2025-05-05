@@ -6,13 +6,11 @@ const companySchema = new Schema({
   inn: { type: String, required: true }, // ИНН
   kpp: { type: String }, // КПП (для юр. лиц)
   ogrn: { type: String, required: true }, // ОГРН
-  checkingAccount: { type: String, required: true }, // Расчетный счёт
+  checkingAccount: { type: String }, // Расчетный счёт
   bankName: { type: String, required: true }, // Название банка
   bik: { type: String, required: true }, // БИК
   correspondentAccount: { type: String, required: true }, // Корр. счёт
-  directorFullName: { type: String, required: true }, // ФИО директора
-  phone: { type: String }, // Телефон
-  email: { type: String, required: true }, // Email
+  email: { type: String }, // Email
 }, {
   timestamps: true
 });

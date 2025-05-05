@@ -57,9 +57,19 @@ const getProductReviews = async (req, res, next) => {
     next(e);
   }
 };
+
+const getUserReviews = async (req, res, next) => {
+  try {
+    const reviews = await reviewService.getUserReviews(req.user);
+    return res.json(reviews);
+  } catch (e) {
+    next(e);
+  }
+};
 module.exports = {
   addProductReview,
   addOrgReview,
   getOrgReviews,
-  getProductReviews
+  getProductReviews,
+  getUserReviews
 };
