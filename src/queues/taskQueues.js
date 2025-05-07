@@ -1,7 +1,6 @@
 
 const ApiError = require('../exceptions/api-error');
 const { emailQueues , logQueues, errorLogQueues } = require('./bull');
-const { shouldProcessJobs, getTimeUntilNextWorkPeriod } = require('./workScheduler');
 require('dotenv').config();
 const path = require("path");
 
@@ -13,19 +12,17 @@ const errorLogPath = path.resolve(
 async function sendEmailNotification(email, type, data) {
   
   console.log("sendEmailNotification" , email, type, data);
-
   if(!email || !type || !data) {
     console.log('Отсутствуют обязательные данные');
     throw ApiError.BadRequest('Отсутствуют обязательные данные');
   }
 
   try {
-    const delayTime = shouldProcessJobs() ? 0 : getTimeUntilNextWorkPeriod();
     const job = await emailQueues.add("sendEmailNotification", {
       email,
       type,
       data
-    }, { delay: delayTime });
+    });
     console.log(`Task added to queue: ${job.id}`);
   } catch (error) {
     console.error("Error sending email notification:", error);

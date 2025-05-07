@@ -37,6 +37,8 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.10.1",
     "redis": "^5.0.0",
+    "sanitize-filename": "^1.6.3",
+    "transliteration": "^2.3.5",
     "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "xss": "^1.0.15"

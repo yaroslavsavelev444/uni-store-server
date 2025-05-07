@@ -5,6 +5,9 @@ const edit = require("../middleware/uploadProductForEdit"); // Место, гд�
 const adminController = require("../controllers/adminController");
 const { uploadOrgLogoForEdit } = require("../middleware/uploadOrgLogoForEdit");
 const orgEdit = require("../middleware/uploadOrgLogoForEdit");
+const uploadOrgFiles = require("../middleware/uploadOrgFiles");
+const { uploadSocialIcons } = require("../middleware/uploadIcons");
+const uploadOrderFile = require("../middleware/uploadOrderFile");
 
 // ПРОДУКТ
 router.post(
@@ -45,7 +48,9 @@ router.delete("/deleteCategory/:id", adminController.deleteCategory);
 router.post("/addOrgData", upload.uploadOrgLogo.single("image"), adminController.uploadOrgData);
 router.put("/editOrgData", orgEdit.uploadOrgLogoForEdit.single("image"), adminController.editOrgData);
 router.delete("/deleteOrgData/:id", adminController.deleteOrgData);
-
+router.post("/uploadOrgFiles/:orgId", uploadOrgFiles, adminController.uploadOrgFiles);
+router.post("/deleteOrgFile/:orgId", adminController.deleteOrgFile);
+router.post("/addOrgSocialLinks/:orgId", uploadSocialIcons, adminController.addOrgSocialLinks);
 //ПОЛЬЗОВАТЕЛИ
 router.post("/toggleAssignAdminRules", adminController.toggleAssignAdminRules);
 router.get("/getUsers", adminController.getUsers);
@@ -53,8 +58,8 @@ router.delete("/deleteUser", adminController.deleteUser);
 
 
 //ОТЗЫВЫ 
-router.post("/updateReviewStatus", adminController.updateReviewStatus);
-
+router.get("/getReviews", adminController.getReviews);
+router.post("/updateReviewStatus/:id", adminController.updateReviewStatus);
 
 //КОНТАКТЫ 
 router.get("/getContacts", adminController.getContacts);
@@ -62,8 +67,10 @@ router.post("/updateContactStatus", adminController.updateContactStatus);
 
 //ЗАКАЗЫ
 router.get("/getOrders", adminController.getOrders);
-router.post("/changeStatusOrder", adminController.changeStatusOrder);
-router.post("/uploadOrderFile", upload.uploadCategory.single("image"), adminController.uploadOrderFile);
+router.post("/cancelOrder", adminController.cancelOrder);
+router.patch("/updateOrderStatus", adminController.updateOrderStatus);
+router.post("/uploadOrderFile/:orderId", uploadOrderFile, adminController.uploadOrderFile);
+router.delete("/deleteOrderFile/:orderId", adminController.deleteOrderFile);
 router.delete("/deleteUploadedFile", adminController.deleteUploadedFile);
 router.post("/changeCategoryData", adminController.changeCategoryData);
 router.post("/clearCategory", adminController.clearCategory);

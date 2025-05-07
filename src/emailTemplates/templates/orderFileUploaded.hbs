@@ -1,0 +1,27 @@
+{{#extend "baseLayout" title="Файл прикреплён к вашему заказу"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        <h2 style="color: #007bff; font-size: 22px; margin-bottom: 20px;">📎 К вашему заказу прикреплён файл</h2>
+
+        <p style="font-size: 16px; color: #333;">
+          К заказу <strong>#{{orderData._id}}</strong> прикрепили новый файл <strong>{{orderData.file.name}}</strong>.
+        </p>
+
+        <p style="font-size: 15px; color: #555; margin-top: 15px;">
+          Вы можете ознакомиться с файлом в личном кабинете или по ссылке, если она предоставлена.
+        </p>
+
+        {{#if fileUrl}}
+          <p style="margin-top: 20px;">
+            👉 <a href="{{fileUrl}}" target="_blank" style="color: #007bff; text-decoration: none;">Скачать файл</a>
+          </p>
+        {{/if}}
+
+        <p style="margin-top: 30px; font-size: 14px; color: #999;">
+          Дата загрузки: {{formattedDate}}
+        </p>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

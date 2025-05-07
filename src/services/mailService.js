@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 const renderTemplate = require("../emailTemplates/renderer");
 const { formattedDate } = require("../utils/formats");
+const ApiError = require("../exceptions/api-error");
 require("dotenv").config();
 
 // Транспортер
@@ -66,109 +67,90 @@ const sendNotification = async ({ email, type, data }) => {
       break;
     }
 
-    case "rentalCancelled": {
-      subject = "🚗 Аренда отменена";
-      text = `Здравствуйте, ${data.name},\n\nАренда автомобиля ${
-        data.car.brand
-      } ${data.car.model} (${data.car.licensePlate}) с ${
-        data.rental.startDate
-      } по ${data.rental.endDate} была отменена.\nПричина: ${
-        data.cancelInputValue || "Не указана"
-      }`;
-      html = renderTemplate("rentalCancelled", data);
-      break;
-    }
-
-    case "rentalEnded": {
-      subject = `✅ Аренда завершена: ${data.car.brand} ${data.car.model}`;
-      text = `Здравствуйте, ${data.name},\n\nАренда автомобиля ${data.car.brand} ${data.car.model} (${data.car.licensePlate}) завершена.\nПериод: ${data.rental.startDate} – ${data.rental.endDate}`;
-      html = renderTemplate("rentalEnded", data);
-      break;
-    }
-    case "rentalStarted": {
-      subject = `Аренда вашего автомобиля ${data.car.brand} ${data.car.model} (${data.car.licensePlate}) началась`;
-      text = `Уважаемый(ая) ${data.name},\n\nАренда вашего автомобиля ${data.car.brand} ${data.car.model} (${data.car.licensePlate}) началась.\nПериод аренды: ${data.rental.startDate} - ${data.rental.endDate}\nСпасибо, что выбрали наш сервис!`;
-      html = renderTemplate("rentalStarted", data);
-      break;
-    }
-
-    case "rentalReminder": {
-      subject = `Напоминание об аренде ${data.car.brand} ${data.car.model}`;
-      text = `Уважаемый(ая), напоминание об аренде с ${data.startDate} до ${data.endDate}`;
-      html = renderTemplate("rentalReminder", data);
-      break;
-    }
-
-    case "cancelledOtherRequests": {
-      subject = "🚫 Отменены другие заявки";
-      text = `Ваша одобренная заявка повлекла за собой отмену остальных. Если вы этого не делали — свяжитесь с нами: ${
-        data.link || "support@rentalos.com"
-      }`;
-      html = renderTemplate("cancelledOtherRequests", data);
-      break;
-    }
-
-    case "accountBlocked": {
-      subject = "📝 🚫 Ваш аккаунт был заблокирован";
-      text = `К сожалению, ваш рейтинг упал ниже допустимого значения`;
-      html = renderTemplate("accountBlocked", {
+    case "newOrderUser": {
+      subject = "📝 Новый заказ";
+      html = renderTemplate("newOrderUser", {
         ...data,
-        updatedRating: data.updatedRating?.toFixed(2) || "—",
+        formattedDate: formattedDate(data.createdAt),
       });
       break;
     }
 
-    case "newRequest": {
-      subject = `Заявка на ${data.model || "неизвестная модель"} ${
-        data.brand || "неизвестный бренд"
-      } (${data.licensePlate || "не указан"})`;
-      text = `Новая заявка от ${data.date}, автомобиль: ${data.brand} ${data.model}, номер: ${data.licensePlate}`;
-      html = renderTemplate("newRequest", data);
-      break;
-    }
-
-    case "requestRejected": {
-      subject = "🚫 Заявка отклонена";
-      text = `Ваша заявка на: ${data.model || "Неизвестная модель"} ${
-        data.brand || "Неизвестный бренд"
-      } была отклонена`;
-      html = renderTemplate("requestRejected", data);
-      break;
-    }
-
-    case "carReady": {
-      subject = `Ваш автомобиль готов к получению`;
-      text = `Привет, ${data.username}! Ваш автомобиль ${data.brand} ${data.model} (${data.licensePlate}) готов к получению. Посмотрите адрес здесь: ${data.mapLink}`;
-      html = renderTemplate("carReady", {
-        name: data.name,
-        brand: data.brand,
-        model: data.model,
-        licensePlate: data.licensePlate,
-        mapLink: data.mapLink,
-        companyName: "MERN Delivery App",
+    case "newOrderAdmin": {
+      subject = "📝 Новый заказ";
+      html = renderTemplate("newOrderAdmin", {
+        ...data,
+        formattedDate: formattedDate(data.createdAt),
       });
       break;
     }
 
-    case "forOtherOrderReciever": {
-      subject = `${data.ownerName} назначил вас получатлем заказа ${data.order._id} от ${data.createdAt}`;
-      text = `Привет, ${data.order.otherRecieverDetails.recieverName}! Вы назначены получателем заказа ${data.order._id} от ${data.createdAt}. Посмотрите адрес здесь: ${data.order.mapLink}`; //TODO
-      html = renderTemplate("forOtherOrderReciever", {
-        name: data.order.otherRecieverDetails.recieverName,
-        orderId: data.order._id,
-        fromDate: data.createdAt,
-        mapLink: data.order.mapLink, //TODO
-        createdAt: formattedDate(data.createdAt),
-        addressDetails: data.order.addressesDetails,
-        ownerName: data.ownerName,
-        carData: data.carData,
-        companyName: "MERN Delivery App",
+    case "orderCancelledByUser": {
+      subject = "📝 Заказ отменен";
+      html = renderTemplate("orderCancelledByUser", {
+        ...data,
+        formattedDate: formattedDate(data.createdAt),
+      });
+      break;
+    }
+
+    case "orderPickupReady": {
+      //TODO
+      subject = "📝 Заказ готов к выдаче";
+      html = renderTemplate("orderPickupReady", {
+        ...data,
+        formattedDate: formattedDate(data.createdAt), // TODO инвалид дата и сырые значения кое где 
+      });
+      break;
+    }
+
+    case "orderDeliverySent": {
+      subject = "📝 Заказ отправлен";
+      html = renderTemplate("orderDeliverySent", {
+        ...data,
+        formattedDate: formattedDate(data.createdAt),
+      });
+      break;
+    }
+
+    case "orderCancelledByAdmin": {
+      subject = "📝 Заказ отменен";
+      html = renderTemplate("orderCancelledByAdmin", {
+        ...data,
+        formattedDate: formattedDate(data.createdAt),
+      });
+      break;
+    }
+
+    case "productArchived": {
+      //TODO
+      subject = "📝 Продукт архивирован";
+      html = renderTemplate("productArchived", {
+        ...data,
+        formattedDate: formattedDate(data.createdAt),
+      });
+      break;
+    }
+
+    case "orderFileUploaded": {
+      subject = "📝 Прикрепили к заказу файл";
+      html = renderTemplate("orderFileUploaded", {
+        ...data,
+        formattedDate: formattedDate(data.updatedAt),
+      });
+      break;
+    }
+    
+    case "newContact": {
+      subject = "📩 Новая заявка на консультацию";
+      html = renderTemplate("newContact", {
+        ...data.contactData,
       });
       break;
     }
 
     default:
-      throw new Error(`Тип уведомления "${type}" не поддерживается`);
+      throw ApiError.BadRequest("Неверный тип уведомления");
   }
 
   console.log("html", html);

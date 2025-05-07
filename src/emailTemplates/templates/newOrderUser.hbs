@@ -1,0 +1,73 @@
+{{#extend "baseLayout" title="Ваш заказ принят"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        <h2 style="color: #007bff; font-size: 22px; margin-bottom: 20px;">🎉 Ваш заказ успешно оформлен!</h2>
+
+        <p style="font-size: 16px; color: #333;">
+          Спасибо за заказ, {{orderData.recipientData.name}}!<br>
+          Мы приступили к его обработке. Ниже — детали вашего заказа.
+        </p>
+
+        <h3 style="margin-top: 20px; font-size: 18px; color: #555;">Информация о доставке</h3>
+        <table style="width: 100%; font-size: 15px; color: #444; margin: 10px 0;">
+          <tr>
+            <td><strong>Метод доставки:</strong></td>
+            <td>{{orderData.deliveryMethod}}</td>
+          </tr>
+          <tr>
+            <td><strong>Транспортная компания:</strong></td>
+            <td>{{orderData.deliveryData.tk}}</td>
+          </tr>
+          <tr>
+            <td><strong>Адрес:</strong></td>
+            <td>{{orderData.deliveryData.address}}</td>
+          </tr>
+          {{#if orderData.deliveryData.comment}}
+          <tr>
+            <td><strong>Комментарий:</strong></td>
+            <td>{{orderData.deliveryData.comment}}</td>
+          </tr>
+          {{/if}}
+        </table>
+
+        <h3 style="margin-top: 20px; font-size: 18px; color: #555;">Состав заказа</h3>
+        <table style="width: 100%; font-size: 15px; color: #444; border-collapse: collapse;" cellspacing="0">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 8px 4px;">Товар</th>
+              <th style="text-align: right; padding: 8px 4px;">Кол-во</th>
+              <th style="text-align: right; padding: 8px 4px;">Цена</th>
+              <th style="text-align: right; padding: 8px 4px;">Итого</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each orderData.products}}
+              <tr>
+                <td style="padding: 6px 4px;">{{product}}</td>
+                <td style="text-align: right;">{{quantity}}</td>
+                <td style="text-align: right;">{{priceWithDiscount}} ₽</td>
+                <td style="text-align: right;">{{totalPriceWithDiscount}} ₽</td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
+
+        <h3 style="text-align: right; font-size: 16px; margin-top: 20px;">
+          <span style="color: #888;">Сумма без скидки:</span> {{orderData.priceDetails.totalPrice}} ₽<br>
+          <span style="font-weight: bold; color: #000;">Итоговая сумма к оплате:</span> {{orderData.priceDetails.totalPriceWithDiscount}} ₽
+        </h3>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="{{linkToCabinet}}" target="_blank" style="display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 16px;">
+            Перейти в личный кабинет
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Если у вас возникли вопросы, вы всегда можете <a href="{{supportLink}}" style="color: #007bff;" target="_blank">связаться с нашей поддержкой</a>.
+        </p>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

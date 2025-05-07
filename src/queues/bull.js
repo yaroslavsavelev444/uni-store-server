@@ -41,6 +41,6 @@ errorLogQueues.on('error', (err) => {
   console.error('Ошибка очереди логов ошибок:', err);
 });
 
-console.log('Queues initialized: taskQueues, logQueues, errorLogQueues');
+console.log('Queues initialized: logQueues, errorLogQueues');
 
 module.exports = { emailQueues, logQueues, errorLogQueues };

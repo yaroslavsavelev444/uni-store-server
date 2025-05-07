@@ -30,7 +30,11 @@ const OrderShema = new Schema({
             totalPriceWithDiscount: {type: Number, required: true},
         }
     ],
-    status: {type: String, enum: ['pending', 'confirmed', 'rejected', 'packed', 'sent', 'cancelled'], required: true, default: 'pending'},
+    file:{
+        path: {type: String},
+        name: {type: String},
+    },
+    status: {type: String, enum: ['pending', 'confirmed', 'rejected', 'packed', 'sent', 'cancelled', 'waiting', 'ready'], required: true, default: 'pending'},
     cancelData:{
         cancelReason: {type: String,},
         cancelDate: {type: Date,},

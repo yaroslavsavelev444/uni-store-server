@@ -3,7 +3,7 @@ const productService = require("../services/productService");
 const userService = require("../services/userService");
 const reviewService = require("../services/reviewService");
 const companyService = require("../services/companyService");
-const orderService = require("../services/orderService");
+const ordersService = require("../services/ordersService");
 const categoryService = require("../services/categoryService");
 const contactsService = require("../services/contactsService");
 const path = require("path");
@@ -102,77 +102,80 @@ const updateProductData = async (req, res, next) => {
 
 //COMPANY
 const uploadOrgData = async (req, res, next) => {
-    try {
-        console.log(req.body);
-        console.log(req.file);
-        console.log(req.uploadPath);
-        console.log(req.savedFilename);
+  try {
+    console.log(req.body);
+    console.log(req.file);
+    console.log(req.uploadPath);
+    console.log(req.savedFilename);
 
-        const {
-          companyName,
-          workTime,
-          address,
-          phone,
-          email,
-          description
-        } = req.body;
+    const { companyName, workTime, address, phone, email, description } =
+      req.body;
 
-      if (!req.file || !req.uploadPath || !req.savedFilename) {
-        throw ApiError.BadRequest("Изображение не было загружено");
-      }
-  
-      if (!companyName || !workTime || !address || !phone || !email || !description) {
-        console.log(companyName, workTime, address, phone, email, description);
-        throw ApiError.BadRequest("Заполните все обязательные поля");
-      }
-  
-      const imagePath = path.join(req.uploadPath, req.savedFilename).replace(/\\/g, "/");
-  
-      const companyData = {
-        logo: imagePath,
-        companyName,
-        workTime,
-        address,
-        phone,
-        email,
-        description,
-      };
-  
-      console.log("Создание компании с логотипом:", imagePath);
-  
-      const result = await orgService.uploadOrgData(companyData);
-      res.status(200).json(result);
-    } catch (e) {
-      next(e);
+    if (!req.file || !req.uploadPath || !req.savedFilename) {
+      throw ApiError.BadRequest("Изображение не было загружено");
     }
-  };
 
-  const editOrgData = async (req, res, next) => {
-    try {
-      const orgData = JSON.parse(req.body.productData); // ← исправлено
-      if (!orgData || !orgData._id) {
-        throw ApiError.BadRequest("Отсутствует ID компании");
-      }
-  
-      const existingOrg = await orgService.findById(orgData._id);
-      if (!existingOrg) {
-        throw ApiError.NotFound("Компания не найдена");
-      }
-  
-      const updatedOrg = await orgService.updateOrgWithImage(
-        orgData._id,
-        orgData,
-        req.file,
-        req.uploadPath,
-        req.savedFilename,
-        existingOrg.image
-      );
-  
-      res.status(200).json(updatedOrg);
-    } catch (e) {
-      next(e);
+    if (
+      !companyName ||
+      !workTime ||
+      !address ||
+      !phone ||
+      !email ||
+      !description
+    ) {
+      console.log(companyName, workTime, address, phone, email, description);
+      throw ApiError.BadRequest("Заполните все обязательные поля");
     }
-  };
+
+    const imagePath = path
+      .join(req.uploadPath, req.savedFilename)
+      .replace(/\\/g, "/");
+
+    const companyData = {
+      logo: imagePath,
+      companyName,
+      workTime,
+      address,
+      phone,
+      email,
+      description,
+    };
+
+    console.log("Создание компании с логотипом:", imagePath);
+
+    const result = await orgService.uploadOrgData(companyData);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const editOrgData = async (req, res, next) => {
+  try {
+    const orgData = JSON.parse(req.body.productData); // ← исправлено
+    if (!orgData || !orgData._id) {
+      throw ApiError.BadRequest("Отсутствует ID компании");
+    }
+
+    const existingOrg = await orgService.findById(orgData._id);
+    if (!existingOrg) {
+      throw ApiError.NotFound("Компания не найдена");
+    }
+
+    const updatedOrg = await orgService.updateOrgWithImage(
+      orgData._id,
+      orgData,
+      req.file,
+      req.uploadPath,
+      req.savedFilename,
+      existingOrg.image
+    );
+
+    res.status(200).json(updatedOrg);
+  } catch (e) {
+    next(e);
+  }
+};
 
 const deleteOrgData = async (req, res, next) => {
   try {
@@ -181,6 +184,59 @@ const deleteOrgData = async (req, res, next) => {
       throw ApiError.BadRequest("Отсутствует companyData");
     }
     const result = await orgService.deleteOrgData(id);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const uploadOrgFiles = async (req, res, next) => {
+  try {
+    const files = req.files;
+    const orgId = req.params.orgId;
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: "Файлы не были загружены" });
+    }
+
+    const filesData = files.map((file, index) => ({
+      path: path.join(req.uploadPath, file.filename).replace(/\\/g, "/"),
+      displayName: req.displayNames?.[index] || file.originalname,
+    }));
+
+    const result = await orgService.uploadOrgFiles(filesData, orgId);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const deleteOrgFile = async (req, res, next) => {
+  try {
+    const { orgId } = req.params;
+    const { filePath } = req.body;
+
+    if (!orgId || !filePath) {
+      throw ApiError.BadRequest("orgId и filePath обязательны");
+    }
+
+    const result = await orgService.deleteOrgFile(orgId, filePath);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const addOrgSocialLinks = async (req, res, next) => {
+  try {
+    const companyId = req.params.orgId;
+    const { url } = req.body;
+    const icons = req.files;
+
+    if (!url || !icons) {
+      throw ApiError.BadRequest("Отсутствует socialLinks");
+    }
+    const result = await orgService.addOrgSocialLinks(companyId, url, icons);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -226,19 +282,21 @@ const deleteUser = async (req, res, next) => {
 
 const getOrders = async (req, res, next) => {
   try {
-    const result = await orderService.getOrders();
+    const result = await ordersService.getOrdersAdmin();
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
-const changeStatusOrder = async (req, res, next) => {
+const updateOrderStatus = async (req, res, next) => {
   try {
-    const { orderId, text, status } = req.body;
+    const { orderId, status } = req.body;
+
     if (!orderId || !status) {
       throw ApiError.BadRequest("Отсутствует orderId");
     }
-    const result = await orderService.changeStatusOrder(orderId, text, status);
+
+    const result = await ordersService.updateOrderStatus(orderId, status);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -247,11 +305,34 @@ const changeStatusOrder = async (req, res, next) => {
 
 const uploadOrderFile = async (req, res, next) => {
   try {
-    const { file } = req.body;
-    if (!file) {
-      throw ApiError.BadRequest("Отсутствует file");
+    const orderId = req.params.orderId;
+    const file = req.file;
+
+    if (!file || !orderId) {
+      return res.status(400).json({ message: "Файл не был загружен" });
     }
-    const result = await orderService.uploadOrderFile(file);
+
+    const fileData = {
+      path: path.join(req.uploadPath, file.filename).replace(/\\/g, "/"),
+      name: req.displayName || file.originalname,
+    };
+
+    const result = await ordersService.uploadOrderFile(fileData, orderId);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const deleteOrderFile = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!orderId) {
+      throw ApiError.BadRequest("orderId и filePath обязательны");
+    }
+
+    const result = await ordersService.deleteOrderFile(orderId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -265,6 +346,20 @@ const deleteUploadedFile = async (req, res, next) => {
       throw ApiError.BadRequest("Отсутствует fileId");
     }
     const result = await productService.deleteUploadedFile(fileId);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const cancelOrder = async (req, res, next) => {
+  try {
+    const { id, text } = req.body;
+
+    if (!id || !text) {
+      throw ApiError.BadRequest("Отсутствует orderId");
+    }
+    const result = await ordersService.cancelOrderAdmin(id, text);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -388,13 +483,24 @@ const updateContactStatus = async (req, res, next) => {
 
 //REVIEWS
 
+const getReviews = async (req, res, next) => {
+  try {
+    const result = await reviewService.getReviews();
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
 const updateReviewStatus = async (req, res, next) => {
   try {
-    const { id, status } = req.body;
-    if (!id || !status) {
+    const { id } = req.params;
+    const { action } = req.body;
+
+    if (!id || !action) {
       throw ApiError.BadRequest("Отсутствует reviewData");
     }
-    const result = await reviewService.updateReviewStatus(id, status);
+
+    const result = await reviewService.updateReviewStatus(id, action);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -405,11 +511,12 @@ module.exports = {
   deleteProduct,
   updateReviewStatus,
   createProduct,
+  deleteOrgFile,
   archieveProduct,
   updateProductData,
   toggleAssignAdminRules,
   deleteUser,
-  changeStatusOrder,
+  updateOrderStatus,
   uploadProductFile,
   deleteUploadedFile,
   createCategory,
@@ -426,5 +533,10 @@ module.exports = {
   getContacts,
   deleteOrgData,
   uploadOrgData,
-  getOrders
+  getOrders,
+  cancelOrder,
+  uploadOrgFiles,
+  addOrgSocialLinks,
+  deleteOrderFile,
+  getReviews,
 };

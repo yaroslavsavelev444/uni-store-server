@@ -1,9 +1,35 @@
+const ApiError = require("../exceptions/api-error");
 const { ProductReviewModel, OrgReview } = require("../models/indexModels");
+const { sendEmailNotification } = require("../queues/taskQueues");
+const { checkIfUserBoughtProduct } = require("./productService");
 
-const addProductReview = async (userId, text, productId, rating) => {
-    const review = await ProductReviewModel.create({ userId, text, productId, rating });
+
+const getReviews = async () => {
+    const reviews = await ProductReviewModel.find().populate("user", "name");
+    return reviews;
+}
+const addProductReview = async (userId, productId, { pros, cons, comment, rating }) => {
+    const hasBought = await checkIfUserBoughtProduct(userId, productId);
+    if (!hasBought) {
+      throw ApiError.BadRequest("Вы не купили данный товар");
+    }
+  
+    const review = await ProductReviewModel.create({
+      user: userId,
+      productId,
+      pros,
+      cons,
+      comment,
+      rating,
+    });
+  
+    sendEmailNotification(process.env.SMTP_USER, "newProductReview", {
+      reviewData: review.toObject(),
+    });
+  
     return review;
-};
+  };
+
 const addOrgReview = async (userId, theme, comment) => {
     const review = await OrgReview.create({ userId, theme, comment });
     return review;
@@ -21,17 +47,13 @@ const getProductReviews = async (productId) => {
     return reviews;
 };
 const getUserReviews = async (userId) => {
-    const reviews = await ProductReviewModel.find({ userId }).populate("user", "name")
+    const reviews = await ProductReviewModel.find({ user: userId }).populate("user", "name")
     .sort({ createdAt: -1 });;
     return reviews;
 };
 //ADMIN
 const updateReviewStatus = async (id, status) => {
-    if(status === 'delete') { 
-        const review = await OrgReview.findByIdAndDelete(id);
-        return review;
-    }
-    const review = await OrgReview.findByIdAndUpdate(id, { status });
+    const review = await ProductReviewModel.findByIdAndUpdate(id, { status });
     return review;
 };
 
@@ -42,5 +64,6 @@ module.exports = {
     updateReviewStatus,
     getOrgReviews,
     getProductReviews,
-    getUserReviews
+    getUserReviews,
+    getReviews
 };

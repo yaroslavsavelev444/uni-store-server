@@ -1,4 +1,4 @@
-const { emailQueues, logQueues, errorLogQueues } = require("./bull");
+const { emailQueues } = require("./bull");
 
 const WORK_START_HOUR = 8;  // Начало работы
 const WORK_END_HOUR = 22;   // Окончание работы

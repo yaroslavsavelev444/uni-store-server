@@ -1,0 +1,92 @@
+{{#extend "baseLayout" title="Новый заказ"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        <h2 style="color: #28a745; font-size: 22px; margin-bottom: 20px;">📦 Новый заказ оформлен</h2>
+
+        <p style="font-size: 16px; color: #333;">
+          Пользователь <strong>{{orderData.user}}</strong> оформил новый заказ.
+        </p>
+
+        <h3 style="margin-top: 20px; font-size: 18px; color: #555;">Детали доставки</h3>
+        <table style="width: 100%; font-size: 15px; color: #444; margin: 10px 0;">
+          <tr>
+            <td><strong>Метод доставки:</strong></td>
+            <td>{{orderData.deliveryMethod}}</td>
+          </tr>
+          <tr>
+            <td><strong>Транспортная компания:</strong></td>
+            <td>{{orderData.deliveryData.tk}}</td>
+          </tr>
+          <tr>
+            <td><strong>Адрес:</strong></td>
+            <td>{{orderData.deliveryData.address}}</td>
+          </tr>
+          {{#if orderData.deliveryData.comment}}
+          <tr>
+            <td><strong>Комментарий:</strong></td>
+            <td>{{orderData.deliveryData.comment}}</td>
+          </tr>
+          {{/if}}
+        </table>
+
+        <h3 style="margin-top: 20px; font-size: 18px; color: #555;">Получатель</h3>
+        <table style="width: 100%; font-size: 15px; color: #444; margin: 10px 0;">
+          <tr>
+            <td><strong>ФИО:</strong></td>
+            <td>{{orderData.recipientData.namr}}</td>
+          </tr>
+          <tr>
+            <td><strong>Телефон:</strong></td>
+            <td>{{orderData.recipientData.phone}}</td>
+          </tr>
+          <tr>
+            <td><strong>Email:</strong></td>
+            <td>{{orderData.recipientData.email}}</td>
+          </tr>
+        </table>
+
+        {{#if orderData.isCompany}}
+          <h3 style="margin-top: 20px; font-size: 18px; color: #555;">Компания</h3>
+          <table style="width: 100%; font-size: 15px; color: #444; margin: 10px 0;">
+            <tr>
+              <td><strong>Название:</strong></td>
+              <td>{{orderData.companyData.company.name}}</td>
+            </tr>
+            <tr>
+              <td><strong>ИНН:</strong></td>
+              <td>{{orderData.companyData.company.inn}}</td>
+            </tr>
+          </table>
+        {{/if}}
+
+        <h3 style="margin-top: 20px; font-size: 18px; color: #555;">Состав заказа</h3>
+        <table style="width: 100%; font-size: 15px; color: #444; border-collapse: collapse;" cellspacing="0">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 8px 4px;">Товар</th>
+              <th style="text-align: right; padding: 8px 4px;">Кол-во</th>
+              <th style="text-align: right; padding: 8px 4px;">Цена</th>
+              <th style="text-align: right; padding: 8px 4px;">Итого</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each orderData.products}}
+              <tr>
+                <td style="padding: 6px 4px;">{{product}}</td>
+                <td style="text-align: right;">{{quantity}}</td>
+                <td style="text-align: right;">{{priceWithDiscount}} ₽</td>
+                <td style="text-align: right;">{{totalPriceWithDiscount}} ₽</td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
+
+        <h3 style="text-align: right; font-size: 16px; margin-top: 20px;">
+          <span style="color: #888;">Сумма без скидки:</span> {{orderData.priceDetails.totalPrice}} ₽<br>
+          <span style="font-weight: bold; color: #000;">Итоговая сумма:</span> {{orderData.priceDetails.totalPriceWithDiscount}} ₽
+        </h3>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

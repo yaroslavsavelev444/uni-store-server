@@ -30,9 +30,10 @@ const generateStorage = (baseDir = "uploads/files") => {
 const uploadProduct = multer({ storage: generateStorage("uploads/products") });
 const uploadCategory = multer({ storage: generateStorage("uploads/categories") });
 const uploadOrgLogo = multer({ storage: generateStorage("uploads/org_logos") });
-
+const uploadOrgSocial = multer({ storage: generateStorage("uploads/org_socials") });
 module.exports = {
   uploadProduct,
   uploadCategory,
-  uploadOrgLogo
+  uploadOrgLogo,
+  uploadOrgSocial
 };

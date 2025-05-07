@@ -1,6 +1,7 @@
 const { Schema, model } = require('mongoose');
 
 const companySchema = new Schema({
+  user: { type: Schema.Types.ObjectId, ref: 'User' },
   companyName: { type: String, required: true }, // Название организации
   legalAddress: { type: String, required: true }, // Юридический адрес
   inn: { type: String, required: true }, // ИНН

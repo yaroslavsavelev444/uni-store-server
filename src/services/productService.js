@@ -1,19 +1,66 @@
 const ApiError = require("../exceptions/api-error");
-const { ProductModel } = require("../models/indexModels");
+const { ProductModel, OrderModel, ProductReviewModel } = require("../models/indexModels");
 const path = require("path");
 const fs = require("fs");
 
-const getProducts = async (categoryId, showOnMainPage) => {
+
+//Проверка покупал ли юзер товар 
+const checkIfUserBoughtProduct = async (userId, productId) => {
+  const order = await OrderModel.findOne({
+    user: userId,
+    status: 'ready',
+    products: {
+      $elemMatch: {
+        product: productId,
+      },
+    },
+  });
+
+  return !!order;
+};
+
+//Проверяем оставлял ли пользовтель отзыв
+const checkIfUserLeftReview = async (userId, productId) => {
+  const review = await ProductReviewModel.findOne({
+    user: userId,
+    productId: productId,
+  });
+
+  return {
+    hasLeftReview: !!review,
+  };
+};
+
+const getProducts = async (categoryId, selecteValue, showOnMainPage) => {
   try {
+    const filter = {};
+    const sort = {};
+
     if (categoryId) {
-      return await ProductModel.find({ categoryId });
+      filter.categoryId = categoryId;
     }
 
     if (showOnMainPage === 'true') {
-      return await ProductModel.find({ showOnMainPage: true });
+      filter.showOnMainPage = true;
     }
 
-    return await ProductModel.find(); // если ничего не передано
+    // Сортировка
+    if (selecteValue) {
+      const [field, direction] = selecteValue.split(":"); // ← вместо "_"
+      console.log(field, direction);
+      
+      const sortFieldMap = {
+        date: "createdAt",
+        price: "priceIndividual",
+      };
+
+      if (sortFieldMap[field]) {
+        console.log(sortFieldMap[field]);
+        sort[sortFieldMap[field]] = direction === "asc" ? 1 : -1;
+      }
+    }
+
+    return await ProductModel.find(filter).sort(sort);
   } catch (e) {
     throw ApiError.InternalServerError(
       e.message || "Ошибка получения продуктов"
@@ -21,14 +68,39 @@ const getProducts = async (categoryId, showOnMainPage) => {
   }
 };
 
-const getProductDetails = async (id) => {
+
+const getProductDetails = async (id, userData) => {
   try {
     const product = await ProductModel.findById(id);
-    return product;
+    if (!product) {
+      throw new Error("Товар не найден");
+    }
+
+    // Отзывы на товар
+    const reviews = await ProductReviewModel.find({ productId: id, status: "active" }).populate("user", "name");
+
+    // Статусы по умолчанию
+    let hasPurchased = false;
+    let isUserLeftReview = { hasLeftReview: false };
+
+    // Если юзер авторизован, проверяем его действия
+    if (userData?.id) {
+      hasPurchased = await checkIfUserBoughtProduct(userData.id, id);
+      isUserLeftReview = await checkIfUserLeftReview(userData.id, id);
+    }
+
+    return {
+      ...product.toObject(),
+      hasPurchased,
+      isUserLeftReview,
+      reviews
+    };
   } catch (e) {
     throw ApiError.InternalServerError(e.message || "Ошибка получения продукта");
   }
 };
+
+
 
 //ADMIN
 const createProduct = async (productData, files) => {
@@ -176,5 +248,7 @@ module.exports = {
   deleteProduct,
   uploadProductFile,
   editProduct,
-  getProductDetails
+  getProductDetails,
+  checkIfUserBoughtProduct,
+  checkIfUserLeftReview
 };

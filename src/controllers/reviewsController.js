@@ -3,16 +3,20 @@ const reviewService = require("../services/reviewService");
 
 const addProductReview = async (req, res, next) => {
   try {
-    const { text, productId, rating } = req.body;
-    if (!text || !productId) {
-      throw ApiError.BadRequest("Отсутствует текст отзыва");
+    const { pros, cons, comment, rating } = req.body;
+    const { id: productId } = req.params;
+    
+    if (!pros || !cons || !comment || !rating || !productId) {
+      throw ApiError.BadRequest("Не заполнены все поля отзыва");
     }
+    
+    // сохраняем как один текст или раздельно (лучше раздельно)
     const review = await reviewService.addProductReview(
       req.user.id,
-      text,
       productId,
-      rating
+      { pros, cons, comment, rating }
     );
+
     return res.json(review);
   } catch (e) {
     next(e);
@@ -60,7 +64,7 @@ const getProductReviews = async (req, res, next) => {
 
 const getUserReviews = async (req, res, next) => {
   try {
-    const reviews = await reviewService.getUserReviews(req.user);
+    const reviews = await reviewService.getUserReviews(req.user.id);
     return res.json(reviews);
   } catch (e) {
     next(e);

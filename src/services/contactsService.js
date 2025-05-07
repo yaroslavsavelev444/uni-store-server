@@ -1,19 +1,19 @@
 const ApiError = require("../exceptions/api-error");
 const { ContactModel } = require("../models/indexModels");
 const { sendEmailNotification } = require("../queues/taskQueues");
+const { formattedDate } = require("../utils/formats");
 
 const submitContacts = async (name, email, phone, message) => {
   try {
     const newContact = new ContactModel({ name, email, phone, message });
     await newContact.save();
 
-    // await sendEmailNotification(process.env.ADMIN_EMAIL, "newContact", {
-    //   name,
-    //   email,
-    //   phone,
-    //   message,
-    //   created: Date.now(),
-    // });
+    sendEmailNotification(process.env.SMTP_USER, "newContact", {
+      name: newContact.name || "Не указано",
+      email: newContact.email || "Не указано",
+      phone: newContact.phone || "Не указано",
+      msg: newContact.message || "Не указано",
+    });
 
     return newContact;
   } catch (error) {
