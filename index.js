@@ -40,15 +40,15 @@ app.use((req, res, next) => {
 const uploadsPath = path.resolve(process.cwd(), 'src', 'uploads'); 
 app.use('/uploads', express.static(uploadsPath));
 app.use('/auth', authRoutes);
-app.use('/products',authMiddleware, productsRoutes);
-app.use('/contacts',authMiddleware, contactsRoutes);
+app.use('/products', productsRoutes);
+app.use('/contacts', contactsRoutes);
 app.use('/org', orgRoutes);
 app.use('/categories', categoriesRoutes);
-app.use('/reviews', authMiddleware, reviewsRoutes);
+app.use('/reviews', reviewsRoutes);
 app.use('/orders', authMiddleware, ordersRoutes);
 app.use('/cart', authMiddleware, cartRoutes);
-app.use('/admin', adminRoutes);
-app.use('/admin/queues', bullBoardRouter);
+app.use('/admin', authMiddleware , adminMiddleware, adminRoutes);
+app.use('/queues', bullBoardRouter);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;

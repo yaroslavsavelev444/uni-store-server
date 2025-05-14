@@ -2,6 +2,7 @@ const ApiError = require("../exceptions/api-error");
 const { CategoryModel, ProductModel } = require("../models/indexModels");
 const path = require("path");
 const fs = require("fs");
+const { deleteProduct, deleteFolderRecursive } = require("./productService");
 
 const findById = async (id) => {
     return CategoryModel.findById(id);
@@ -68,31 +69,33 @@ const createCategory = async (categoryData) => {
 
 
   const deleteCategory = async (categoryId) => {
-    try {
-      const category = await CategoryModel.findById(categoryId);
-      if (!category) throw ApiError.NotFound("Категория не найдена");
-  
-      // Удаляем связанные товары
-      const products = await ProductModel.find({ categoryId });
-    //   await Promise.all(products.map(product => deleteProduct(product._id))); //TODO 
-  
-      // Удаляем папку с изображением
-      if (category.image) {
-        const oldFolder = category.image.split("/").slice(0, -1).join("/");
-        const fullOldFolderPath = path.join(__dirname, "..", oldFolder);
-        if (fs.existsSync(fullOldFolderPath)) {
-          fs.rmSync(fullOldFolderPath, { recursive: true, force: true });
-        }
+  try {
+    const category = await CategoryModel.findById(categoryId);
+    if (!category) throw ApiError.NotFoundError("Категория не найдена");
+
+    // Удаляем связанные товары
+    const products = await ProductModel.find({ categoryId });
+    await Promise.all(products.map(product => deleteProduct(product._id)));
+
+    // Удаляем папку с изображением
+    if (category.image) {
+      const oldFolder = category.image.split("/").slice(0, -1).join("/");
+      const fullOldFolderPath = path.join(__dirname, "..", oldFolder);
+
+      // Проверка на существование перед удалением
+      if (fs.existsSync(fullOldFolderPath)) {
+        await deleteFolderRecursive(fullOldFolderPath);
       }
-  
-      // Удаляем категорию
-      await CategoryModel.findByIdAndDelete(categoryId);
-  
-      return { message: "Категория и связанные товары успешно удалены" };
-    } catch (error) {
-      throw ApiError.InternalServerError(error.message || "Ошибка при удалении категории");
     }
-  };
+
+    // Удаляем категорию
+    await CategoryModel.findByIdAndDelete(categoryId);
+
+    return { message: "Категория и связанные товары успешно удалены" };
+  } catch (error) {
+    throw ApiError.InternalServerError(error.message || "Ошибка при удалении категории");
+  }
+};
 
 const clearCategory = async (categoryId) => {
     try {

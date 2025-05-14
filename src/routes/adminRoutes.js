@@ -3,7 +3,6 @@ const router = express.Router();
 const upload = require("../middleware/multerMiddleware"); // Место, где мы подключаем multer
 const edit = require("../middleware/uploadProductForEdit"); // Место, где мы подключаем multer
 const adminController = require("../controllers/adminController");
-const { uploadOrgLogoForEdit } = require("../middleware/uploadOrgLogoForEdit");
 const orgEdit = require("../middleware/uploadOrgLogoForEdit");
 const uploadOrgFiles = require("../middleware/uploadOrgFiles");
 const { uploadSocialIcons } = require("../middleware/uploadIcons");
@@ -60,6 +59,10 @@ router.delete("/deleteUser", adminController.deleteUser);
 //ОТЗЫВЫ 
 router.get("/getReviews", adminController.getReviews);
 router.post("/updateReviewStatus/:id", adminController.updateReviewStatus);
+
+//КОММентР
+router.post("/updateOrgReviewStatus/:id", adminController.updateOrgReviewStatus);
+router.get("/getOrgReviews", adminController.getOrgReviews);
 
 //КОНТАКТЫ 
 router.get("/getContacts", adminController.getContacts);

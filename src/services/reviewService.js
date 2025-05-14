@@ -5,8 +5,7 @@ const { checkIfUserBoughtProduct } = require("./productService");
 
 
 const getReviews = async () => {
-    const reviews = await ProductReviewModel.find().populate("user", "name");
-    return reviews;
+    return await ProductReviewModel.find().populate("user", "name");
 }
 const addProductReview = async (userId, productId, { pros, cons, comment, rating }) => {
     const hasBought = await checkIfUserBoughtProduct(userId, productId);
@@ -31,32 +30,26 @@ const addProductReview = async (userId, productId, { pros, cons, comment, rating
   };
 
 const addOrgReview = async (userId, theme, comment) => {
-    const review = await OrgReview.create({ userId, theme, comment });
-    return review;
+    return await OrgReview.create({ userId, theme, comment });
 };
-const getOrgReviews = async (user) => {
-    if(user.role === "admin" || user.role === "superadmin") {
-        const reviews = await OrgReview.find({}).populate("userId");
-        return reviews;
-    }
-    const reviews = await OrgReview.find({ status: "active" }).populate("userId");
-        return reviews;
+const getOrgReviews = async () => {
+   return await OrgReview.find({status: "accept"}).populate("userId", "name");
 };
 const getProductReviews = async (productId) => {
-    const reviews = await ProductReviewModel.find({ productId });
-    return reviews;
+    return await ProductReviewModel.find({ productId });;
 };
 const getUserReviews = async (userId) => {
-    const reviews = await ProductReviewModel.find({ user: userId }).populate("user", "name")
+    return await ProductReviewModel.find({ user: userId }).populate("user", "name")
     .sort({ createdAt: -1 });;
-    return reviews;
 };
 //ADMIN
 const updateReviewStatus = async (id, status) => {
-    const review = await ProductReviewModel.findByIdAndUpdate(id, { status });
-    return review;
+    return await ProductReviewModel.findByIdAndUpdate(id, { status });
 };
 
+const updateOrgReviewStatus = async (id, status) => {
+    return await OrgReview.findByIdAndUpdate(id, { status });
+};
 
 module.exports = {
     addProductReview,
@@ -65,5 +58,6 @@ module.exports = {
     getOrgReviews,
     getProductReviews,
     getUserReviews,
-    getReviews
+    getReviews,
+    updateOrgReviewStatus
 };

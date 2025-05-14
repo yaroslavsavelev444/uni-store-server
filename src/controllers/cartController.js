@@ -20,10 +20,13 @@ const setCartItem = async (req, res, next) => {
   }
 };
 
-const removeFromCartProduct = async (req, res, next) => {
+const deleteItem = async (req, res, next) => {
   try {
-    const { productId, quantity } = req.body;
-    const cart = await cartService.removeFromCartProduct(req.user.id, productId, quantity);
+    const { id } = req.body;
+    if(!id) {
+      throw ApiError.BadRequest("Отсутствует id");
+    }
+    const cart = await cartService.deleteItem(req.user.id, id);
     res.status(200).json(cart);
   } catch (e) {
     next(e);
@@ -43,6 +46,6 @@ const clearCart = async (req, res, next) => {
 module.exports = {
   getCart,
   setCartItem,
-  removeFromCartProduct,
+  deleteItem,
   clearCart,
 };

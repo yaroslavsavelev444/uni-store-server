@@ -159,7 +159,7 @@ const editOrgData = async (req, res, next) => {
 
     const existingOrg = await orgService.findById(orgData._id);
     if (!existingOrg) {
-      throw ApiError.NotFound("Компания не найдена");
+      throw ApiError.NotFoundError("Компания не найдена");
     }
 
     const updatedOrg = await orgService.updateOrgWithImage(
@@ -401,7 +401,7 @@ const updateCategory = async (req, res, next) => {
 
     const existingCategory = await categoryService.findById(id);
     if (!existingCategory) {
-      throw ApiError.NotFound("Категория не найдена");
+      throw ApiError.NotFoundError("Категория не найдена");
     }
 
     let updatedData = { title, subTitle, description };
@@ -482,7 +482,14 @@ const updateContactStatus = async (req, res, next) => {
 };
 
 //REVIEWS
-
+const getOrgReviews = async (req, res, next) => {
+  try {
+    const result = await reviewService.getOrgReviews(req.user);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+}
 const getReviews = async (req, res, next) => {
   try {
     const result = await reviewService.getReviews();
@@ -507,9 +514,28 @@ const updateReviewStatus = async (req, res, next) => {
   }
 };
 
+const updateOrgReviewStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!id || !status) {
+      console.log(id, action);
+      
+      throw ApiError.BadRequest("Отсутствует status");
+    }
+
+    const result = await reviewService.updateOrgReviewStatus(id, status);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
 module.exports = {
   deleteProduct,
   updateReviewStatus,
+  updateOrgReviewStatus,
   createProduct,
   deleteOrgFile,
   archieveProduct,
@@ -539,4 +565,5 @@ module.exports = {
   addOrgSocialLinks,
   deleteOrderFile,
   getReviews,
+  getOrgReviews
 };

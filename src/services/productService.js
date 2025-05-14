@@ -2,7 +2,50 @@ const ApiError = require("../exceptions/api-error");
 const { ProductModel, OrderModel, ProductReviewModel } = require("../models/indexModels");
 const path = require("path");
 const fs = require("fs");
+const fsp = require('fs').promises;
 
+const deleteFolderRecursive = async (folderPath) => {
+  try {
+    await fsp.rm(folderPath, { recursive: true, force: true });
+    console.log(`Папка удалена: ${folderPath}`);
+  } catch (err) {
+    console.error(`Ошибка при удалении папки ${folderPath}:`, err.message);
+  }
+};
+
+
+const deleteProduct = async (productId) => {
+  try {
+    const product = await ProductModel.findById(productId);
+    if (!product) {
+      throw ApiError.NotFoundError("Продукт не найден");
+    }
+
+    // Удаление папки изображений
+    if (product.images?.length > 0) {
+      const imagePath = product.images[0]; // пример: 'uploads/products/uuid/filename.jpg'
+      const parts = imagePath.split(path.sep);
+      const folderUUID = parts[2]; // 'uuid' — третий элемент
+      const fullImageFolderPath = path.join(__dirname, '..', 'uploads', 'products', folderUUID);
+      await deleteFolderRecursive(fullImageFolderPath);
+    }
+
+    // Удаление папки инструкции
+    if (product.instructionPath) {
+      const instructionParts = product.instructionPath.split(path.sep);
+      const instructionUUID = instructionParts[2]; // 'uuid' — третий элемент
+      const fullInstructionFolderPath = path.join(__dirname, '..', 'uploads', 'files', instructionUUID);
+      await deleteFolderRecursive(fullInstructionFolderPath);
+    }
+
+    // Удаление продукта из базы
+    await ProductModel.findByIdAndDelete(productId);
+
+    return { message: "Продукт успешно удалён" };
+  } catch (e) {
+    throw ApiError.InternalServerError(e.message || "Ошибка удаления продукта");
+  }
+};
 
 //Проверка покупал ли юзер товар 
 const checkIfUserBoughtProduct = async (userId, productId) => {
@@ -210,14 +253,6 @@ const archieveProduct = async (productId) => {
   }
 };
 
-const deleteProduct = async (productId) => {
-  try {
-    const product = await ProductModel.findByIdAndDelete({ _id: productId }); //TODO
-    return product;
-  } catch (e) {
-    throw ApiError.InternalServerError(e.message || "Ошибка удаления продукта");
-  }
-};
 
 const uploadProductFile = async (file) => {
   try {
@@ -250,5 +285,6 @@ module.exports = {
   editProduct,
   getProductDetails,
   checkIfUserBoughtProduct,
-  checkIfUserLeftReview
+  checkIfUserLeftReview,
+  deleteFolderRecursive
 };

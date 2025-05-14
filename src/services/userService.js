@@ -5,7 +5,7 @@ const toggleAssignAdminRules = async (userId) => {
   try {
     const userData = await UserModel.findById(userId);
     if (!userData) {
-      throw ApiError.NotFound("Пользователь не найден");
+      throw ApiError.NotFoundError("Пользователь не найден");
     }
     userData.role = userData.role === "admin" ? "user" : "admin";
     await userData.save();

@@ -36,7 +36,7 @@ const updateContactStatus = async (contactId, status) => {
   try {
     const contact = await ContactModel.findById(contactId);
     if (!contact) {
-      throw ApiError.NotFound("Контакт не найден");
+      throw ApiError.NotFoundError("Контакт не найден");
     }
     if(status === 'delete'){
         await ContactModel.findByIdAndDelete(contactId);

@@ -43,7 +43,7 @@ const addOrgReview = async (req, res, next) => {
 
 const getOrgReviews = async (req, res, next) => {
   try {
-    const reviews = await reviewService.getOrgReviews(req.user);
+    const reviews = await reviewService.getOrgReviews();
     return res.json(reviews);
   } catch (e) {
     next(e);

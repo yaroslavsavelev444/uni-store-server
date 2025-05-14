@@ -7,6 +7,7 @@ const crypto = require("crypto");
 const { sendEmailNotification } = require("../queues/taskQueues");
 const {
   UserModel,
+  CartModel,
 } = require("../models/indexModels");
 const { fullAddress } = require("../utils/serverInfo");
 const { log } = require("console");
@@ -198,8 +199,19 @@ const refreshService = async (refreshToken ) => {
   const userDto = new UserDto(user);
   const tokens = tokenService.generateToken({ ...userDto });
 
-  await tokenService.saveToken(userDto.id, tokens.refreshToken);
-  return { ...tokens, user: userDto };
+  const cart = await CartModel.findOne({ user: userDto.id });
+
+const totalQuantity = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+
+await tokenService.saveToken(userDto.id, tokens.refreshToken);
+
+return {
+  ...tokens,
+  user: {
+    ...userDto,
+    cartQuantity: totalQuantity
+  }
+};
 };
 
 const checkService = async (accessToken, refreshToken) => {

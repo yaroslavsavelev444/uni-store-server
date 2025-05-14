@@ -8,12 +8,14 @@ const ProductSchema = new Schema({
 
   // Pricing
   priceIndividual: { type: Number, required: true }, 
-  priceLegalEntity: { type: Number, required: true }, 
+  hasUridPrice: { type: Boolean, required: true, default: false },
+  priceLegalEntity: { type: Number }, 
+  hasDiscount: { type: Boolean, default: false },
   discountPersentage: { type: Number, default: 0 }, 
   discountFromQuantity: { type: Number, default: 0 }, 
-  status : { type: String, enum: ['active', 'archived', 'preorder'], required: true, default: 'active' },
+  status : { type: String, enum: ['active', 'archived', 'preorder'], default: 'active' },
   // Quantity
-  totalQuantity: { type: Number, required: true }, 
+  totalQuantity: { type: Number, default: 0 }, 
 
   // Media
   
