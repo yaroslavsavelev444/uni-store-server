@@ -3,7 +3,6 @@ const authService = require('../services/authService');
 const {validationResult} = require('express-validator');
 
 const isEmailExists = async (req, res, next) => {
-  console.log("req.body", req.body);
   try {
     const { email } = req.body;
     if (!email) {
@@ -24,7 +23,7 @@ const registerUser = async (req, res, next) => {
       return next(ApiError.BadRequest('Ошибка при валидации', errors.array()));
     } 
     const { email, phone, password, name, surname, role } = req.body;
-    // Регистрация пользователя
+
     const userData = await authService.registerUserService(email, phone,  password, name, surname, role);
     return res.json(userData);
   } catch (e) {
@@ -40,6 +39,10 @@ const loginUser = async (req, res, next) => {
     }
 
     const { email, password } = req.body;
+    
+    if (!email || !password) {
+      throw ApiError.BadRequest("Отсутствует email или пароль");
+    }
     const userData = await authService.loginUserService(email, password);
 
       res.cookie('refreshToken', userData.refreshToken, {

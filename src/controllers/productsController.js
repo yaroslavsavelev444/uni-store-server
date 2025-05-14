@@ -3,7 +3,6 @@ const productService = require("../services/productService");
 
 const getProducts = async (req, res, next) => {
   const { categoryId, selectedValue, showOnMainPage } = req.query;
-  console.log(categoryId, selectedValue, showOnMainPage);
   
   try {
     const products = await productService.getProducts(categoryId, selectedValue, showOnMainPage);
