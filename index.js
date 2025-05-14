@@ -51,9 +51,9 @@ app.use('/admin', authMiddleware , adminMiddleware, adminRoutes);
 app.use('/queues', bullBoardRouter);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-const HOST = 'localhost'; 
+const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+const port = process.env.PORT || 3000;
 
-app.listen(PORT, HOST, () => {
-  console.log(`🚀 Сервер запущен на http://${HOST}:${PORT}`);
+app.listen(port, host, () => {
+    console.log(`Server is running on http://${host}:${port}`);
 });

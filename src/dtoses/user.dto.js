@@ -1,4 +1,4 @@
-module.exports = class UserDto {
+class UserDto {
     email;
     id;
     isActivated;
@@ -15,3 +15,5 @@ module.exports = class UserDto {
         this.surname = model.surname;
     }
 };
+
+module.exports = UserDto;

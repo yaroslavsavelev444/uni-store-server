@@ -14,7 +14,6 @@ const { log } = require("console");
 
 const isEmailExistsService = async (email) => {
   const user = await UserModel.findOne({ email });
-  log("user", user);
   return { exists: !!user };
 };
 
