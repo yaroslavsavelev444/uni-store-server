@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const tokenService = require("./tokenService");
-const UserDto = require("../dtos/user.dto");
+const UserDto = require("../dtoses/user.dto");
 const ApiError = require("../exceptions/api-error");
 const crypto = require("crypto");
 const { sendEmailNotification } = require("../queues/taskQueues");
