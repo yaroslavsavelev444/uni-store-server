@@ -45,13 +45,15 @@ const loginUser = async (req, res, next) => {
     }
     const userData = await authService.loginUserService(email, password);
 
-      res.cookie('refreshToken', userData.refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: false, // true только на HTTPS
-  sameSite: 'Strict', // или 'None' с secure: true, если фронт и бэк на разных доменах
-        path: '/',
-      });
+      const isProd = process.env.NODE_ENV === 'production';
+
+    res.cookie('refreshToken', userData.refreshToken, {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'Lax' : 'Strict',
+      path: '/',
+    });
 
     return res.json(userData);
 
