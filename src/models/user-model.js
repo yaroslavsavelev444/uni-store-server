@@ -29,6 +29,15 @@ const UserSchema = new Schema(
       },
       resetTokenExpiration: { type: Date, default: null },
     },
+   passwordChangeHistory: {
+  type: [
+    {
+      timestamp: { type: Date, default: Date.now },
+      ip: { type: String, required: true },
+    },
+  ],
+  select: false,
+},
   },
   { timestamps: true }
 );

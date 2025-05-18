@@ -103,10 +103,6 @@ const updateProductData = async (req, res, next) => {
 //COMPANY
 const uploadOrgData = async (req, res, next) => {
   try {
-    console.log(req.body);
-    console.log(req.file);
-    console.log(req.uploadPath);
-    console.log(req.savedFilename);
 
     const { companyName, workTime, address, phone, email, description } =
       req.body;
@@ -141,8 +137,6 @@ const uploadOrgData = async (req, res, next) => {
       description,
     };
 
-    console.log("Создание компании с логотипом:", imagePath);
-
     const result = await orgService.uploadOrgData(companyData);
     res.status(200).json(result);
   } catch (e) {
@@ -152,10 +146,29 @@ const uploadOrgData = async (req, res, next) => {
 
 const editOrgData = async (req, res, next) => {
   try {
-    const orgData = JSON.parse(req.body.productData); // ← исправлено
-    if (!orgData || !orgData._id) {
-      throw ApiError.BadRequest("Отсутствует ID компании");
+    const { companyName, workTime, address, phone, email, description } =
+      req.body;
+
+    if (
+      !companyName ||
+      !workTime ||
+      !address ||
+      !phone ||
+      !email ||
+      !description
+    ) {
+      throw ApiError.BadRequest("Заполните все обязательные поля");
     }
+
+    const orgData = {
+      companyName,
+      workTime,
+      address,
+      phone,
+      email,
+      description,
+    };
+    console.log('orgData', orgData);
 
     const existingOrg = await orgService.findById(orgData._id);
     if (!existingOrg) {
@@ -254,11 +267,13 @@ const getUsers = async (req, res, next) => {
 };
 const toggleAssignAdminRules = async (req, res, next) => {
   try {
-    const { userId } = req.body;
-    if (!userId) {
+    const { id } = req.body;
+
+    if (!id) {
       throw ApiError.BadRequest("Отсутствует userId");
     }
-    const result = await userService.assignAdminRules(userId);
+    
+    const result = await userService.toggleAssignAdminRules(id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -294,9 +309,15 @@ const updateOrderStatus = async (req, res, next) => {
 
     if (!orderId || !status) {
       throw ApiError.BadRequest("Отсутствует orderId");
+    } 
+    
+    const userId = req.user.id;
+
+    if (!userId) {
+      throw ApiError.UnauthorizedError("Токены не предоставлены");
     }
 
-    const result = await ordersService.updateOrderStatus(orderId, status);
+    const result = await ordersService.updateOrderStatus(orderId, status, userId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -471,9 +492,11 @@ const getContacts = async (req, res, next) => {
 const updateContactStatus = async (req, res, next) => {
   try {
     const { contactId, status } = req.body;
+
     if (!contactId || !status) {
       throw ApiError.BadRequest("Отсутствует contactData");
     }
+
     const result = await contactsService.updateContactStatus(contactId, status);
     res.status(200).json(result);
   } catch (e) {

@@ -71,17 +71,22 @@ const getOrdersAdmin = async () => {
     throw ApiError.InternalServerError(error.message || "Произошла ошибка");
   }
 };
-const updateOrderStatus = async (orderId, status) => {
+const updateOrderStatus = async (orderId, status, userId) => {
   try {
     const order = await OrderModel.findById(orderId).populate("products.product", "title").populate("user", "email");
     order.status = status;
+    order.statusHistory.push({
+      status,
+      changedAt: Date.now(),
+      changedBy: userId,
+    })
 
-    if(status === 'ready'){
+    if(status === 'ready' && order.deliveryMethod === 'pickup'){
       sendEmailNotification(order.user.email, "orderPickupReady", {
         order
       })
     }
-    else if(status === 'sent'){
+    else if(status === 'sent' && order.deliveryMethod === 'delivery'){
       sendEmailNotification(order.user.email, "orderDeliverySent", {
         orderData: order.toObject(),
       })
@@ -160,7 +165,6 @@ const cancelOrderAdmin = async (orderId, text) => {
 };
 
 const createOrder = async (userData, orderData) => {
-  console.log("createOrder", userData.id, orderData);
   if (!userData.id) throw ApiError.BadRequest("User ID обязателен");
 
   const { items, totalPrice, totalPriceWithoutDiscount } = await getCart(
@@ -202,6 +206,15 @@ const createOrder = async (userData, orderData) => {
       totalPrice: item.totalWithoutDiscount,
       totalPriceWithDiscount: item.totalWithDiscount,
     })),
+
+    statusHistory: [
+      {
+        status: "created",
+        changedAt: Date.now(),
+        changedBy: userData.id,
+        
+      },
+    ],
   };
 
   const createdOrder = await OrderModel.create(orderPayload);

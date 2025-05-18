@@ -1,0 +1,73 @@
+{{#extend "baseLayout" title="Ваш заказ готов к выдаче"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        <h2 style="color: #007bff; font-size: 22px; margin-bottom: 20px;">Ваш заказ готов к самовывозу!</h2>
+
+        <p style="font-size: 16px; color: #333; line-height: 1.6;">
+          Здравствуйте, {{orderData.recipientData.name}}!<br>
+          Ваш заказ с ID <strong>{{orderData._id}}</strong> готов к выдаче. Ниже приведены детали вашего заказа и адрес пункта самовывоза.
+        </p>
+
+        <h3 style="margin-top: 25px; font-size: 18px; color: #555;">Пункт самовывоза</h3>
+        <table style="width: 100%; font-size: 15px; color: #444; margin: 10px 0;">
+          <tr>
+            <td style="padding: 6px 0;"><strong>Адрес:</strong></td>
+            <td style="padding: 6px 0;">{{orderData.deliveryData.address}}</td>
+          </tr>
+          {{#if orderData.deliveryData.comment}}
+          <tr>
+            <td style="padding: 6px 0;"><strong>Комментарий:</strong></td>
+            <td style="padding: 6px 0;">{{orderData.deliveryData.comment}}</td>
+          </tr>
+          {{/if}}
+        </table>
+
+        <h3 style="margin-top: 25px; font-size: 18px; color: #555;">Состав заказа</h3>
+        <table style="width: 100%; font-size: 15px; color: #444; border-collapse: collapse; margin-top: 10px;" cellspacing="0">
+          <thead>
+            <tr style="background-color: #f9f9f9;">
+              <th style="text-align: left; padding: 8px 4px;">Товар</th>
+              <th style="text-align: right; padding: 8px 4px;">Кол-во</th>
+              <th style="text-align: right; padding: 8px 4px;">Цена</th>
+              <th style="text-align: right; padding: 8px 4px;">Итого</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each orderData.products}}
+              <tr>
+                <td style="padding: 6px 4px;">{{product.title}}</td>
+                <td style="text-align: right; padding: 6px 4px;">{{quantity}}</td>
+                <td style="text-align: right; padding: 6px 4px;">{{priceWithDiscount}} ₽</td>
+                <td style="text-align: right; padding: 6px 4px;">{{totalPriceWithDiscount}} ₽</td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
+
+        <div style="text-align: right; margin-top: 25px; font-size: 16px;">
+          <p style="margin: 4px 0;">
+            <span style="color: #888;">Сумма без скидки:</span> {{orderData.priceDetails.totalPrice}} ₽
+          </p>
+          <p style="margin: 4px 0;">
+            <strong style="color: #000;">Итоговая сумма со скидкой:</strong> {{orderData.priceDetails.totalPriceWithDiscount}} ₽
+          </p>
+        </div>
+
+        <div style="margin-top: 40px;">
+          <h3 style="font-size: 18px; color: #333;">Как получить заказ?</h3>
+          <p style="font-size: 15px; color: #555;">
+            Просто подойдите к пункту выдачи и назовите номер заказа: <strong>{{orderData._id}}</strong>.
+          </p>
+        </div>
+
+        <div style="margin-top: 40px;">
+          <h3 style="font-size: 18px; color: #333;">Остались вопросы?</h3>
+          <p style="font-size: 15px; color: #555;">
+            Свяжитесь с нашей службой поддержки — мы всегда рады помочь!
+          </p>
+        </div>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

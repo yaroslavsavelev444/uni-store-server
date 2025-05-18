@@ -249,56 +249,43 @@ const checkService = async (accessToken, refreshToken) => {
   return { ...newTokens, user: userDto};
 };
 
-// const changePasswordService = async ( //TODO адаптировать под новый кейс 
-//   accessToken,
-//   refreshToken,
-//   oldPassword,
-//   newPassword
-// ) => {
+const changePasswordService = async ( 
+  userId,
+  oldPassword,
+  newPassword
+) => {
 
-//   if (!accessToken || !refreshToken) {
-//     throw ApiError.UnauthorizedError("Токены не предоставлены");
-//   }
+  const user = await UserModel.findById(userId);
+  
+  if (!user) {
+    throw ApiError.BadRequest("Пользователь не найден");
+  }
 
-//   const userData = await tokenService.validateAccessToken(accessToken);
-//   if (!userData) {
-//     throw ApiError.UnauthorizedError("Неверный или истекший токен доступа");
-//   }
+  if (!oldPassword) {
+    throw ApiError.BadRequest("Не указан старый пароль");
+  }
 
-//   const user = await UserModel.findById(userData.id);
-//   if (!user) {
-//     throw ApiError.BadRequest("Пользователь не найден");
-//   }
+  const isPassEquals = await bcrypt.compare(oldPassword, user.password);
+  if (!isPassEquals) {
+    throw ApiError.BadRequest("Неверный старый пароль");
+  }
 
-//   if (!oldPassword) {
-//     throw ApiError.BadRequest("Не указан старый пароль");
-//   }
+  if (!newPassword) {
+    throw ApiError.BadRequest("Не указан новый пароль");
+  }
 
-//   const isPassEquals = await bcrypt.compare(oldPassword, user.password);
-//   if (!isPassEquals) {
-//     throw ApiError.BadRequest("Неверный старый пароль");
-//   }
+  const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
+  const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-//   if (!newPassword) {
-//     throw ApiError.BadRequest("Не указан новый пароль");
-//   }
+  try {
+    user.password = hashedPassword;
+    await user.save();
+  } catch (error) {
+    throw ApiError.InternalServerError("Ошибка при сохранении нового пароля");
+  }
 
-//   const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
-//   const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-//   try {
-//     user.password = hashedPassword;
-//     await user.save();
-//   } catch (error) {
-//     throw ApiError.InternalServerError("Ошибка при сохранении нового пароля");
-//   }
-
-//   sendEmailNotification(userData.email, "passwordChange", {
-//     link: `http://localhost:3000/change-password`,
-//   });
-
-//   return { message: "Пароль успешно изменен", userData };
-// };
+  return { message: "Пароль успешно изменен" };
+};
 
 const verifyResetPasswordService = async (resetTokenSigned) => {
   if (!resetTokenSigned) {
@@ -447,7 +434,7 @@ module.exports = {
   logoutUserService,
   refreshService,
   checkService,
-  // changePasswordService,
+  changePasswordService,
   forgotPasswordService,
   // resetPasswordService,
   verifyResetPasswordService,

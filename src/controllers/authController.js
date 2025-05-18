@@ -167,19 +167,18 @@ const verifyEmail = async (req, res, next) => {
 // ПАРОЛИ
 const changePassword = async (req, res, next) => {
   try {
-    const accessToken = req.headers.authorization?.split(" ")[1]; // Извлекаем accessToken из заголовка Authorization
-    const { refreshToken } = req.cookies;
     const { oldPassword, newPassword } = req.body;
+    const userId = req.user.id;
 
-    if (!accessToken || !refreshToken || !oldPassword || !newPassword) {
+    if (!userId || !oldPassword || !newPassword) {
       return next(ApiError.UnauthorizedError("Токены не предоставлены"));
     }
 
-    // Вызов сервиса смены пароля
-    const userData = await authService.changePasswordService(accessToken, refreshToken, oldPassword, newPassword);
-    return res.json(userData);  // Успешный ответ с данными
+    const userData = await authService.changePasswordService(userId, oldPassword, newPassword);
+    
+    return res.json(userData); 
   } catch (e) {
-    next(e);  // Ошибка будет обработана в ApiError
+    next(e); 
   }
 };
 

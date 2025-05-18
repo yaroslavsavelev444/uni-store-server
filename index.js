@@ -49,6 +49,9 @@ app.use('/orders', authMiddleware, ordersRoutes);
 app.use('/cart', authMiddleware, cartRoutes);
 app.use('/admin', authMiddleware , adminMiddleware, adminRoutes);
 app.use('/queues', bullBoardRouter);
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Backend доступен' });
+});
 app.use(errorHandler);
 
 const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';

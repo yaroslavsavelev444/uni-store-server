@@ -51,7 +51,7 @@ router.post("/uploadOrgFiles/:orgId", uploadOrgFiles, adminController.uploadOrgF
 router.post("/deleteOrgFile/:orgId", adminController.deleteOrgFile);
 router.post("/addOrgSocialLinks/:orgId", uploadSocialIcons, adminController.addOrgSocialLinks);
 //ПОЛЬЗОВАТЕЛИ
-router.post("/toggleAssignAdminRules", adminController.toggleAssignAdminRules);
+router.post("/toggleAdminRules", adminController.toggleAssignAdminRules);
 router.get("/getUsers", adminController.getUsers);
 router.delete("/deleteUser", adminController.deleteUser);
 

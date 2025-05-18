@@ -24,7 +24,7 @@ const sendMail = async ({ to, subject, text, html }) => {
   const transporter = createTransporter();
 
   const mailOptions = {
-    from: `"MERN Delivery" <${process.env.SMTP_USER}>`,
+    from: `"КПБ "Полет" <${process.env.SMTP_USER}>`,
     to,
     subject,
     text,
@@ -53,7 +53,7 @@ const sendNotification = async ({ email, type, data }) => {
       html = renderTemplate("confirmEmail", {
         username: data.username,
         confirmationLink: data.confirmationLink,
-        companyName: "MERN Delivery App",
+        companyName: "КПБ Полет",
       });
       break;
     }
@@ -62,7 +62,7 @@ const sendNotification = async ({ email, type, data }) => {
       text = `Привет, ${data.username}! Для сброса пароля перейдите по следующей ссылке: ${data.resetLink}`;
       html = renderTemplate("resetPassword", {
         resetLink: data.resetLink,
-        companyName: "MERN Delivery App",
+        companyName: "КПБ Полет",
       });
       break;
     }
