@@ -1,6 +1,5 @@
 const express = require('express');
 const http = require('http');
-const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./src/routes/authRoutes');
 const errorHandler = require('./src/middleware/error');
@@ -20,16 +19,14 @@ const app = express();
 const server = http.createServer(app);
 const {connectDB} = require('./src/config/mongo');
 const path = require("path");
+const corsOptions = require('./src/cors/cors');
 
 require('./src/queues/workers/processors');
 
 connectDB();
 
 app.use(express.json());
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true,
-}));
+app.use(cors(corsOptions));
 app.use(cookieParser());
 
 app.use((req, res, next) => {
