@@ -89,7 +89,15 @@ const refresh = async (req, res, next) => {
     } 
 
     const userData = await authService.refreshService(refreshToken );
-      res.cookie('refreshToken', userData.refreshToken, {maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true})
+      const isProd = process.env.NODE_ENV === 'production';
+
+res.cookie('refreshToken', userData.refreshToken, {
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  httpOnly: true,
+  secure: isProd,           // true — обязательно в проде, т.к. SameSite: 'None' требует HTTPS
+  sameSite: isProd ? 'None' : 'Strict',  // для кросс-доменных запросов — None
+  path: '/',
+});
       return res.json(userData);
 
   } catch (e) {
@@ -121,13 +129,15 @@ const checkVerifiedEmail = async (req, res, next) => {
       throw ApiError.BadRequest("Отсутствует email");
     }
     const status = await authService.checkVerifiedEmailService(email);
-      res.cookie('refreshToken', status.refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: false, // ❗ В разработке (HTTP) должен быть false
-        sameSite: 'Lax', // или 'Strict', зависит от ситуации
-        path: '/',
-      });
+      const isProd = process.env.NODE_ENV === 'production';
+
+res.cookie('refreshToken', userData.refreshToken, {
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  httpOnly: true,
+  secure: isProd,           // true — обязательно в проде, т.к. SameSite: 'None' требует HTTPS
+  sameSite: isProd ? 'None' : 'Strict',  // для кросс-доменных запросов — None
+  path: '/',
+});
       return res.json(status);
   } catch (e) {
     next(e);
