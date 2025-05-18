@@ -47,13 +47,13 @@ const loginUser = async (req, res, next) => {
 
       const isProd = process.env.NODE_ENV === 'production';
 
-    res.cookie('refreshToken', userData.refreshToken, {
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'Lax' : 'Strict',
-      path: '/',
-    });
+res.cookie('refreshToken', userData.refreshToken, {
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  httpOnly: true,
+  secure: isProd,           // true — обязательно в проде, т.к. SameSite: 'None' требует HTTPS
+  sameSite: isProd ? 'None' : 'Strict',  // для кросс-доменных запросов — None
+  path: '/',
+});
 
     return res.json(userData);
 
