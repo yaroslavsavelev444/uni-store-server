@@ -7,6 +7,7 @@ const orgEdit = require("../middleware/uploadOrgLogoForEdit");
 const uploadOrgFiles = require("../middleware/uploadOrgFiles");
 const { uploadSocialIcons } = require("../middleware/uploadIcons");
 const uploadOrderFile = require("../middleware/uploadOrderFile");
+const uploadHandler = require("../middleware/promoBlockMiddleware");
 
 // ПРОДУКТ
 router.post(
@@ -45,11 +46,12 @@ router.delete("/deleteCategory/:id", adminController.deleteCategory);
 
 //КОМПАНИЯ 
 router.post("/addOrgData", upload.uploadOrgLogo.single("image"), adminController.uploadOrgData);
-router.put("/editOrgData", orgEdit.uploadOrgLogoForEdit.single("image"), adminController.editOrgData);
+router.post("/editOrgData", orgEdit.uploadOrgLogoForEdit.single("image"), adminController.editOrgData);
 router.delete("/deleteOrgData/:id", adminController.deleteOrgData);
 router.post("/uploadOrgFiles/:orgId", uploadOrgFiles, adminController.uploadOrgFiles);
 router.post("/deleteOrgFile/:orgId", adminController.deleteOrgFile);
 router.post("/addOrgSocialLinks/:orgId", uploadSocialIcons, adminController.addOrgSocialLinks);
+router.delete("/deleteOrgSocialLink", adminController.deleteOrgSocialLink);
 //ПОЛЬЗОВАТЕЛИ
 router.post("/toggleAdminRules", adminController.toggleAssignAdminRules);
 router.get("/getUsers", adminController.getUsers);
@@ -77,5 +79,20 @@ router.delete("/deleteOrderFile/:orderId", adminController.deleteOrderFile);
 router.delete("/deleteUploadedFile", adminController.deleteUploadedFile);
 router.post("/changeCategoryData", adminController.changeCategoryData);
 router.post("/clearCategory", adminController.clearCategory);
+
+
+//ПРОМО БЛОКИ 
+const uploadPromo = uploadHandler("promo-blocks");
+router.post("/uploadPromoBlock",  uploadPromo.single("image"), adminController.addPromoBlock);
+router.post("/updatePromoBlock/:id", uploadPromo.single("image"), adminController.updatePromoBlock);
+router.delete("/deletePromoBlock/:id", adminController.deletePromoBlock);
+
+const uploadMainMat = uploadHandler("main-materials");
+router.post("/uploadMainMaterial", uploadMainMat.single("file"), adminController.addMainMaterial);
+router.post("/updateMainMaterial/:id", uploadMainMat.single("file"), adminController.updateMainMaterial);
+router.delete("/deleteMainMaterial/:id", adminController.deleteMainMaterial);
+
+// router.post("/editPromoBlock/:id", adminController.editPromoBlock);
+// router.delete("/deletePromoBlock/:id", adminController.deletePromoBlock);
 
 module.exports = router;

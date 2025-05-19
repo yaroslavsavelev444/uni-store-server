@@ -1,12 +1,13 @@
 const ApiError = require("../exceptions/api-error");
 const { ProductModel, OrderModel, ProductReviewModel } = require("../models/indexModels");
 const path = require("path");
-const fs = require("fs");
-const fsp = require('fs').promises;
+const fs = require('fs/promises');
+
+
 
 const deleteFolderRecursive = async (folderPath) => {
   try {
-    await fsp.rm(folderPath, { recursive: true, force: true });
+    await fs.rm(folderPath, { recursive: true, force: true });
     console.log(`Папка удалена: ${folderPath}`);
   } catch (err) {
     console.error(`Ошибка при удалении папки ${folderPath}:`, err.message);
@@ -145,7 +146,9 @@ const getProductDetails = async (id, userData) => {
 
 
 
-//ADMIN
+// ADMIN
+
+// 1. СОЗДАНИЕ ПРОДУКТА
 const createProduct = async (productData, files) => {
   try {
     const product = JSON.parse(productData);
@@ -178,8 +181,8 @@ const createProduct = async (productData, files) => {
   }
 };
 
-const editProduct = async (id, productData, deletedImages, removeInstruction, files) => {
-  console.log(id, productData, deletedImages, removeInstruction, files);
+// 2. ОБНОВЛЕНИЕ ПРОДУКТА
+const editProduct = async (id, productData, files, deletedImages, removeInstruction) => {
   try {
     const product = await ProductModel.findById(id);
     if (!product) {
@@ -189,53 +192,64 @@ const editProduct = async (id, productData, deletedImages, removeInstruction, fi
     // Удаление старых изображений
     if (deletedImages) {
       const imagesToDelete = JSON.parse(deletedImages);
+
       for (const imagePath of imagesToDelete) {
         const fullPath = path.join(__dirname, "..", imagePath);
-        if (fs.existsSync(fullPath)) {
-          fs.unlinkSync(fullPath);
+
+        try {
+          await fs.access(fullPath);
+          await fs.unlink(fullPath);
+          console.log("Изображение удалено:", fullPath);
+        } catch (err) {
+          console.warn("Не удалось удалить изображение:", fullPath, err.message);
         }
       }
+
       product.images = product.images.filter(img => !imagesToDelete.includes(img));
     }
 
-   // Обновление данных о продукте
-   if (productData) {
-    const data = JSON.parse(productData);
-    delete data.images; // Не затирать вручную добавленные изображения
-    Object.assign(product, data);
-  }
+    // Обновление данных о продукте
+    if (productData) {
+      const data = JSON.parse(productData);
+      delete data.images; // Не затирать вручную добавленные изображения
+      Object.assign(product, data);
+    }
 
-// Добавление новых изображений — ДЕЛАЕМ ПОСЛЕ Object.assign
-if (files["images"]) {
-  console.log('newImages');
-  const newImages = files["images"].map(file => {
-    // Относительный путь от public-папки
-    const relativePath = file.path.split("uploads")[1]; // например: /files/uuid/filename
-    return `uploads${relativePath}`;
-  });
-  product.images.push(...newImages);
-}
+    // Добавление новых изображений
+    if (files?.images) {
+      const newImages = files.images.map(file => {
+        const relativePath = file.path.split("uploads")[1];
+        return `uploads${relativePath}`;
+      });
+      product.images.push(...newImages);
+    }
 
-    // Обработка инструкции
+    // Удаление инструкции
     if (removeInstruction === "true" && product.instructionPath) {
       const instructionPath = path.join(__dirname, "..", product.instructionPath);
-      if (fs.existsSync(instructionPath)) {
-        fs.unlinkSync(instructionPath);
+
+      try {
+        await fs.access(instructionPath);
+        await fs.unlink(instructionPath);
+        console.log("Инструкция удалена:", instructionPath);
+      } catch (err) {
+        console.warn("Не удалось удалить инструкцию:", instructionPath, err.message);
       }
+
       product.instructionPath = null;
     }
 
-    if (files["instruction"]) {
-      const instructionFile = files["instruction"][0];
+    // Добавление новой инструкции
+    if (files?.instruction) {
+      const instructionFile = files.instruction[0];
       const relativePath = instructionFile.path.split("uploads")[1];
-      product.instructionPath = `/uploads${relativePath}`;
+      product.instructionPath = `uploads${relativePath}`;
     }
-
 
     await product.save();
     return product;
   } catch (error) {
-    throw ApiError.InternalServerError(error);
+    throw ApiError.InternalServerError(error.message || "Ошибка обновления продукта");
   }
 };
 

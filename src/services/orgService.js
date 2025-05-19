@@ -1,5 +1,5 @@
 
-const fs = require("fs");
+const fs = require("fs/promises");
 const path = require("path");
 const ApiError = require("../exceptions/api-error");
 const { OrgModel } = require("../models/indexModels");
@@ -84,20 +84,19 @@ const deleteOrgFile = async (orgId, filePath) => {
 
   const fullPath = path.resolve(process.cwd(), "src", "uploads", filePath);
 
-  // Удаляем физически файл
-  if (fs.existsSync(fullPath)) {
-    fs.unlinkSync(fullPath);
-  } else {
-    console.warn("Файл не найден на диске:", fullPath);
+  try {
+    await fs.access(fullPath); // Проверяем, доступен ли файл
+    await fs.unlink(fullPath); // Удаляем
+    console.log("Файл удалён:", fullPath);
+  } catch (err) {
+    console.warn("Файл не найден или не удалось удалить:", fullPath, err.message);
   }
 
-  // Удаляем файл из массива
   const originalLength = org.files.length;
   org.files = (org.files || []).filter(file => file.path !== filePath);
   console.log(`Удалено ${originalLength - org.files.length} файлов из массива`);
 
   await org.save();
-
   return org;
 };
 
@@ -124,6 +123,44 @@ const addOrgSocialLinks = async (orgId, url, icons) => {
   return company;
 };
 
+const deleteOrgSocialLink = async (linkId) => {
+  // Шаг 1: Находим компанию, содержащую ссылку
+  const company = await OrgModel.findOne({ "socialLinks._id": linkId });
+
+  if (!company) {
+    throw ApiError.NotFoundError("Компания с данной ссылкой не найдена");
+  }
+
+  // Шаг 2: Получаем саму ссылку
+  const linkToDelete = company.socialLinks.id(linkId);
+
+  if (!linkToDelete) {
+    throw ApiError.NotFoundError("Ссылка не найдена");
+  }
+
+  // Шаг 3: Формируем абсолютный путь к иконке
+  const iconPath = path.resolve(__dirname, "..", linkToDelete.icon.replace(/^\//, ""));
+
+  // Шаг 4: Пытаемся удалить иконку
+  try {
+    await fs.unlink(iconPath);
+    console.log(`Файл ${iconPath} успешно удалён`);
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.error("Ошибка при удалении иконки:", err);
+      throw ApiError.InternalServerError("Ошибка при удалении иконки");
+    } else {
+      console.warn("Файл уже удалён или не найден:", iconPath);
+    }
+  }
+
+  // Шаг 5: Удаляем ссылку из массива
+  company.socialLinks.pull(linkId);
+  await company.save();
+
+  return company;
+};
+
 
 module.exports = {
   uploadOrgData,
@@ -134,5 +171,6 @@ module.exports = {
   updateOrgWithImage,
   findById,
   deleteOrgData,
-  uploadOrgFiles
+  uploadOrgFiles,
+  deleteOrgSocialLink
 };

@@ -9,6 +9,9 @@ const CartModel = require("./cart-model");
 const ContactModel = require("./contact-model");
 const CategoryModel = require("./category-model");
 const OrgModel = require("./org-model");
+const PromoBlockModel = require("./promo-block-model");
+const MainMaterialModel = require("./main-material-model");
+
 module.exports = {
   OrderModel,
   ProductModel,
@@ -21,4 +24,6 @@ module.exports = {
   CategoryModel,
   OrgReview,
   OrgModel,
+  PromoBlockModel,
+  MainMaterialModel
 };

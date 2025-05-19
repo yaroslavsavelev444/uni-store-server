@@ -6,8 +6,8 @@ const companyService = require("../services/companyService");
 const ordersService = require("../services/ordersService");
 const categoryService = require("../services/categoryService");
 const contactsService = require("../services/contactsService");
+const promoBlockService =require("../services/promoBlockService");
 const path = require("path");
-const fs = require("fs");
 const orgService = require("../services/orgService");
 //PRODUCT
 const createProduct = async (req, res, next) => {
@@ -146,21 +146,22 @@ const uploadOrgData = async (req, res, next) => {
 
 const editOrgData = async (req, res, next) => {
   try {
-    const { companyName, workTime, address, phone, email, description } =
-      req.body;
+    const {
+      _id,
+      companyName,
+      workTime,
+      address,
+      phone,
+      email,
+      description,
+    } = req.body;
 
-    if (
-      !companyName ||
-      !workTime ||
-      !address ||
-      !phone ||
-      !email ||
-      !description
-    ) {
-      throw ApiError.BadRequest("Заполните все обязательные поля");
+    if (!_id ) {
+      throw ApiError.BadRequest("Не передан ID компании");
     }
 
     const orgData = {
+      _id,
       companyName,
       workTime,
       address,
@@ -255,6 +256,19 @@ const addOrgSocialLinks = async (req, res, next) => {
     next(e);
   }
 };
+
+const deleteOrgSocialLink = async (req, res, next) => {
+  try {
+    const { linkId } = req.body;
+    if (!linkId) {
+      throw ApiError.BadRequest("Отсутствует linkId");
+    }
+    const result = await orgService.deleteOrgSocialLink(linkId);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+}
 
 //USERS
 const getUsers = async (req, res, next) => {
@@ -555,6 +569,141 @@ const updateOrgReviewStatus = async (req, res, next) => {
   }
 };
 
+
+const addPromoBlock = async (req, res, next) => {
+ try {
+    const { title, subtitle, page,  productId, reversed = false, link } = req.body;
+    const image = req.file?.filename;
+
+    if (!image) {
+      return ApiError.BadRequest("Изображение не было загружено");
+    }
+
+    if(!title || !subtitle || !productId || !page) {
+      return ApiError.BadRequest("Отсутствует title, subtitle или productId");
+    }
+
+    const newBlock = await promoBlockService.createPromoBlock({
+      title,
+      subtitle,
+      image: `/uploads/promo-blocks/${image}`, // путь до картинки
+      productId,
+      reversed,
+      link,
+      page
+    });
+
+    res.status(201).json(newBlock);
+  } catch (err) {
+    console.error(err);
+    next(err);
+  }
+};
+
+const getPromoBlock = async (req, res, next) => {
+  const {page} = req.query
+  try {
+    const result = await promoBlockService.getPromoBlock(page);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const updatePromoBlock = async (req, res, next) => {
+  try {
+    const { title, subtitle, productId, reversed, page, link } = req.body;
+    const id = req.params.id;
+    const image = req.file?.filename;
+
+    const updateData = {
+      title,
+      subtitle,
+      productId,
+      reversed,
+      page,
+      link,
+    };
+
+    if (image) {
+      updateData.image = `/uploads/promo-blocks/${image}`;
+    }
+
+    const updated = await promoBlockService.updatePromoBlock(id, updateData);
+    res.status(200).json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const deletePromoBlock = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    if(!id) {
+      return ApiError.BadRequest("Отсутствует id");
+    }
+    const deleted = await promoBlockService.deletePromoBlock(id);
+    
+    res.status(200).json(deleted);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const addMainMaterial = async (req, res, next) => {
+  try {
+    const { caption } = req.body;
+    const file = req.file;
+
+    if (!file || !caption) {
+      return next(ApiError.BadRequest("Отсутствует файл или подпись"));
+    }
+
+    const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+
+    const newMaterial = await promoBlockService.createMainMaterial({
+      caption,
+      mediaType,
+      mediaUrl: `/uploads/main-materials/${file.filename}`,
+    });
+
+    res.status(201).json(newMaterial);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const updateMainMaterial = async (req, res, next) => {
+  try {
+    const { caption } = req.body;
+    const { id } = req.params;
+    const file = req.file;
+
+    const updateData = { caption };
+
+    if (file) {
+      updateData.mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+      updateData.mediaUrl = `/uploads/main-materials/${file.filename}`;
+    }
+
+    const updated = await promoBlockService.updateMainMaterial(id, updateData);
+    res.status(200).json(updated);
+  } catch (e) {
+    next(e);
+  }
+};
+
+const deleteMainMaterial = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) return next(ApiError.BadRequest("Не передан ID"));
+    const deleted = await promoBlockService.deleteMainMaterial(id);
+    res.status(200).json(deleted);
+  } catch (e) {
+    next(e);
+  }
+};
+
 module.exports = {
   deleteProduct,
   updateReviewStatus,
@@ -588,5 +737,13 @@ module.exports = {
   addOrgSocialLinks,
   deleteOrderFile,
   getReviews,
-  getOrgReviews
+  getOrgReviews,
+  addPromoBlock,
+  getPromoBlock,
+  updatePromoBlock,
+  deletePromoBlock,
+  deleteOrgSocialLink,
+  addMainMaterial,
+  updateMainMaterial,
+  deleteMainMaterial
 };
