@@ -45,15 +45,19 @@ const loginUser = async (req, res, next) => {
     }
     const userData = await authService.loginUserService(email, password);
 
-      const isProd = process.env.NODE_ENV === 'production';
+    if (userData.verified === false) {
+      return res.json(userData); // ⛔ Не ставим куку!
+    }
 
-res.cookie('refreshToken', userData.refreshToken, {
-  maxAge: 30 * 24 * 60 * 60 * 1000,
-  httpOnly: true,
-  secure: isProd,           // true — обязательно в проде, т.к. SameSite: 'None' требует HTTPS
-  sameSite: isProd ? 'None' : 'Strict',  // для кросс-доменных запросов — None
-  path: '/',
-});
+    const isProd = process.env.NODE_ENV === 'production';
+
+    res.cookie('refreshToken', userData.refreshToken, {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'None' : 'Strict',
+      path: '/',
+    });
 
     return res.json(userData);
 
@@ -65,18 +69,29 @@ res.cookie('refreshToken', userData.refreshToken, {
 const logoutUser = async (req, res, next) => {
   try {
     const accessToken = req.headers.authorization?.split(" ")[1];
-    const refreshToken = req.body.refreshToken
+    const refreshToken = req.body.refreshToken;
 
     if (!refreshToken) {
       throw ApiError.UnauthorizedError();
-    };
+    }
 
-    const token = await authService.logoutUserService(refreshToken, accessToken);
-    res.clearCookie('refreshToken');
-    return res.json(token);
-  }  catch (e) {
+    await authService.logoutUserService(refreshToken, accessToken);
+
+          const isProd = process.env.NODE_ENV === 'production';
+
+          
+    // Удаляем куку с теми же параметрами, с которыми она была установлена
+    res.clearCookie('refreshToken', {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? 'None' : 'Strict',
+  path: '/', // ← ДОЛЖНО БЫТЬ ТОЧНО ТАКИМ ЖЕ
+});
+
+    return res.status(200).json({ message: "Вы успешно вышли" });
+  } catch (e) {
     next(e);
-}
+  }
 };
 
 //Сюда обращается перехватчик
