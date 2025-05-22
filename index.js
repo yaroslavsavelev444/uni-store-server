@@ -15,6 +15,7 @@ const cartRoutes = require('./src/routes/cartRoutes');
 const categoriesRoutes = require('./src/routes/categoriesRoutes');
 const orgRoutes = require('./src/routes/orgRoutes');
 const ordersRoutes = require('./src/routes/ordersRoutes');
+const constructorFormRoutes = require('./src/routes/constructorFormRoutes');
 require('dotenv').config();
 const bullBoardRouter = require('./src/queues/bullBoard');
 const app = express();
@@ -48,6 +49,7 @@ app.use('/reviews', reviewsRoutes);
 app.use('/promoBlocks', promoBlocksRoutes);
 app.use('/orders', authMiddleware, ordersRoutes);
 app.use('/cart', authMiddleware, cartRoutes);
+app.use('/constructorForm', constructorFormRoutes);
 app.use('/admin', authMiddleware , adminMiddleware, adminRoutes);
 app.use('/queues', bullBoardRouter);
 app.get('/api/test', (req, res) => {

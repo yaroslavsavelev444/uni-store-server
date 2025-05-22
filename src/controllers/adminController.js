@@ -9,6 +9,7 @@ const contactsService = require("../services/contactsService");
 const promoBlockService =require("../services/promoBlockService");
 const path = require("path");
 const orgService = require("../services/orgService");
+const { log } = require("console");
 //PRODUCT
 const createProduct = async (req, res, next) => {
   console.log(req);
@@ -36,14 +37,17 @@ const editProduct = async (req, res, next) => {
     if (!id || !productData) {
       throw ApiError.BadRequest("Отсутствует productData");
     }
+    
+    console.log('editProductCOntroller', productData, 'deleted', deletedImages,'remove' ,removeInstruction, req.files);
+    
 
     const result = await productService.editProduct(
-      id,
-      productData,
-      deletedImages,
-      removeInstruction,
-      req.files
-    );
+  id,
+  productData,
+  req.files,          // <== на правильное место
+  deletedImages,
+  removeInstruction
+);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -176,6 +180,7 @@ const editOrgData = async (req, res, next) => {
       throw ApiError.NotFoundError("Компания не найдена");
     }
 
+    
     const updatedOrg = await orgService.updateOrgWithImage(
       orgData._id,
       orgData,
@@ -572,14 +577,14 @@ const updateOrgReviewStatus = async (req, res, next) => {
 
 const addPromoBlock = async (req, res, next) => {
  try {
-    const { title, subtitle, page,  productId, reversed = false, link } = req.body;
+    const { title, subtitle, page, reversed = false, link } = req.body;
     const image = req.file?.filename;
 
     if (!image) {
       return ApiError.BadRequest("Изображение не было загружено");
     }
 
-    if(!title || !subtitle || !productId || !page) {
+    if(!title || !subtitle || !page) {
       return ApiError.BadRequest("Отсутствует title, subtitle или productId");
     }
 
@@ -587,7 +592,6 @@ const addPromoBlock = async (req, res, next) => {
       title,
       subtitle,
       image: `/uploads/promo-blocks/${image}`, // путь до картинки
-      productId,
       reversed,
       link,
       page
@@ -612,14 +616,13 @@ const getPromoBlock = async (req, res, next) => {
 
 const updatePromoBlock = async (req, res, next) => {
   try {
-    const { title, subtitle, productId, reversed, page, link } = req.body;
+    const { title, subtitle, reversed, page, link } = req.body;
     const id = req.params.id;
     const image = req.file?.filename;
 
     const updateData = {
       title,
       subtitle,
-      productId,
       reversed,
       page,
       link,

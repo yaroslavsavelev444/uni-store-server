@@ -176,11 +176,17 @@ const createOrder = async (userData, orderData) => {
 
   let company = null;
   if (orderData.isCompany && orderData.companyData) {
-    const companyDataWithUser = {
-      ...orderData.companyData,
-      user: userData.id,
-    };
-    company = await CompanyModel.create(companyDataWithUser);
+
+    
+   let company = await CompanyModel.findOne({ user: userData.id });
+if (!company) {
+  const companyDataWithUser = {
+    ...orderData.companyData,
+    user: userData.id,
+  };
+
+  company = await CompanyModel.create(companyDataWithUser);
+}
   }
 
   const orderPayload = {
@@ -227,7 +233,7 @@ const createOrder = async (userData, orderData) => {
       product.totalQuantity -= item.quantity;
       await product.save();
 
-      if (product.totalQuantity === 0) {
+      if (product.totalQuantity >= 0 && product.status !== "archived") {
         await archieveProduct(product._id);
         await sendEmailNotification(process.env.SMTP_USER, "productArchived", {
           productData: product.toObject(),
@@ -239,7 +245,7 @@ const createOrder = async (userData, orderData) => {
   //Отправляем на почту админу
   await sendEmailNotification(process.env.SMTP_USER, "newOrderAdmin", {
     orderData: orderPayload,
-  });
+  }, true);
 
   //Отправляем на почту юзеру
   await sendEmailNotification(userData.email, "newOrderUser", {

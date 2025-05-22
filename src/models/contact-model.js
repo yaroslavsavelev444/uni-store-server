@@ -17,7 +17,6 @@ const contactSchema = new Schema({
   },
   message: {
     type: String,
-    required: true,
     trim: true,
     maxlength: 2000 // чтобы ограничить слишком длинные сообщения
   }

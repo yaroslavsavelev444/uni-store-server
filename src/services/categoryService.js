@@ -9,21 +9,24 @@ const findById = async (id) => {
   };
 
   const getCategories = async () => {
-    try {
-      const res = await CategoryModel.find().lean();
-  
-      const withCounts = await Promise.all(
-        res.map(async (category) => {
-          const count = await ProductModel.countDocuments({ categoryId: category._id });
-          return { ...category, productCount: count };
-        })
-      );
-  
-      return withCounts;
-    } catch (error) {
-      throw ApiError.InternalServerError(error.message || 'Произошла ошибка');
-    }
-  };
+  try {
+    const res = await CategoryModel.find().lean();
+
+    const withCounts = await Promise.all(
+      res.map(async (category) => {
+        const count = await ProductModel.countDocuments({
+          categoryId: category._id,
+          status: { $in: ['active', 'preorder'] } // ← только активные и предзаказ
+        });
+        return { ...category, productCount: count };
+      })
+    );
+
+    return withCounts;
+  } catch (error) {
+    throw ApiError.InternalServerError(error.message || 'Произошла ошибка');
+  }
+};
 
 const createCategory = async (categoryData) => {
   try {

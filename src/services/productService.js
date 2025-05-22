@@ -75,9 +75,13 @@ const checkIfUserLeftReview = async (userId, productId) => {
   };
 };
 
-const getProducts = async (categoryId, selecteValue, showOnMainPage) => {
+const getProducts = async (categoryId, selecteValue, showOnMainPage, isAdmin) => {
   try {
-    const filter = {};
+    let filter = {};
+    {!isAdmin && ( filter = {
+      status: { $in: ['active', 'preorder'] } // ← фильтруем по нужным статусам
+    })}
+   
     const sort = {};
 
     if (categoryId) {
@@ -88,18 +92,14 @@ const getProducts = async (categoryId, selecteValue, showOnMainPage) => {
       filter.showOnMainPage = true;
     }
 
-    // Сортировка
     if (selecteValue) {
-      const [field, direction] = selecteValue.split(":"); // ← вместо "_"
-      console.log(field, direction);
-      
+      const [field, direction] = selecteValue.split(":");
       const sortFieldMap = {
         date: "createdAt",
         price: "priceIndividual",
       };
 
       if (sortFieldMap[field]) {
-        console.log(sortFieldMap[field]);
         sort[sortFieldMap[field]] = direction === "asc" ? 1 : -1;
       }
     }
@@ -214,6 +214,9 @@ const editProduct = async (id, productData, files, deletedImages, removeInstruct
       delete data.images; // Не затирать вручную добавленные изображения
       Object.assign(product, data);
     }
+    if (product.totalQuantity > 0) {
+  product.status = 'active';
+}
 
     // Добавление новых изображений
     if (files?.images) {

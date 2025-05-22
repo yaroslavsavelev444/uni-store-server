@@ -5,7 +5,7 @@ const submitContacts = async (req, res, next) => {
   try {
     const { user, email, phone, msg, captcha } = req.body;
 
-    if (!user || !email || !phone || !msg) {
+    if (!user || !email || !phone ) {
       throw ApiError.BadRequest("Заполните все обязательные поля");
     }
 

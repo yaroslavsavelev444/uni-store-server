@@ -4,12 +4,12 @@ const { logQueues, errorLogQueues, emailQueues } = require("../bull");
 const fs = require("fs");
 
 emailQueues.process("sendEmailNotification", async (job) => {
-  const { email, type, data } = job.data;
+  const { email, type, data, tg } = job.data;
   if (!email || !type || !data) throw new Error("Missing required data");
 
   await mailService.sendNotification({ email, type, data });
 
-  if (type === "newOrderAdmin") {
+  if (tg) {
     await sendTelegramAlert(data);
   }
 

@@ -4,11 +4,10 @@ const PromoBlockSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     subtitle: { type: String },
-    image: { type: String }, // путь к загруженному изображению
-    productId: { type: String },
-    link: { type: String }, // кастомная ссылка, если не productId
+    image: { type: String }, 
+    link: { type: String }, 
     reversed: { type: Boolean, default: false },
-    page: { type: String, required: true }, // например: 'home', 'about', 'product'
+    page: { type: String, required: true }, 
   },
   { timestamps: true }
 );

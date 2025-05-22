@@ -9,7 +9,7 @@ const errorLogPath = path.resolve(
   "../logs/error.log");
 
 // Отправка на почту 
-async function sendEmailNotification(email, type, data) {
+async function sendEmailNotification(email, type, data, tg = false) {
   
   console.log("sendEmailNotification" , email, type, data);
   if(!email || !type || !data) {
@@ -21,7 +21,8 @@ async function sendEmailNotification(email, type, data) {
     const job = await emailQueues.add("sendEmailNotification", {
       email,
       type,
-      data
+      data,
+      tg
     });
     console.log(`Task added to queue: ${job.id}`);
   } catch (error) {
