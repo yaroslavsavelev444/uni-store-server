@@ -287,6 +287,7 @@ const changePasswordService = async (
   return { message: "Пароль успешно изменен" };
 };
 
+//Подтверждаем операцию смены и восстановления пароля после нажатия на ссылку в письме
 const verifyResetPasswordService = async (resetTokenSigned) => {
   if (!resetTokenSigned) {
     throw ApiError.BadRequest("Токен сброса пароля отсутствует");

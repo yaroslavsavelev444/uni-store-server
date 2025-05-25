@@ -224,6 +224,19 @@ const forgotPassword = async (req, res, next) => {
   }
 };
 
+const checkResetPasswordVerified = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      throw ApiError.BadRequest("Отсутствует email");
+    }
+    const status = await authService.checkResetPasswordVerifiedService(email);
+    return res.json(status);
+  } catch (e) {
+    next(e);
+  }
+};
+
 const verifyResetPassword = async (req, res, next) => {
   try {
     const { token } = req.query;
