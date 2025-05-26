@@ -26,7 +26,22 @@ const getProductDetails = async (req, res, next) => {
   }
 };
 
+const getProductsByIds = async (req, res, next) => {
+  const { ids } = req.body;
+  
+  if (!ids) {
+    throw ApiError.BadRequest("Отсутствует productId");
+  }
+  try {
+    const products = await productService.getProductsByIds(ids);
+    res.json(products);
+  } catch (e) {
+    next(e);
+  }
+};
+
 module.exports = {
   getProducts,
   getProductDetails,
+  getProductsByIds
 };

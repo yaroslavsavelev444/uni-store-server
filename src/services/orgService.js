@@ -30,33 +30,18 @@ const editOrgData = async (orgData) => {
   return OrgModel.findByIdAndUpdate(orgData._id, orgData, { new: true });
 };
 
-const updateOrgWithImage = async (
-  id,
-  updatedData,
-  file,
-  uploadPath,
-  savedFilename,
-  oldImagePath
-) => {
-  if (file && uploadPath && savedFilename) {
-    const newImagePath = path
-      .join(uploadPath, savedFilename)
-      .replace(/\\/g, "/");
+const updateOrgWithImage = async (id, orgData, file, uploadPath, filename, oldImagePath) => {
+  if (file && oldImagePath) {
+    const fullOldPath = path.join(__dirname, "..", oldImagePath);
+    fs.unlink(fullOldPath, (err) => {
+      if (err) console.error("Не удалось удалить старое изображение", err);
+    });
 
-    // Удаляем старую папку
-    if (oldImagePath) {
-      const oldFolder = oldImagePath.split("/").slice(0, -1).join("/");
-      const fullOldFolderPath = path.join(__dirname, "..", oldFolder);
-
-      if (fs.existsSync(fullOldFolderPath)) {
-        fs.rmSync(fullOldFolderPath, { recursive: true, force: true });
-      }
-    }
-
-    updatedData.image = newImagePath;
+    const newPath = path.join(uploadPath, filename).replace(/\\/g, "/");
+    orgData.logo = newPath;
   }
 
-  return editOrgData(updatedData);
+  return await OrgModel.findByIdAndUpdate(id, orgData, { new: true });
 };
 
 const deleteOrgData = async (id) => {

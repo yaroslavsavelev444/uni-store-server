@@ -63,6 +63,15 @@ const checkIfUserBoughtProduct = async (userId, productId) => {
   return !!order;
 };
 
+const getProductsByIds = async (ids) => {
+  try {
+    const products = await ProductModel.find({ _id: { $in: ids } });
+    return products;
+  } catch (e) {
+    throw ApiError.InternalServerError(e.message || "Ошибка получения продуктов");
+  }
+};
+
 //Проверяем оставлял ли пользовтель отзыв
 const checkIfUserLeftReview = async (userId, productId) => {
   const review = await ProductReviewModel.findOne({
@@ -303,5 +312,6 @@ module.exports = {
   getProductDetails,
   checkIfUserBoughtProduct,
   checkIfUserLeftReview,
+  getProductsByIds,
   deleteFolderRecursive
 };

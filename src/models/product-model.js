@@ -34,6 +34,7 @@ const ProductSchema = new Schema({
     value: { type: String, required: true },
   }],
 
+  associatedProductIds: [{ type: Types.ObjectId, ref: 'Product' }],
   relatedProducts: [{ type: Types.ObjectId, ref: 'Product' }], 
 }, {
   timestamps: true

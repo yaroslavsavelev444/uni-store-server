@@ -6,5 +6,6 @@ const adminMiddleware = require('../middleware/adminMiddleware');
 
 router.get('/getProducts', productsController.getProducts);
 router.get('/getProductDetails', productsController.getProductDetails);
+router.post('/getProductsByIds', productsController.getProductsByIds);
 
 module.exports = router;
