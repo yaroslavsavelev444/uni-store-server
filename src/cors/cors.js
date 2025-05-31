@@ -1,5 +1,5 @@
 const allowedOriginsDev = ['http://localhost:5173', 'http://localhost:3000'];
-const allowedOriginsProd = ['https://kpb-polet.ru'];
+const allowedOriginsProd = ['https://kpb-polet.ru', 'https://npoconstructor.ru'];
 
 const corsOptions = {
   origin: function (origin, callback) {

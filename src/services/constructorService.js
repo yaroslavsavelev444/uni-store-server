@@ -6,16 +6,17 @@ const { sendEmailNotification } = require("../queues/taskQueues");
 const submitData = async ({ name, email, phone, captchaToken }) => {
   // Проверка CAPTCHA
   const verifyUrl = `https://www.google.com/recaptcha/api/siteverify`;
-  const response = await axios.post(verifyUrl, null, {
-    params: {
-      secret: RECAPTCHA_SECRET_KEY,
-      response: captchaToken,
-    },
-  });
+const response = await axios.post(verifyUrl, null, {
+  params: {
+    secret: process.env.RECAPTCHA_CONSTRUCTOR_SECRET_KEY,
+    response: captchaToken,
+  },
+});
 
-  if (!response.data.success) {
-    throw ApiError.BadRequest("Ошибка проверки reCAPTCHA");
-  }
+if (!response.data.success) {
+  console.error("reCAPTCHA failed:", response.data);
+  throw ApiError.BadRequest("Ошибка проверки reCAPTCHA");
+}
 
   const contact = new ContactConstructorModel({ name, email, phone });
   await contact.save();
