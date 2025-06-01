@@ -4,6 +4,10 @@ const { ContactConstructorModel } = require("../models/indexModels");
 const { sendEmailNotification } = require("../queues/taskQueues");
 
 const submitData = async ({ name, email, phone, captchaToken }) => {
+  console.log("Проверка капчи с параметрами:", {
+  secret: process.env.RECAPTCHA_CONSTRUCTOR_SECRET_KEY,
+  response: captchaToken,
+});
   // Проверка CAPTCHA
   const verifyUrl = `https://www.google.com/recaptcha/api/siteverify`;
 const response = await axios.post(verifyUrl, null, {
