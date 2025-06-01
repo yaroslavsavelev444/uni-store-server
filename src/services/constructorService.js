@@ -27,9 +27,8 @@ if (!response.data.success) {
 
   await sendEmailNotification(
     process.env.SMTP_USER,
-    "newContact",
-    { data: { name, email, phone } },
-    true
+    "constructorContact",
+    { data: { name, email, phone } }
   );
 
   return { name, email, phone };

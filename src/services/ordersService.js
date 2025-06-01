@@ -249,7 +249,6 @@ if (!company) {
 
   //Отправляем на почту юзеру
   await sendEmailNotification(userData.email, "newOrderUser", {
-    //TODO возможно нужно брать имел из userData
     orderData: orderPayload,
   });
 

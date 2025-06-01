@@ -76,6 +76,14 @@ const sendNotification = async ({ email, type, data }) => {
       break;
     }
 
+    case "constructorContact": {
+      subject = "Запрос с формы Конструктора";
+      html = renderTemplate("constructorContact", {
+        ...data,
+      });
+      break;
+    }
+
     case "newOrderAdmin": {
       subject = "📝 Новый заказ";
       html = renderTemplate("newOrderAdmin", {

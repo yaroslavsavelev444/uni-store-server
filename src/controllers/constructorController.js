@@ -4,7 +4,7 @@ const constructorService = require("../services/constructorService");
 const submitData = async (req, res, next) => {
   const { name, email, phone, captchaToken } = req.body;
 
-  if (!name || !email || !phone || !captchaToken) {
+  if (!phone || !captchaToken) {
     return next(ApiError.BadRequest("Заполните все обязательные поля и пройдите капчу"));
   }
 

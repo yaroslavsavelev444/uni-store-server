@@ -1,10 +1,9 @@
 const { Schema, model } = require("mongoose");
 
 const contactConstructorSchema = new Schema({
-  name: { type: String, trim: true, required: true },
+  name: { type: String, trim: true },
   email: {
     type: String,
-    required: true,
     trim: true,
     lowercase: true,
     match: [/^\S+@\S+\.\S+$/, "Неверный формат email"]
