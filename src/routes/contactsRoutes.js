@@ -5,8 +5,8 @@ const { contactFormLimiter } = require('../utils/limiters');
 
 router.post(
   '/sendContactForm',
-  contactFormLimiter, // сначала лимитер
-  contactsController.submitContacts // потом обработчик
+  contactFormLimiter, 
+  contactsController.submitContacts 
 );
 
 module.exports = router;

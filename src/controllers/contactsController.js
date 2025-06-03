@@ -3,20 +3,31 @@ const ApiError = require("../exceptions/api-error");
 
 const submitContacts = async (req, res, next) => {
   try {
-    const { user, email, phone, msg, captcha } = req.body;
+    const { name, email, phone, message, captcha } = req.body;
 
-    if (!user || !email || !phone ) {
+    if (!name || !email || !phone) {
       throw ApiError.BadRequest("Заполните все обязательные поля");
     }
 
-    // Проверка капчи (ТОЛЬКО в проде)
     if (process.env.NODE_ENV === "production") {
       if (!captcha) {
         throw ApiError.BadRequest("Подтвердите, что вы не робот");
       }
 
-      const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captcha}`;
-      const captchaResponse = await fetch(verifyUrl, { method: "POST" });
+      const params = new URLSearchParams();
+      params.append("secret", process.env.RECAPTCHA_SECRET_KEY);
+      params.append("response", captcha);
+
+      const captchaResponse = await fetch(
+        "https://www.google.com/recaptcha/api/siteverify",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: params,
+        }
+      );
       const captchaData = await captchaResponse.json();
 
       if (!captchaData.success) {
@@ -24,7 +35,12 @@ const submitContacts = async (req, res, next) => {
       }
     }
 
-    const result = await contactsService.submitContacts(user, email, phone, msg);
+    const result = await contactsService.submitContacts(
+      name,
+      email,
+      phone,
+      message
+    );
     res.status(200).json(result);
   } catch (e) {
     next(e);
