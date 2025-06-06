@@ -24,9 +24,18 @@ const {connectDB} = require('./src/config/mongo');
 const path = require("path");
 const corsOptions = require('./src/cors/cors');
 
+const {
+  securityMiddleware,
+  rateLimiter,
+  speedLimiter,
+} = require('./src/middleware/securityMiddleware');
+
 require('./src/queues/workers/processors');
 
 connectDB();
+app.use(rateLimiter);
+app.use(speedLimiter);
+app.use(securityMiddleware);
 
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
