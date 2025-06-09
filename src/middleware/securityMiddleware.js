@@ -44,15 +44,57 @@ const forbiddenPatterns = [
 ];
 
 // Middleware для блокировки по шаблонам
-const safeAdminPaths = [
-  '/admin/addProduct',
-  '/admin/updateProduct',
-  '/admin/deleteProduct',
+const safeAdminPatterns = [
+  /^\/admin\/addProduct$/,
+  /^\/admin\/editProduct\/[^/]+$/,
+  /^\/admin\/deleteProduct$/,
+
+  /^\/admin\/addCategory$/,
+  /^\/admin\/editCategory\/[^/]+$/,
+  /^\/admin\/deleteCategory\/[^/]+$/,
+  /^\/admin\/changeCategoryData$/,
+  /^\/admin\/clearCategory$/,
+
+  /^\/admin\/addOrgData$/,
+  /^\/admin\/editOrgData$/,
+  /^\/admin\/deleteOrgData\/[^/]+$/,
+  /^\/admin\/uploadOrgFiles\/[^/]+$/,
+  /^\/admin\/deleteOrgFile\/[^/]+$/,
+  /^\/admin\/addOrgSocialLinks\/[^/]+$/,
+  /^\/admin\/deleteOrgSocialLink$/,
+
+  /^\/admin\/toggleAdminRules$/,
+  /^\/admin\/getUsers$/,
+  /^\/admin\/deleteUser$/,
+
+  /^\/admin\/getReviews$/,
+  /^\/admin\/updateReviewStatus\/[^/]+$/,
+  /^\/admin\/getOrgReviews$/,
+  /^\/admin\/updateOrgReviewStatus\/[^/]+$/,
+
+  /^\/admin\/getContacts$/,
+  /^\/admin\/updateContactStatus$/,
+
+  /^\/admin\/getOrders$/,
+  /^\/admin\/cancelOrder$/,
+  /^\/admin\/updateOrderStatus$/,
+  /^\/admin\/uploadOrderFile\/[^/]+$/,
+  /^\/admin\/deleteOrderFile\/[^/]+$/,
+  /^\/admin\/deleteUploadedFile$/,
+
+  /^\/admin\/uploadPromoBlock$/,
+  /^\/admin\/updatePromoBlock\/[^/]+$/,
+  /^\/admin\/deletePromoBlock\/[^/]+$/,
+  /^\/admin\/uploadMainMaterial$/,
+  /^\/admin\/updateMainMaterial\/[^/]+$/,
+  /^\/admin\/deleteMainMaterial\/[^/]+$/,
 ];
 
 function forbiddenRequestBlocker(req, res, next) {
-  if (safeAdminPaths.includes(req.path)) {
-    return next(); // Разрешаем эти пути
+  const isSafeAdminPath = safeAdminPatterns.some(pattern => pattern.test(req.path));
+
+  if (isSafeAdminPath) {
+    return next(); // Разрешаем безопасные админские пути
   }
 
   const isForbidden = forbiddenPatterns.some(pattern => pattern.test(req.url));
