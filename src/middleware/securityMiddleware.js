@@ -44,7 +44,17 @@ const forbiddenPatterns = [
 ];
 
 // Middleware для блокировки по шаблонам
+const safeAdminPaths = [
+  '/admin/addProduct',
+  '/admin/updateProduct',
+  '/admin/deleteProduct',
+];
+
 function forbiddenRequestBlocker(req, res, next) {
+  if (safeAdminPaths.includes(req.path)) {
+    return next(); // Разрешаем эти пути
+  }
+
   const isForbidden = forbiddenPatterns.some(pattern => pattern.test(req.url));
 
   if (isForbidden) {
