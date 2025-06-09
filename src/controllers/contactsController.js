@@ -10,6 +10,7 @@ const submitContacts = async (req, res, next) => {
     }
 
     if (process.env.NODE_ENV === "production") {
+      console.log("Получен токен капчи:", captcha);
       if (!captcha) {
         throw ApiError.BadRequest("Подтвердите, что вы не робот");
       }
@@ -29,7 +30,7 @@ const submitContacts = async (req, res, next) => {
         }
       );
       const captchaData = await captchaResponse.json();
-
+      console.log("Ответ от Google reCAPTCHA:", captchaData);
       if (!captchaData.success) {
         throw ApiError.BadRequest("Ошибка проверки reCAPTCHA");
       }
