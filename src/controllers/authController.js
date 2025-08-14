@@ -288,7 +288,7 @@ const resetForgottenPassword = async (req, res, next) => {
   try {
     const { password, email } = req.body;
 
-    if ( !email ) {
+    if (!email) {
       throw ApiError.BadRequest("Отсутствует email");
     }
     if (!password || password.length < 8) {

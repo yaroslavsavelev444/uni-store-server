@@ -67,7 +67,7 @@ app.get('/api/test', (req, res) => {
 app.use(errorHandler);
 
 const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3010;
 
 app.listen(port, host, () => {
     console.log(`Server is running on http://${host}:${port}`);
