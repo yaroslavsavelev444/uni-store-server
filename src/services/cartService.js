@@ -1,6 +1,6 @@
 const { default: mongoose } = require("mongoose");
 const ApiError = require("../exceptions/api-error");
-const { ProductModel, CartModel } = require("../models/indexModels");
+const { ProductModel, CartModel } = require("../models/index.models");
 
 const setCartItem = async (userId, productId, quantity) => {
   if (!userId || !productId || quantity < 0) {

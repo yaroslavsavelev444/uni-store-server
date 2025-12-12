@@ -1,0 +1,20 @@
+# Используем официальный Node.js образ (алпайн для легкости)
+FROM node:20-alpine
+
+# Устанавливаем рабочую директорию в контейнере
+WORKDIR /app
+
+# Копируем package.json и package-lock.json для установки зависимостей
+COPY package*.json ./
+
+# Устанавливаем только production-зависимости
+RUN npm install --only=production
+
+# Копируем весь код сервера
+COPY . .
+
+# Открываем порт, который используется сервером
+EXPOSE 3001
+
+# Запуск сервера
+CMD ["npm", "start"]

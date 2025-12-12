@@ -1,58 +1,26 @@
 const ApiError = require("../exceptions/api-error");
-const { ProductModel, OrderModel, ProductReviewModel } = require("../models/indexModels");
+const {
+  ProductModel,
+  OrderModel,
+  ProductReviewModel,
+} = require("../models/index.models");
 const path = require("path");
-const fs = require('fs/promises');
+const fs = require("fs/promises");
 
+// const deleteFolderRecursive = async (folderPath) => {
+//   try {
+//     await fs.rm(folderPath, { recursive: true, force: true });
+//     console.log(`Папка удалена: ${folderPath}`);
+//   } catch (err) {
+//     console.error(`Ошибка при удалении папки ${folderPath}:`, err.message);
+//   }
+// };
 
-
-const deleteFolderRecursive = async (folderPath) => {
-  try {
-    await fs.rm(folderPath, { recursive: true, force: true });
-    console.log(`Папка удалена: ${folderPath}`);
-  } catch (err) {
-    console.error(`Ошибка при удалении папки ${folderPath}:`, err.message);
-  }
-};
-
-
-const deleteProduct = async (productId) => {
-  try {
-    const product = await ProductModel.findById(productId);
-    if (!product) {
-      throw ApiError.NotFoundError("Продукт не найден");
-    }
-
-    // Удаление папки изображений
-    if (product.images?.length > 0) {
-      const imagePath = product.images[0]; // пример: 'uploads/products/uuid/filename.jpg'
-      const parts = imagePath.split(path.sep);
-      const folderUUID = parts[2]; // 'uuid' — третий элемент
-      const fullImageFolderPath = path.join(__dirname, '..', 'uploads', 'products', folderUUID);
-      await deleteFolderRecursive(fullImageFolderPath);
-    }
-
-    // Удаление папки инструкции
-    if (product.instructionPath) {
-      const instructionParts = product.instructionPath.split(path.sep);
-      const instructionUUID = instructionParts[2]; // 'uuid' — третий элемент
-      const fullInstructionFolderPath = path.join(__dirname, '..', 'uploads', 'files', instructionUUID);
-      await deleteFolderRecursive(fullInstructionFolderPath);
-    }
-
-    // Удаление продукта из базы
-    await ProductModel.findByIdAndDelete(productId);
-
-    return { message: "Продукт успешно удалён" };
-  } catch (e) {
-    throw ApiError.InternalServerError(e.message || "Ошибка удаления продукта");
-  }
-};
-
-//Проверка покупал ли юзер товар 
+//Проверка покупал ли юзер товар
 const checkIfUserBoughtProduct = async (userId, productId) => {
   const order = await OrderModel.findOne({
     user: userId,
-    status: 'ready',
+    status: "ready",
     products: {
       $elemMatch: {
         product: productId,
@@ -63,14 +31,6 @@ const checkIfUserBoughtProduct = async (userId, productId) => {
   return !!order;
 };
 
-const getProductsByIds = async (ids) => {
-  try {
-    const products = await ProductModel.find({ _id: { $in: ids } });
-    return products;
-  } catch (e) {
-    throw ApiError.InternalServerError(e.message || "Ошибка получения продуктов");
-  }
-};
 
 //Проверяем оставлял ли пользовтель отзыв
 const checkIfUserLeftReview = async (userId, productId) => {
@@ -84,20 +44,28 @@ const checkIfUserLeftReview = async (userId, productId) => {
   };
 };
 
-const getProducts = async (categoryId, selecteValue, showOnMainPage, isAdmin) => {
+const getProducts = async (
+  categoryId,
+  selecteValue,
+  showOnMainPage,
+  isAdmin
+) => {
   try {
     let filter = {};
-    {!isAdmin && ( filter = {
-      status: { $in: ['active', 'preorder'] } // ← фильтруем по нужным статусам
-    })}
-   
+    {
+      !isAdmin &&
+        (filter = {
+          status: { $in: ["active", "preorder"] }, // ← фильтруем по нужным статусам
+        });
+    }
+
     const sort = {};
 
     if (categoryId) {
       filter.categoryId = categoryId;
     }
 
-    if (showOnMainPage === 'true') {
+    if (showOnMainPage === "true") {
       filter.showOnMainPage = true;
     }
 
@@ -121,7 +89,6 @@ const getProducts = async (categoryId, selecteValue, showOnMainPage, isAdmin) =>
   }
 };
 
-
 const getProductDetails = async (id, userData) => {
   try {
     const product = await ProductModel.findById(id);
@@ -130,7 +97,10 @@ const getProductDetails = async (id, userData) => {
     }
 
     // Отзывы на товар
-    const reviews = await ProductReviewModel.find({ productId: id, status: "active" }).populate("user", "name");
+    const reviews = await ProductReviewModel.find({
+      productId: id,
+      status: "active",
+    }).populate("user", "name");
 
     // Статусы по умолчанию
     let hasPurchased = false;
@@ -146,14 +116,14 @@ const getProductDetails = async (id, userData) => {
       ...product.toObject(),
       hasPurchased,
       isUserLeftReview,
-      reviews
+      reviews,
     };
   } catch (e) {
-    throw ApiError.InternalServerError(e.message || "Ошибка получения продукта");
+    throw ApiError.InternalServerError(
+      e.message || "Ошибка получения продукта"
+    );
   }
 };
-
-
 
 // ADMIN
 
@@ -167,14 +137,17 @@ const createProduct = async (productData, files) => {
 
     const images = files?.images
       ? files.images.map((file) => {
-          const relativePath = "uploads" + file.path.split("uploads")[1].replace(/\\/g, "/");
+          const relativePath =
+            "uploads" + file.path.split("uploads")[1].replace(/\\/g, "/");
           return relativePath;
         })
       : [];
 
     const instructionFile = files?.instruction
       ? (() => {
-          const rel = "uploads" + files.instruction[0].path.split("uploads")[1].replace(/\\/g, "/");
+          const rel =
+            "uploads" +
+            files.instruction[0].path.split("uploads")[1].replace(/\\/g, "/");
           return rel;
         })()
       : null;
@@ -191,7 +164,13 @@ const createProduct = async (productData, files) => {
 };
 
 // 2. ОБНОВЛЕНИЕ ПРОДУКТА
-const editProduct = async (id, productData, files, deletedImages, removeInstruction) => {
+const editProduct = async (
+  id,
+  productData,
+  files,
+  deletedImages,
+  removeInstruction
+) => {
   try {
     const product = await ProductModel.findById(id);
     if (!product) {
@@ -210,11 +189,17 @@ const editProduct = async (id, productData, files, deletedImages, removeInstruct
           await fs.unlink(fullPath);
           console.log("Изображение удалено:", fullPath);
         } catch (err) {
-          console.warn("Не удалось удалить изображение:", fullPath, err.message);
+          console.warn(
+            "Не удалось удалить изображение:",
+            fullPath,
+            err.message
+          );
         }
       }
 
-      product.images = product.images.filter(img => !imagesToDelete.includes(img));
+      product.images = product.images.filter(
+        (img) => !imagesToDelete.includes(img)
+      );
     }
 
     // Обновление данных о продукте
@@ -224,12 +209,12 @@ const editProduct = async (id, productData, files, deletedImages, removeInstruct
       Object.assign(product, data);
     }
     if (product.totalQuantity > 0) {
-  product.status = 'active';
-}
+      product.status = "active";
+    }
 
     // Добавление новых изображений
     if (files?.images) {
-      const newImages = files.images.map(file => {
+      const newImages = files.images.map((file) => {
         const relativePath = file.path.split("uploads")[1];
         return `uploads${relativePath}`;
       });
@@ -238,14 +223,22 @@ const editProduct = async (id, productData, files, deletedImages, removeInstruct
 
     // Удаление инструкции
     if (removeInstruction === "true" && product.instructionPath) {
-      const instructionPath = path.join(__dirname, "..", product.instructionPath);
+      const instructionPath = path.join(
+        __dirname,
+        "..",
+        product.instructionPath
+      );
 
       try {
         await fs.access(instructionPath);
         await fs.unlink(instructionPath);
         console.log("Инструкция удалена:", instructionPath);
       } catch (err) {
-        console.warn("Не удалось удалить инструкцию:", instructionPath, err.message);
+        console.warn(
+          "Не удалось удалить инструкцию:",
+          instructionPath,
+          err.message
+        );
       }
 
       product.instructionPath = null;
@@ -261,7 +254,9 @@ const editProduct = async (id, productData, files, deletedImages, removeInstruct
     await product.save();
     return product;
   } catch (error) {
-    throw ApiError.InternalServerError(error.message || "Ошибка обновления продукта");
+    throw ApiError.InternalServerError(
+      error.message || "Ошибка обновления продукта"
+    );
   }
 };
 
@@ -278,7 +273,6 @@ const archieveProduct = async (productId) => {
     );
   }
 };
-
 
 const uploadProductFile = async (file) => {
   try {
@@ -306,12 +300,9 @@ module.exports = {
   getProducts,
   createProduct,
   archieveProduct,
-  deleteProduct,
   uploadProductFile,
   editProduct,
   getProductDetails,
   checkIfUserBoughtProduct,
   checkIfUserLeftReview,
-  getProductsByIds,
-  deleteFolderRecursive
 };

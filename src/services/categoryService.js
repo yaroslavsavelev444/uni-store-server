@@ -1,8 +1,8 @@
 const ApiError = require("../exceptions/api-error");
-const { CategoryModel, ProductModel } = require("../models/indexModels");
+const { CategoryModel, ProductModel } = require("../models/index.models");
 const path = require("path");
 const fs = require("fs");
-const { deleteProduct, deleteFolderRecursive } = require("./productService");
+const { deleteFolderRecursive } = require("./productService");
 
 const findById = async (id) => {
     return CategoryModel.findById(id);
@@ -77,8 +77,8 @@ const createCategory = async (categoryData) => {
     if (!category) throw ApiError.NotFoundError("Категория не найдена");
 
     // Удаляем связанные товары
-    const products = await ProductModel.find({ categoryId });
-    await Promise.all(products.map(product => deleteProduct(product._id)));
+    // const products = await ProductModel.find({ categoryId });
+    // await Promise.all(products.map(product => deleteProduct(product._id)));
 
     // Удаляем папку с изображением
     if (category.image) {
@@ -100,19 +100,6 @@ const createCategory = async (categoryData) => {
   }
 };
 
-const clearCategory = async (categoryId) => {
-    try {
-        //Ищем все товары привязанные к категории 
-        const products = await ProductModel.find({categoryId: categoryId});
-        products.forEach(async (product) => {
-            await deleteProduct(product._id);
-        });
-
-        return;
-    } catch (error) {
-        throw ApiError.InternalServerError(error.message || "Произошла ошибка");
-    };
-};
 
 const changeCategory = async (categoryData) => {
     try {
@@ -125,7 +112,6 @@ const changeCategory = async (categoryData) => {
 module.exports = {
     createCategory,
     deleteCategory,
-    clearCategory,
     changeCategory,
     getCategories,
     createCategory,

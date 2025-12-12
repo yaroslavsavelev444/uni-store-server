@@ -63,7 +63,7 @@ const OrderShema = new Schema(
         status: {
           type: String,
           enum: [
-            "created", 
+            "created",
             "pending",
             "confirmed",
             "rejected",
@@ -90,7 +90,7 @@ const OrderShema = new Schema(
     cancelData: {
       reason: { type: String },
       date: { type: Date },
-      cancelledBy: { type: Schema.Types.ObjectId, ref: "User" }, 
+      cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
     },
   },
   {

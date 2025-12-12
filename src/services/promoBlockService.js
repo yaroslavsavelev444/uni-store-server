@@ -1,5 +1,5 @@
 const ApiError = require("../exceptions/api-error");
-const { PromoBlockModel, MainMaterialModel } = require("../models/indexModels");
+const { PromoBlockModel, MainMaterialModel } = require("../models/index.models");
 const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");

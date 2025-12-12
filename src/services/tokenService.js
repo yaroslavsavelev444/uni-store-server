@@ -1,65 +1,225 @@
 const jwt = require("jsonwebtoken");
-const { TokenModel } = require("../models/indexModels");
-
-const generateToken = (payload) => {
-  if (!process.env.ACCESS_TOKEN || !process.env.REFRESH_TOKEN) {
-    throw new Error("JWT секретные ключи не заданы");
+const crypto = require("crypto");
+const ApiError = require("../exceptions/api-error");
+const { UserModel, UserSessionModel, UserSecurityModel } = require("../models/index.models");
+const logger = require("../logger/logger");
+const bcrypt = require("bcryptjs");
+const SessionService = require("./SessionService");
+// Проверка всех необходимых ключей при загрузке
+const checkEnvVars = () => {
+  const required = ["ACCESS_TOKEN", "REFRESH_TOKEN", "JWT_ACTIVATION_SECRET", "JWT_RESET_SECRET_KEY"];
+  for (const key of required) {
+    if (!process.env[key]) {
+      throw new Error(`⛔ Отсутствует переменная окружения: ${key}`);
+    }
   }
+};
+checkEnvVars();
+
+// Генерация пары токенов
+function generateToken(payload, options = {}) {
   const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN, {
-    expiresIn: "1h",
+    expiresIn: "15m",
   });
+
+  if (options.onlyAccess) return { accessToken };
+
   const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN, {
     expiresIn: "30d",
   });
-  return { accessToken, refreshToken };
-};
 
+  return { accessToken, refreshToken };
+}
+
+// Сохраняем refresh токен (обновляем или создаём)
 const saveToken = async (userId, refreshToken) => {
-  const tokenData = await TokenModel.findOne({ user: userId });
+  const tokenData = await UserSessionModel.findOne({ userId });
   if (tokenData) {
     tokenData.refreshToken = refreshToken;
-    return tokenData.save();
+    await tokenData.save();
+    return tokenData;
   }
-  const token = await TokenModel.create({ user: userId, refreshToken });
-  return token;
+
+const newSession = new UserSessionModel({ userId, refreshToken });
+return await newSession.save();
 };
 
+// Удаление refresh токена
 const removeToken = async (refreshToken) => {
-    const tokenData = await TokenModel.findOneAndDelete({ refreshToken });
-    if (!tokenData) {
-      throw ApiError.BadRequest("Токен не найден");
-    }
+  const tokenData = await UserSessionModel.findOneAndDelete({ refreshToken }).exec();
+  if (!tokenData) {
+    throw ApiError.BadRequest("Токен не найден");
+  }
   return tokenData;
 };
 
-const validateAccessToken = async (token) => {
-  console.log("Validate access token:", token);
+// Проверка access токена
+const validateAccessToken = (token) => {
+   logger.info(token);
+  if(!token) {
+    return logger.error("Refresh token not found");
+  };
   try {
-    const userData = jwt.verify(token, process.env.ACCESS_TOKEN);
-    console.log("Access token is valid:", userData);
-    return userData;
+    return jwt.verify(token, process.env.ACCESS_TOKEN);
   } catch (e) {
-    console.log("Access token is not valid:", e);
     return null;
   }
 };
 
+// Проверка refresh токена
 const validateRefreshToken = (token) => {
-  console.log("Validate refresh token:", token);
+  logger.info(token);
+  if(!token) {
+    return logger.error("Refresh token not found");
+  };
   try {
-    const userData =  jwt.verify(token, process.env.REFRESH_TOKEN);
-    console.log("Refresh token is valid:", userData);
-    return userData;
+    return jwt.verify(token, process.env.REFRESH_TOKEN);
   } catch (e) {
-    console.log("Refresh token is not valid:", e);
     return null;
   }
 };
 
-const findToken = async (refreshToken) => {
-  const tokenData = await TokenModel.findOne({ refreshToken });
-  return tokenData;
+// Проверка активационного токена
+const validateActivationToken = (token) => {
+  try {
+    return jwt.verify(token, process.env.JWT_ACTIVATION_SECRET);
+  } catch (e) {
+    if (e.name === "TokenExpiredError") return { expired: true };
+    return null;
+  }
 };
+
+// Поиск refresh токена в базе
+const findToken = async (refreshToken) => {
+  return await UserSessionModel.findOne({ refreshToken }).exec();
+};
+
+// Генерация и сохранение токена для сброса пароля
+const generatePasswordResetToken = async (userId, type) => {
+  const rawToken = crypto.randomBytes(32).toString("hex");
+
+  // JWT для клиента
+  const signedToken = jwt.sign(
+    { userId: userId.toString(), rawToken }, 
+    process.env.JWT_RESET_SECRET_KEY,
+    { expiresIn: "15m" } 
+  );
+
+  // В БД храним хэш от rawToken
+  const hashedToken = await bcrypt.hash(rawToken, 10);
+
+  const userSecurity = await UserSecurityModel.findOne({ userId });
+  userSecurity.resetTokenHash = hashedToken;
+  userSecurity.resetTokenExpiration = Date.now() + 15 * 60 * 1000; // 15 минут
+  userSecurity.resetTokenStatus = type;
+  await userSecurity.save();
+
+  return signedToken; // клиенту уходит только JWT
+};
+const verifyPasswordResetToken = async (token) => {
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_RESET_SECRET_KEY);
+  } catch (err) {
+    throw ApiError.BadRequest("Неверный или истёкший токен");
+  }
+
+  const userId = decoded.userId;
+  const userSecurity = await UserSecurityModel.findOne({ userId });
+  
+  if (!userSecurity || !userSecurity.resetTokenHash) {
+    throw ApiError.BadRequest("Токен не найден или уже использован");
+  }
+
+  const isMatch = await bcrypt.compare(decoded.rawToken, userSecurity.resetTokenHash);
+  if (!isMatch) {
+    // Увеличиваем счетчик неудачных попыток
+    await UserSecurityModel.updateOne(
+      { userId },
+      { $inc: { resetTokenAttempts: 1 } }
+    );
+    throw ApiError.BadRequest("Неверный токен");
+  }
+
+  if (userSecurity.resetTokenExpiration < Date.now()) {
+    throw ApiError.BadRequest("Срок действия токена истёк");
+  }
+
+  // Проверяем лимит попыток
+  if (userSecurity.resetTokenAttempts >= 5) {
+    throw ApiError.TooManyRequests("Превышено количество попыток. Запросите новый токен.");
+  }
+
+  return { userId, decoded };
+};
+
+
+function getRefreshTokenFromRequest(req) {
+  // 1. Пробуем получить из cookie (для веб-клиентов)
+  let refreshToken = req.cookies?.refreshToken;
+  
+  // 2. Пробуем получить из заголовков (для мобильных клиентов)
+  if (!refreshToken && req.headers['refresh-token']) {
+    refreshToken = req.headers['refresh-token'];
+  }
+  
+  // 3. Пробуем получить из body (для API запросов)
+  if (!refreshToken && req.body?.refreshToken) {
+    refreshToken = req.body.refreshToken;
+  }
+
+  return refreshToken;
+}
+
+/**
+ * Проверяет refresh token на отзыв
+ */
+async function validateRefreshTokenFromRequest(req, userData) {
+  try {
+    const refreshToken = getRefreshTokenFromRequest(req);
+    
+    if (!refreshToken) {
+      logger.warn("Refresh token not provided for protected route", {
+        userId: userData.id,
+        ip: req.ip,
+        path: req.path
+      });
+      throw ApiError.UnauthorizedError("Требуется повторная авторизация");
+    }
+
+    // Проверяем, не отозван ли refresh token
+    const isRevoked = await SessionService.isSessionRevoked(refreshToken);
+    if (isRevoked) {
+      logger.warn("Access attempt with revoked refresh token", {
+        userId: userData.id,
+        ip: req.ip,
+        path: req.path,
+        refreshToken: refreshToken.substring(0, 10) + '...'
+      });
+      throw ApiError.UnauthorizedError("Сессия была отозвана. Пожалуйста, войдите снова.");
+    }
+
+    logger.debug("Refresh token validation successful", {
+      userId: userData.id,
+      path: req.path
+    });
+  } catch (error) {
+    // Если ошибка не связана с отзывом токена, пробрасываем дальше
+    if (error instanceof ApiError.UnauthorizedError) {
+      throw error;
+    }
+    
+    // Для других ошибок (например, проблемы с Redis) логируем, но не блокируем доступ
+    logger.error("Error during refresh token validation", {
+      userId: userData.id,
+      error: error.message,
+      path: req.path
+    });
+
+  }
+}
+
+
 
 module.exports = {
   generateToken,
@@ -68,4 +228,8 @@ module.exports = {
   validateAccessToken,
   validateRefreshToken,
   findToken,
+  validateActivationToken,
+  generatePasswordResetToken,
+  verifyPasswordResetToken,
+  validateRefreshTokenFromRequest
 };

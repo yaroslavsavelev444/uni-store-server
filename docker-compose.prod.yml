@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: polet-app-prod
+    ports:
+      - "3003:3003"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo1:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - backend
+    command: ["npm", "run", "start"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: polet-worker-prod
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo1:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+    networks:
+      - backend
+    command: ["node", "src/queues/worker/processors.js"]
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "processors.js"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: polet-redis-prod
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mongo1:
+    image: mongo:6.0
+    container_name: mongo1-prod
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo1_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - backend
+
+  mongo2:
+    image: mongo:6.0
+    container_name: mongo2-prod
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo2_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - backend
+
+  mongo3:
+    image: mongo:6.0
+    container_name: mongo3-prod
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongo3_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - backend
+
+  rs-init:
+    image: node:20-alpine
+    container_name: rs-init-prod
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    volumes:
+      - ./init-replica.js:/app/init.js
+    working_dir: /app
+    command: sh -c "npm install mongodb && node init.js"
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  redis_data:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:

@@ -2,7 +2,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const ApiError = require("../exceptions/api-error");
-const { OrgModel } = require("../models/indexModels");
+const { OrgModel } = require("../models/index.models");
 
 const findById = async (id) => {
   return OrgModel.findById(id);
@@ -17,7 +17,7 @@ const getOrg = async () => {
     throw ApiError.InternalServerError();
   }
 };
-const uploadOrgData = async (orgData) => {
+const createOrganization = async (orgData) => {
   try {
     const org = new OrgModel(orgData);
     return await org.save();
@@ -30,7 +30,7 @@ const editOrgData = async (orgData) => {
   return OrgModel.findByIdAndUpdate(orgData._id, orgData, { new: true });
 };
 
-const updateOrgWithImage = async (id, orgData, file, uploadPath, filename, oldImagePath) => {
+const updateOrganization = async (id, orgData, file, uploadPath, filename, oldImagePath) => {
   if (file && oldImagePath) {
     const fullOldPath = path.join(__dirname, "..", oldImagePath);
     fs.unlink(fullOldPath, (err) => {
@@ -44,11 +44,11 @@ const updateOrgWithImage = async (id, orgData, file, uploadPath, filename, oldIm
   return await OrgModel.findByIdAndUpdate(id, orgData, { new: true });
 };
 
-const deleteOrgData = async (id) => {
+const deleteOrganization = async (id) => {
   return OrgModel.findByIdAndDelete(id);
 };
 
-const uploadOrgFiles = async (filesData, orgId) => {
+const uploadOrganizationFile = async (filesData, orgId) => {
   
   const org = await OrgModel.findById(orgId);
 
@@ -61,7 +61,7 @@ const uploadOrgFiles = async (filesData, orgId) => {
   return org;
 };
 
-const deleteOrgFile = async (orgId, filePath) => {
+const deleteOrganizationFile = async (orgId, filePath) => {
   const org = await OrgModel.findById(orgId);
   if (!org) {
     throw ApiError.NotFoundError("Организация не найдена");
@@ -85,7 +85,7 @@ const deleteOrgFile = async (orgId, filePath) => {
   return org;
 };
 
-const addOrgSocialLinks = async (orgId, url, icons) => {
+const addSocialLink = async (orgId, url, icons) => {
   const urls = Array.isArray(url) ? url : [url];
 
   if (!icons || icons.length !== urls.length) {
@@ -108,7 +108,7 @@ const addOrgSocialLinks = async (orgId, url, icons) => {
   return company;
 };
 
-const deleteOrgSocialLink = async (linkId) => {
+const deleteSocialLink = async (linkId) => {
   // Шаг 1: Находим компанию, содержащую ссылку
   const company = await OrgModel.findOne({ "socialLinks._id": linkId });
 
@@ -148,14 +148,14 @@ const deleteOrgSocialLink = async (linkId) => {
 
 
 module.exports = {
-  uploadOrgData,
-  addOrgSocialLinks,
+  createOrganization,
+  addSocialLink,
   editOrgData,
-  deleteOrgFile,
+  deleteOrganizationFile,
   getOrg,
-  updateOrgWithImage,
+  updateOrganization,
   findById,
-  deleteOrgData,
-  uploadOrgFiles,
-  deleteOrgSocialLink
+  deleteOrganization,
+  uploadOrganizationFile,
+  deleteSocialLink
 };

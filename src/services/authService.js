@@ -1,446 +1,796 @@
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
-const tokenService = require("./tokenService");
-const UserDto = require("../dtoses/user.dto");
 const ApiError = require("../exceptions/api-error");
-const crypto = require("crypto");
-const { sendEmailNotification } = require("../queues/taskQueues");
+const {
+  generate2FACode,
+  hashCode,
+  isCodeMatch,
+} = require("../utils/generators");
+const logger = require("../logger/logger");
 const {
   UserModel,
-  CartModel,
-} = require("../models/indexModels");
-const { fullAddress } = require("../utils/serverInfo");
-const { log } = require("console");
+  UserSecurityModel,
+  UserSessionModel,
+} = require("../models/index.models");
+const { registerSchema } = require("../validators/user.validator");
+const bcrypt = require("bcryptjs");
+const {
+  create2FACodeAndNotify,
+  verify2FACode,
+  verify2FACodeOnly,
+} = require("./2faService");
+const mongoose = require("mongoose");
+const UserDTO = require("../dtos/user.dto");
+const {
+  validateRefreshToken,
+  generateToken,
+  validateAccessToken,
+  generatePasswordResetToken,
+  verifyPasswordResetToken,
+} = require("./tokenService");
+const moveFileToFinal = require("../utils/moveFileToFinal");
+const {
+  sendEmailNotification,
+  sendPushNotification,
+} = require("../queues/taskQueues");
+const { login_from_new_device } = require("../templates/templates");
+const redisClient = require("../redis/redis.client");
+const SessionService = require("./SessionService");
 
-const isEmailExistsService = async (email) => {
-  const user = await UserModel.findOne({ email });
-  return { exists: !!user };
-};
+const login = async (userData) => {
+  try {
+    const { password } = userData;
+    const email = userData.email.toLowerCase().trim();
+    const user = await UserModel.findOne({ email }).select("+password").exec();
+    if (!user) {
+      throw ApiError.BadRequest("Пользователь не найден");
+    }
 
-const registerUserService = async (
-  email,
-  phone,
-  password,
-  name,
-  surname,
-  role
-) => {
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw ApiError.BadRequest("Неверный пароль");
+    }
 
-  const candidate = await UserModel.findOne({
-    $or: [{ email }, { phone }],
-  });
-
-  if (candidate) {
-    if (candidate.email === email) {
-      throw ApiError.BadRequest("Пользователь с таким email уже существует");
+    await create2FACodeAndNotify(user._id);
+    await redisClient.del(`login:email:${email}`);
+    await redisClient.del(`login:email:${user._id}`);
+    return {
+      twoFAInitiated: true,
+      userData: { userId: user._id, email: user.email },
+    };
+  } catch (error) {
+    logger.error(`[LOGIN] ${error.message}`);
+    if (error instanceof ApiError) {
+      throw error;
     } else {
-      throw ApiError.BadRequest(
-        "Пользователь с таким телефоном уже существует"
-      );
+      throw ApiError.BadRequest(error.message);
     }
   }
-
-  const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
-  const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-  // Генерируем JWT-токен для активации (срок жизни 24 часа)
-  const emailToken = jwt.sign({ email }, process.env.JWT_ACTIVATION_SECRET, {
-    expiresIn: "24h",
-  });
-
-  const user = await UserModel.create({
-    email,
-    phone,
-    password: hashedPassword,
-    name,
-    surname,
-    role: "user" ,
-    activations: {
-      emailToken: emailToken,
-      emailTokenExpiration: Date.now() + 24 * 60 * 60 * 1000,
-    },
-  });
-
-  try {
-    sendEmailNotification(email, "confirmEmail", {
-      username: user.name, 
-      confirmationLink: `${fullAddress}/auth/verifyEmail?token=${emailToken}`,
-    });
-  } catch (error) {
-    throw ApiError.InternalServerError(
-      "Не удалось отправить письмо активации"
-    );
-  }
-  return { status: "success", message: "sent" };
 };
 
-const checkVerifiedEmailService = async (email) => {
-  const user = await UserModel.findOne({ email });
-  if (user.activations.emailVerified === false) {
+const logout = async (refreshToken, userData) => {
+  try {
+    const user = await UserModel.findById(userData.id);
+    if (!user) {
+      throw ApiError.BadRequest("Пользователь не найден");
+    }
+
+    const session = await UserSessionModel.findOne({
+      userId: user._id,
+      refreshToken,
+    });
+
+    if (!session) {
+      throw ApiError.BadRequest("Сессия пользователя не найдена");
+    }
+
+    session.revoked = true;
+    await session.save();
+
+    return { logout: true };
+  } catch (error) {
+    logger.error(`[LOGOUT] ${error.message}`);
+    if (error instanceof ApiError) throw error;
+    throw ApiError.InternalServerError(error.message);
+  }
+};
+
+const register = async (userData) => {
+  try {
+    const { error, value } = registerSchema.validate(userData, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    if (error) {
+      const details = error.details.map((d) => d.message).join("; ");
+      throw ApiError.BadRequest("Ошибка валидации: " + details);
+    }
+
+    const { name, email, phone, password } =
+      value;
+
+    const existingUser = await UserModel.findOne({
+      $or: [{ email }, { phone }],
+    });
+
+    if (existingUser) {
+      if (existingUser.email === email) {
+        throw ApiError.BadRequest("Пользователь с таким email уже существует");
+      } else {
+        throw ApiError.BadRequest(
+          "Пользователь с таким телефоном уже существует"
+        );
+      }
+    }
+
+    let user;
+
+      const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      user = new UserModel({
+        name,
+        email,
+        phone,
+        role: "user",
+        password: hashedPassword,
+      });
+
+      const userSecurity = new UserSecurityModel({ userId: user._id });
+
+      await Promise.all([user.save(), userSecurity.save()]);
+
+    return {
+      phoneSend: true,
+      userId: user._id,
+      phone: user.phone,
+      generatePhoneCode: true,
+      role: user.role, // чтобы клиент сразу знал, что юрист
+    };
+  } catch (error) {
+    logger.error(`[REGISTER] ${error.message}`);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw ApiError.InternalServerError(
+      "Произошла ошибка при регистрации",
+      error
+    );
+  }
+};
+
+const generatePhoneCode = async (userId) => {
+  try {
+    const user = await UserModel.findById(userId);
+
     if (!user) {
       throw ApiError.BadRequest("Пользователь не найден");
     }
-    return { isVerified: user.activations.emailVerified };
-  } else {
-    const userDto = new UserDto(user);
-    const tokens = tokenService.generateToken({ ...userDto });
-    await tokenService.saveToken(userDto.id, tokens.refreshToken);
+
+    if (!user.phone) {
+      throw ApiError.BadRequest("Номер телефона не указан");
+    }
+
+    // Проверяем, не подтвержден ли уже телефон
+    if (user.phoneVerified) {
+      throw ApiError.BadRequest("Телефон уже подтвержден");
+    }
+
+    const code = generate2FACode();
+    const hashedCode = hashCode(code);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    // Используем upsert для создания документа, если он не существует
+    await UserSecurityModel.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          phoneCodeHash: hashedCode,
+          phoneCodeExpiresAt: expiresAt,
+          phoneCodeAttempts: 0,
+        },
+      },
+      { upsert: true, new: true } // Создаем документ, если не существует
+    );
+
+    logger.info(`Generated phone code for user ${userId}: ${code}`);
+
+    // Сохраняем код в Redis для отладки
+    await redisClient.setex(
+      `phone:code:${userId}`,
+      300, // 5 минут
+      JSON.stringify({ code, phone: user.phone })
+    );
+
+    //TODO отправляем в смс сервис
     return {
-      ...tokens,
-      user: userDto,
-      isVerified: user.activations.emailVerified,
-      userRole: user.role,
+      success: true,
+      message: "Код отправлен",
+      userId: user._id,
+      phone: user.phone,
     };
-  }
-};
-
-const verifyEmail = async (token) => {
-  const decodedToken = decodeURIComponent(token);
-  const decoded = jwt.verify(decodedToken, process.env.JWT_ACTIVATION_SECRET);
-  const user = await UserModel.findOne({ email: decoded.email }).select(
-    "+activations.emailToken"
-  );
-
-  if (!user) {
-    console.log("User not found");
-    throw ApiError.BadRequest("Пользователь не найден");
-  }
-
-  const expiration = new Date(user.activations.emailTokenExpiration).getTime();
-  if (!expiration || expiration < Date.now()) {
-    console.log("Token is expired");
-    throw ApiError.BadRequest("Неверный или истекший токен активации");
-  }
-
-  if (user.activations.emailToken !== token) {
-    throw ApiError.BadRequest("Неверный токен активации");
-  }
-  // Активация пользователя
-  user.activations.emailVerified = true;
-  user.activations.emailToken = null; // Очищаем токен после активации
-  user.activations.emailTokenExpiration = null;
-
-  await user.save();
-  return { message: user.activations.emailVerified, message: "activated" };
-};
-
-const loginUserService = async (email, password) => {
-
-  const user = await UserModel.findOne({ email });
-  if (!user) {
-    throw ApiError.BadRequest("Пользователь с таким email не найден");
-  }
-  if (!user.password) {
-    throw ApiError.BadRequest(
-      "Ошибка данных: отсутствует пароль у пользователя"
+  } catch (error) {
+    logger.error(`[GENERATE_PHONE_CODE] ${error.message}`);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw ApiError.InternalServerError(
+      "Произошла ошибка при генерации кода",
+      error
     );
   }
+};
 
-  const isPassEquals = await bcrypt.compare(password, user.password);
-  if (!isPassEquals) {
-    throw ApiError.BadRequest("Неверный пароль");
+//VERIFIERS
+const verify2FAAndNotify = async (
+  userId,
+  inputCode,
+  deviceType,
+  ip,
+  device
+) => {
+  try {
+    const result = await verify2FACode(
+      userId,
+      inputCode,
+      deviceType,
+      ip,
+      device
+    );
+
+    if (result.sendNotification) {
+      await redisClient.del(`verify:fa:email:${result.email}`);
+      const loginDate = new Date();
+
+      sendEmailNotification(result.email, "newLogin", {
+        ip,
+        deviceType,
+        deviceModel: device.deviceModel,
+        os: device.os,
+        osVersion: device.osVersion,
+        date: loginDate,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    console.log(error);
+    logger.error("Неизвестная ошибка в verify2FAAndNotify", {
+      originalError: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+    });
+
+    throw ApiError.InternalServerError("Не удалось проверить код 2FA");
+  }
+};
+
+const verifyPhoneCode = async (userId, inputCode) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw ApiError.BadRequest("Некорректный ID пользователя");
   }
 
-  // ЕСЛИ ПОЛЬЗОВАТЕЛЬ НЕ АКТИВИРОВАН
-  if (user.activations.emailVerified === false) {
-    const emailToken = jwt.sign({ email }, process.env.JWT_ACTIVATION_SECRET, {
-      expiresIn: "24h",
+  try {
+    const [user, userSecurity] = await Promise.all([
+      UserModel.findById(userId),
+      UserSecurityModel.findOne({ userId }),
+    ]);
+
+    if (!user || !userSecurity) {
+      logger.info("User or UserSecurity not found");
+      throw ApiError.BadRequest("Данные юзера не найдены");
+    }
+
+    if (!userSecurity.phoneCodeHash || !userSecurity.phoneCodeExpiresAt) {
+      logger.info("Phone code not requested");
+      throw ApiError.BadRequest("Код не запрашивался");
+    }
+
+    if (user.phoneVerified) {
+      logger.info("Phone already verified");
+      return {
+        success: true,
+        trigger2FACode: false,
+        userData: { userId: user._id, email: user.email },
+      };
+    }
+
+    const now = new Date();
+
+    if (userSecurity.phoneCodeExpiresAt < now) {
+      await UserSecurityModel.updateOne(
+        { userId },
+        {
+          $unset: {
+            phoneCodeHash: "",
+            phoneCodeExpiresAt: "",
+          },
+        }
+      );
+      logger.info("Phone code expired");
+      throw ApiError.BadRequest("Код истёк");
+    }
+
+    if (userSecurity.phoneCodeAttempts >= 10) {
+      logger.info("Too many attempts");
+      throw ApiError.TooManyRequests("Слишком много попыток");
+    }
+
+    const isValid = isCodeMatch(inputCode, userSecurity.phoneCodeHash);
+
+    if (!isValid) {
+      await UserSecurityModel.updateOne(
+        { userId },
+        {
+          $inc: {
+            phoneCodeAttempts: 1,
+          },
+        }
+      );
+      logger.info("Invalid code");
+      throw ApiError.BadRequest("Неверный код");
+    }
+
+    // Код валиден — обнуляем попытки и подтверждаем телефон
+    await Promise.all([
+      UserSecurityModel.updateOne(
+        { userId },
+        {
+          $set: {
+            phoneCodeAttempts: 0,
+          },
+          $unset: {
+            phoneCodeHash: "",
+            phoneCodeExpiresAt: "",
+          },
+        }
+      ),
+      UserModel.updateOne(
+        { _id: userId },
+        {
+          $set: {
+            phoneVerified: true,
+          },
+        }
+      ),
+    ]);
+
+    await redisClient.del(`verify:fa:phone:${user.email}`);
+
+    return {
+      success: true,
+      trigger2FACode: true,
+      userData: { userId: user._id, email: user.email },
+    };
+  } catch (e) {
+    logger.error("Ошибка верификации phone code:", e);
+    if (e instanceof ApiError) throw e;
+    throw ApiError.InternalServerError("Не удалось верифицировать код");
+  }
+};
+
+const refreshService = async (refreshToken, deviceType, ip) => {
+  if (!refreshToken) {
+    throw ApiError.UnauthorizedError("Refresh token не предоставлен");
+  }
+
+  try {
+    // 1. Сначала проверяем отзыв токена в Redis
+    const isRevoked = await SessionService.isSessionRevoked(refreshToken);
+    if (isRevoked) {
+      logger.warn("Refresh attempt with revoked token", { ip });
+      throw ApiError.UnauthorizedError("Сессия была отозвана. Пожалуйста, войдите снова.");
+    }
+
+    // 2. Ищем сессию в базе данных
+    const existingSession = await UserSessionModel.findOne({ 
+      refreshToken: refreshToken 
     });
-    user.activations.emailToken = emailToken;
-    user.activations.emailTokenExpiration = Date.now() + 86400000;
-    await user.save();
-    try {
-      sendEmailNotification(email, "confirmEmail", {
-        username: user.name, 
-        confirmationLink: `${fullAddress}/auth/verifyEmail?token=${emailToken}`,
+
+    if (!existingSession) {
+      logger.warn("Refresh attempt with non-existent session", { ip });
+      throw ApiError.UnauthorizedError("Сессия не найдена");
+    }
+
+    if (existingSession.revoked) {
+      logger.warn("Refresh attempt with revoked session", {
+        userId: existingSession.userId,
+        ip
       });
-    } catch (error) {
-      throw ApiError.InternalServerError(
-        "Не удалось отправить письмо активации"
+      throw ApiError.UnauthorizedError("Сессия была отозвана");
+    }
+
+    // 3. Валидируем refresh token
+    const userData = validateRefreshToken(refreshToken); // ДОБАВИЛ AWAIT!
+    if (!userData) {
+      logger.warn("Invalid refresh token provided", { 
+        userId: existingSession.userId,
+        ip 
+      });
+      throw ApiError.UnauthorizedError("Недействительный токен");
+    }
+
+    // 4. Проверяем существование пользователя
+    const user = await UserModel.findById(userData.id);
+    if (!user) {
+      logger.warn("User not found during refresh", { 
+        userId: userData.id,
+        ip 
+      });
+      throw ApiError.UnauthorizedError("Пользователь не найден");
+    }
+
+
+    // 6. Генерация новых токенов
+    const userObj = { ...user.toObject() };
+    const userDto = new UserDTO(userObj);
+    const tokens = generateToken({ ...userDto });
+
+    // 7. Обновляем сессию в базе данных АТОМАРНО
+    const updatedSession = await UserSessionModel.findOneAndUpdate(
+      { 
+        _id: existingSession._id,
+        refreshToken: refreshToken // Защита от race condition
+      },
+      { 
+        $set: { 
+          refreshToken: tokens.refreshToken,
+          lastUsedAt: new Date(),
+          ip: ip
+        } 
+      },
+      { 
+        new: true, 
+        runValidators: true 
+      }
+    );
+
+    if (!updatedSession) {
+      logger.error("Session update failed - possible race condition", {
+        sessionId: existingSession._id,
+        userId: user.id
+      });
+      throw ApiError.InternalServerError("Ошибка обновления сессии");
+    }
+
+    // 8. Добавляем старый токен в blacklist на короткое время
+    // для предотвращения повторного использования
+    await SessionService.addToTempBlacklist(refreshToken, 60); // 60 секунд
+
+    logger.info("Tokens refreshed successfully", {
+      userId: user.id,
+      sessionId: existingSession._id,
+      ip
+    });
+
+    return { 
+      ...tokens, 
+      user: userDto 
+    };
+
+  } catch (error) {
+    logger.error("Error in refreshService:", {
+      error: error.message,
+      stack: error.stack,
+      ip
+    });
+    
+    // Если это наша кастомная ошибка - пробрасываем как есть
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    // Для неизвестных ошибок - общая ошибка сервера
+    throw ApiError.InternalServerError("Не удалось обновить токены");
+  }
+};
+
+const getSessions = async (userId) => {
+  try {
+    const sessions = await UserSessionModel.find({ userId, revoked: false });
+    return sessions;
+  } catch (error) {
+    logger.error("Ошибка в getSessions:", error);
+    if (error instanceof ApiError) throw error;
+    throw ApiError.InternalServerError("Не удалось получить сессии");
+  }
+};
+
+const updateUser = async (userId, userData, files) => {
+  try {
+    const user = await UserModel.findById(userId);
+    if (!user) throw ApiError.BadRequest("Пользователь не найден");
+
+    const allowedFields = ["name", "avatarUrl"];
+    const updatePayload = {};
+
+    // Безопасная проверка свойств
+    if (userData && typeof userData === "object") {
+      for (const key of allowedFields) {
+        if (Object.prototype.hasOwnProperty.call(userData, key)) {
+          updatePayload[key] = userData[key];
+        }
+      }
+    }
+
+    // Обработка файла ДО обновления
+    if (files?.avatar?.[0]) {
+      const uploadedFile = files.avatar[0];
+      const tempFilePath = uploadedFile.path;
+      const finalFilePath = path.join(
+        __dirname,
+        "..",
+        "uploads",
+        "users",
+        uploadedFile.filename
+      );
+
+      await moveFileToFinal(tempFilePath, finalFilePath);
+
+      // Добавляем в payload для обновления
+      updatePayload.avatarUrl = path.join(
+        "uploads",
+        "users",
+        uploadedFile.filename
       );
     }
-    return { verified: false };
-  }
 
-  const userDto = new UserDto(user); // id, email, isActivated
-  const tokens = tokenService.generateToken({ ...userDto });
-  await tokenService.saveToken(userDto.id, tokens.refreshToken);
-  return { ...tokens, user: userDto, verified: true };
-};
+    // Проверка после добавления аватара
+    if (Object.keys(updatePayload).length === 0) {
+      throw ApiError.BadRequest("Нет допустимых данных для обновления");
+    }
 
-const logoutUserService = async (refreshToken, accessToken) => {
-  if (!refreshToken || !accessToken) {
-    throw ApiError.UnauthorizedError();
-  }
-  const userData = await tokenService.validateAccessToken(accessToken);
-  if (!userData) {
-    throw ApiError.UnauthorizedError();
-  }
+    // Единое обновление со всеми данными
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: updatePayload },
+      { new: true, runValidators: true } // Добавлены валидаторы
+    );
 
-  const token = await tokenService.removeToken(refreshToken);
-  return token;
-};
-
-const refreshService = async (refreshToken ) => {
-  if (!refreshToken) {
-    throw ApiError.UnauthorizedError();
-  }
-  const userData = await tokenService.validateRefreshToken(refreshToken);
-  const tokenFromDb = await tokenService.findToken(refreshToken);
-
-  if (!userData || !tokenFromDb) throw ApiError.UnauthorizedError();
-
-  const user = await UserModel.findById(userData.id);
-  if (!user) {
-    throw ApiError.UnauthorizedError();
-  }
-
-  const userDto = new UserDto(user);
-  const tokens = tokenService.generateToken({ ...userDto });
-
-  const cart = await CartModel.findOne({ user: userDto.id });
-
-const totalQuantity = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-
-await tokenService.saveToken(userDto.id, tokens.refreshToken);
-
-return {
-  ...tokens,
-  user: {
-    ...userDto,
-    cartQuantity: totalQuantity
-  }
-};
-};
-
-const checkService = async (accessToken, refreshToken) => {
-
-  if (!refreshToken || !accessToken) {
-    throw ApiError.UnauthorizedError();
-  }
-
-  // Проверяем валидность access и refresh токенов
-  const accessData = await tokenService.validateAccessToken(accessToken);
-  const refreshData = await tokenService.validateRefreshToken(refreshToken);
-
-  // Проверяем, хранится ли refresh-токен в БД и к какому пользователю он относится
-  const tokenFromDb = await tokenService.findToken(refreshToken);
-  if (!refreshData || !tokenFromDb) {
-    throw ApiError.UnauthorizedError();
-  }
-
-  // Проверяем, совпадает ли userId в refresh-токене и в БД
-  const user = await UserModel.findById(refreshData.id);
-
-  if (!user || String(user._id) !== String(tokenFromDb.user)) {
-    throw ApiError.UnauthorizedError();
-  }
-
-  // Если access токен валиден и соответствует userId в refresh-токене, возвращаем старые токены
-  if (accessData && String(accessData.id) === String(refreshData.id)) {
-    return { accessToken, refreshToken, user: new UserDto(user)};
-  }
-
-  // Если access токен невалиден, но refresh токен валиден, создаем новые токены
-  const userDto = new UserDto(user);
-  const newTokens = tokenService.generateToken({ ...userDto });
-  // Сохраняем новый refresh-токен в БД
-  await tokenService.saveToken(userDto.id, newTokens.refreshToken);
-  return { ...newTokens, user: userDto};
-};
-
-const changePasswordService = async ( 
-  userId,
-  oldPassword,
-  newPassword
-) => {
-
-  const user = await UserModel.findById(userId);
-  
-  if (!user) {
-    throw ApiError.BadRequest("Пользователь не найден");
-  }
-
-  if (!oldPassword) {
-    throw ApiError.BadRequest("Не указан старый пароль");
-  }
-
-  const isPassEquals = await bcrypt.compare(oldPassword, user.password);
-  if (!isPassEquals) {
-    throw ApiError.BadRequest("Неверный старый пароль");
-  }
-
-  if (!newPassword) {
-    throw ApiError.BadRequest("Не указан новый пароль");
-  }
-
-  const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
-  const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-  try {
-    user.password = hashedPassword;
-    await user.save();
+    return updatedUser;
   } catch (error) {
-    throw ApiError.InternalServerError("Ошибка при сохранении нового пароля");
+    logger.error("Ошибка в updateUser:", error);
+    if (error instanceof ApiError) throw error;
+    throw ApiError.InternalServerError(
+      "Не удалось обновить данные пользователя"
+    );
   }
-
-  return { message: "Пароль успешно изменен" };
 };
 
-//Подтверждаем операцию смены и восстановления пароля после нажатия на ссылку в письме
-const verifyResetPasswordService = async (resetTokenSigned) => {
-  if (!resetTokenSigned) {
-    throw ApiError.BadRequest("Токен сброса пароля отсутствует");
-  }
-
-  let decoded;
+const changePassword = async (userId, oldPassword, newPassword) => {
   try {
-    decoded = jwt.verify(resetTokenSigned, process.env.JWT_RESET_SECRET_KEY);
-  } catch (err) {
-    console.error("Ошибка JWT-проверки:", err.message);
-    throw ApiError.BadRequest("Недействительный или истекший токен");
+    const user = await UserModel.findById(userId);
+    if (!user) throw ApiError.NotFoundError("Пользователь не найден");
+
+    const isPasswordCorrect = await bcrypt.compare(oldPassword, user.password);
+    if (!isPasswordCorrect) throw ApiError.BadRequest("Неправильный пароль");
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    //TODO увеломление
+    return user;
+  } catch (error) {
+    logger.error("Ошибка в changePassword:", error);
+    if (error instanceof ApiError) throw error;
+    throw ApiError.InternalServerError("Не удалось изменить пароль");
+  }
+};
+
+const revokeSession = async (userId, sessionId) => {
+  try {
+    const userData = await UserModel.findById(userId);
+    if (!userData) throw ApiError.NotFoundError("Пользователь не найден");
+
+    const session = await UserSessionModel.findById(sessionId);
+    if (!session) throw ApiError.NotFoundError("Сессия не найдена");
+    session.revoked = true;
+    await session.save();
+    return session;
+  } catch (error) {
+    logger.error("Ошибка в revokeSession:", error);
+    if (error instanceof ApiError) throw error;
+    throw ApiError.InternalServerError("Не удалось заблокировать сессию");
+  }
+};
+
+const checkService = async (accessToken, refreshToken, deviceType, ip) => {
+  console.log(
+    "checkService called",
+    !!accessToken,
+    !!refreshToken,
+    deviceType,
+    ip
+  );
+
+  if (!accessToken || !refreshToken) {
+    throw ApiError.BadRequest("Отсутствуют токены авторизации");
   }
 
-  const user = await UserModel.findOne({
-    "tokens.resetToken": resetTokenSigned,
-    "tokens.resetTokenExpiration": { $gt: Date.now() },
+  const refreshData = validateRefreshToken(refreshToken);
+
+  if (!refreshData) {
+    throw ApiError.UnauthorizedError("Refresh токен недействителен");
+  }
+
+  const user = await UserModel.findById(refreshData.id);
+  if (!user) throw ApiError.UnauthorizedError("Пользователь не найден");
+
+  let session = await UserSessionModel.findOne({
+    userId: user._id,
+    refreshToken,
   });
 
-  if (!user) {
-    throw ApiError.BadRequest("Неверный или истекший токен");
+  if (!session || session.revoked) {
+    throw ApiError.UnauthorizedError("Сессия недействительна");
   }
 
-  user.tokens.resetTokenStatus = "verified";
-  await user.save();
+  // Обновляем последнюю активность
+  session.lastUsedAt = new Date();
+  if (ip) session.ip = ip;
+  if (deviceType) session.deviceType = deviceType;
+  await session.save();
 
+  const accessData = validateAccessToken(accessToken);
+
+  // ✅ Если accessToken валиден и принадлежит тому же пользователю - возвращаем как есть
+  if (accessData && String(accessData.id) === String(refreshData.id)) {
+    return {
+      accessToken,
+      refreshToken, // не меняем refreshToken
+      user: new UserDTO(user),
+    };
+  }
+
+  // 🔄 Если accessToken истек или невалиден, но refreshToken валиден - выдаем новый accessToken
+  const userDto = new UserDTO(user);
+  const { accessToken: newAccess } = generateToken(
+    { ...userDto },
+    { onlyAccess: true }
+  );
+
+  return {
+    accessToken: newAccess,
+    refreshToken, // refreshToken оставляем прежним
+    user: userDto,
+  };
+};
+
+const initiatePasswordReset = async (userEmail) => {
+  const user = await UserModel.findOne({ email: userEmail });
+  if (!user) throw ApiError.NotFoundError("Пользователь не найден");
+  await create2FACodeAndNotify(user._id);
   return;
 };
 
-const forgotPasswordService = async (email) => {
-  const user = await UserModel.findOne({ email });
-  if (!user) {
-    throw ApiError.NotFoundError("Пользователь не найден");
+const completePasswordReset = async (email, resetToken, newPassword) => {
+  // Верифицируем токен и получаем userId из токена
+  const { userId } = await verifyPasswordResetToken(resetToken);
+
+  // Проверяем, что email соответствует userId из токена (дополнительная безопасность)
+  const userData = await UserModel.findOne({ _id: userId });
+  if (!userData) throw ApiError.NotFoundError("Пользователь не найден");
+
+  if (userData.email !== email) {
+    throw ApiError.BadRequest("Email не соответствует токену сброса");
   }
 
-  // Генерация безопасного токена
-  const resetToken = crypto.randomBytes(32).toString("hex");
+  // Хэшируем новый пароль
+  const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 12;
+  const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-  // Подписываем токен JWT
-  const tokenSigned = jwt.sign(
-    { resetToken },
-    process.env.JWT_RESET_SECRET_KEY,
-    { expiresIn: "1h" }
-  );
+  // Атомарно обновляем пароль и очищаем токен
+  await Promise.all([
+    UserModel.updateOne({ _id: userId }, { password: hashedPassword }),
+    UserSecurityModel.updateOne(
+      { userId },
+      {
+        $unset: {
+          resetTokenHash: "",
+          resetTokenExpiration: "",
+        },
+        $set: {
+          resetTokenStatus: "completed",
+          updatedAt: new Date(),
+        },
+      }
+    ),
+  ]);
 
-  if (!tokenSigned) {
-    throw ApiError.InternalServerError("Ошибка при отправке письма");
-  }
+  await sendPushNotification({
+    userId: userData._id,
+    title: "Ваш пароль успешно обновлен",
+    body: "Если вы этого не совершали - срочно поменяйте пароль",
+  });
+  await sendEmailNotification(userData.email, "resetPasswordCompleted", {
+    name: userData.name,
+    email: userData.email,
+  });
+  // Инвалидируем все активные сессии пользователя
+  await SessionService.invalidateAllSessionsExceptCurrent(userId);
 
-  // Сохраняем resetToken в базе данных
-  user.tokens.resetToken = tokenSigned;
-  user.tokens.resetTokenExpiration = Date.now() + 3600000; // 1 час
-  user.tokens.resetTokenStatus = "pending";
-
-  await user.save();
-
-    try {
-      sendEmailNotification(email, "resetPassword", {
-        username: user.name,
-        resetLink:`${fullAddress}/auth/verify-reset-password?token=${tokenSigned}`,
-      });
-    } catch (error) {
-      throw ApiError.InternalServerError("Ошибка при отправке письма");
-    }
-    return {
-      message: "sended",
-    };
+  return { success: true };
 };
 
-const checkVerifyStatusService = async (email) => {
-  const user = await UserModel.findOne({ email });
-  if (!user) {
+const verifyPasswordResetCode = async (email, code) => {
+  const userData = await UserModel.findOne({ email: email }); //
+  if (!userData)
+    throw ApiError.NotFoundError("Пользователь не найден sdfsfsfs");
+
+  const { user } = await verify2FACodeOnly(userData._id, code);
+  const signedToken = await generatePasswordResetToken(user.id);
+  await sendPushNotification({
+    userId: user.id,
+    title: "Зафиксирована попытка восстановления пароля",
+    body: "Системой отправлен код для восстановления пароля, если вы не запрашивали его - проигнорируйте",
+  });
+  return { resetToken: signedToken, user };
+};
+
+const resendResetCode = async (email) => {
+  try {
+    const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      // Для безопасности возвращаем успех даже если пользователь не найден
+      return { ok: true, message: "Код отправлен повторно" };
+    }
+
+    // Проверяем, не слишком ли часто запрашивается повторная отправка
+    const userSecurity = await UserSecurityModel.findOne({ userId: user._id });
+
+    if (userSecurity && userSecurity.resetTokenExpiration) {
+      const timeSinceLastRequest =
+        Date.now() - userSecurity.resetTokenExpiration.getTime();
+
+      // Не позволяем запрашивать новый код чаще чем раз в 1 минуту
+      if (timeSinceLastRequest < 60000) {
+        throw ApiError.BadRequest(
+          "Новый код можно запросить только через 1 минуту после предыдущего"
+        );
+      }
+    }
+
+    await initiatePasswordReset(email);
+
+    return {
+      ok: true,
+      message: "Код отправлен повторно",
+    };
+  } catch (error) {
+    logger.error("Error resending reset code", {
+      email: email.substring(0, 3) + "***",
+      error: error.message,
+    });
+    throw error;
+  }
+};
+
+const updateOnlineStatusService = async (userId, online) => {
+  const userData = await UserModel.findById(userId);
+  if (!userData) {
     throw ApiError.BadRequest("Пользователь не найден");
   }
-  return user.tokens.resetTokenStatus;
+  await UserModel.findByIdAndUpdate(userId, { online }, { new: true });
 };
 
-// const resetPasswordService = async (newPassword, email) => { //TODO адаптивровать под новый кейс 
-//   if (!newPassword || !email) {
-//     throw ApiError.BadRequest("Недостаточно данных для сброса пароля");
-//   }
-
-//   const passwordStrengthRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
-//   if (!passwordStrengthRegex.test(newPassword)) {
-//     throw ApiError.BadRequest(
-//       "Пароль должен содержать минимум 8 символов, одну цифру и одну заглавную букву"
-//     );
-//   }
-
-//   const user = await UserModel.findOne({ email }).select(
-//     "+tokens.resetToken +tokens.resetTokenStatus +tokens.resetTokenExpiration"
-//   );
-
-//   if (!user) {
-//     throw ApiError.BadRequest("Пользователь не найден");
-//   }
-
-//   const { resetToken, resetTokenStatus, resetTokenExpiration } =
-//     user.tokens || {};
-
-//   if (
-//     resetTokenStatus !== "verified" ||
-//     !resetTokenExpiration ||
-//     resetTokenExpiration < Date.now() ||
-//     !resetToken
-//   ) {
-//     throw ApiError.BadRequest("Неверный или истекший токен (этап 1)");
-//   }
-
-//   try {
-//     jwt.verify(resetToken, process.env.JWT_RESET_SECRET_KEY);
-//   } catch (err) {
-//     console.error("Ошибка JWT-проверки:", err.message);
-//     throw ApiError.BadRequest("Недействительный или истекший токен (этап 2)");
-//   }
-
-
-//   const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
-//   const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-//   user.password = hashedPassword;
-//   user.tokens.resetToken = null;
-//   user.tokens.resetTokenExpiration = null;
-//   user.tokens.resetTokenStatus = null;
-//   if (user.tokens.refreshToken) {
-//     user.tokens.refreshToken = null;
-//   }
-
-//   await user.save();
-
-//   await sendEmailNotification(user.email, "password-change", {
-//     link: `https://yourdomain.com/login`,
-//   });
-
-//   console.log(
-//     `[SECURITY] Пароль сброшен для ${email} — ${new Date().toISOString()}`
-//   );
-
-//   return { message: "Пароль успешно изменён" };
-// };
-
-
 module.exports = {
-  registerUserService,
-  loginUserService,
-  logoutUserService,
+  login,
+  logout,
+  register,
+  generatePhoneCode,
+  verify2FAAndNotify,
   refreshService,
+  verifyPhoneCode,
+  getSessions,
+  updateUser,
+  changePassword,
+  revokeSession,
   checkService,
-  changePasswordService,
-  forgotPasswordService,
-  // resetPasswordService,
-  verifyResetPasswordService,
-  checkVerifyStatusService,
-  checkVerifiedEmailService,
-  verifyEmail,
-  isEmailExistsService,
+  initiatePasswordReset,
+  completePasswordReset,
+  verifyPasswordResetCode,
+  resendResetCode,
+  updateOnlineStatusService,
 };

@@ -1,320 +1,915 @@
-const ApiError = require('../exceptions/api-error');
-const authService = require('../services/authService');
-const {validationResult} = require('express-validator');
+const authService = require("../services/authService");
+const logger = require("../logger/logger");
+const ApiError = require("../exceptions/api-error");
+const getIp = require("../utils/getIp");
+const { create2FACodeAndNotify } = require("../services/2faService");
+const auditLogger = require("../logger/auditLogger");
 
-const isEmailExists = async (req, res, next) => {
+const register = async (req, res, next) => {
   try {
-    const { email } = req.body;
-    if (!email) {
-      throw ApiError.BadRequest("Отсутствует email");
-    }
-    const status = await authService.isEmailExistsService(email);
-    return res.json(status);
-  } catch (e) {
-    next(e);
-}
-}
-
-const registerUser = async (req, res, next) => {
-  try {
-    const errors = validationResult(req);
-
-    if (!errors.isEmpty()) {
-      return next(ApiError.BadRequest('Ошибка при валидации', errors.array()));
-    } 
-    const { email, phone, password, name, surname, role } = req.body;
-
-    const userData = await authService.registerUserService(email, phone,  password, name, surname, role);
-    return res.json(userData);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const loginUser = async (req, res, next) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return next(ApiError.BadRequest('Ошибка при валидации', errors.array()));
-    }
-
-    const { email, password } = req.body;
+    const userData = req.body;
+    const ip = getIp(req);
+    const userAgent = req.headers['user-agent'] || 'unknown';
     
-    if (!email || !password) {
-      throw ApiError.BadRequest("Отсутствует email или пароль");
-    }
-    const userData = await authService.loginUserService(email, password);
-
-    if (userData.verified === false) {
-      return res.json(userData); // ⛔ Не ставим куку!
+    if (!userData) {
+      throw ApiError.BadRequest("Пользователь не передан");
     }
 
-    const isProd = process.env.NODE_ENV === 'production';
+    if (
+      !userData.email ||
+      !userData.password ||
+      !userData.name ||
+      !userData.phone ||
+      !userData.acceptedConsents
+    ) {
+      throw ApiError.BadRequest("Переданы не все данные");
+    }
 
-    res.cookie('refreshToken', userData.refreshToken, {
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'None' : 'Strict',
-      path: '/',
+    console.log("userData", userData);
+
+    const { userId } = await authService.register(userData);
+
+    let phoneResult = null;
+
+    if (userId) {
+      phoneResult = await authService.generatePhoneCode(userId);
+      
+      // Логирование успешной регистрации
+      await auditLogger.logUserEvent(
+        userId,
+        userData.email,
+        'USER_REGISTRATION',
+        'CREATE_ACCOUNT',
+        {
+          ip,
+          userAgent,
+          phone: userData.phone,
+          name: userData.name,
+          acceptedConsents: userData.acceptedConsents,
+          registrationMethod: 'email'
+        }
+      );
+    }
+
+    return res.status(200).json({
+      phoneSend: true,
+      userId,
+      phone: phoneResult?.phone,
+      generatePhoneCode: true,
     });
-
-    return res.json(userData);
-
-  }  catch (e) {
-    next(e);
-}
-};
-
-const logoutUser = async (req, res, next) => {
-  try {
-    const accessToken = req.headers.authorization?.split(" ")[1];
-    const refreshToken = req.body.refreshToken;
-
-    if (!refreshToken) {
-      throw ApiError.UnauthorizedError();
-    }
-
-    await authService.logoutUserService(refreshToken, accessToken);
-
-          const isProd = process.env.NODE_ENV === 'production';
-
-          
-    // Удаляем куку с теми же параметрами, с которыми она была установлена
-    res.clearCookie('refreshToken', {
-  httpOnly: true,
-  secure: isProd,
-  sameSite: isProd ? 'None' : 'Strict',
-  path: '/', // ← ДОЛЖНО БЫТЬ ТОЧНО ТАКИМ ЖЕ
-});
-
-    return res.status(200).json({ message: "Вы успешно вышли" });
-  } catch (e) {
-    next(e);
+  } catch (error) {
+    // Логирование ошибки регистрации
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      'unknown',
+      req.body?.email || 'unknown@email',
+      'USER_REGISTRATION',
+      'CREATE_ACCOUNT_FAILED',
+      {
+        ip,
+        error: error.message,
+        reason: error instanceof ApiError ? error.message : 'System error'
+      }
+    );
+    
+    logger.error(`[REGISTER] ${error.message}`);
+    next(error);
   }
 };
 
-//Сюда обращается перехватчик
+const login = async (req, res, next) => {
+  try {
+    const userData = req.body;
+    const ip = getIp(req);
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
+    console.log(`[LOGIN] userData`, userData);
+    if (!userData.email || !userData.password) {
+      throw ApiError.BadRequest("Email и пароль обязательны");
+    }
+
+    const result = await authService.login(userData);
+    
+    // Логирование успешного входа
+    if (result.userId) {
+      await auditLogger.logUserEvent(
+        result.userId,
+        userData.email,
+        'USER_AUTHENTICATION',
+        'LOGIN_SUCCESS',
+        {
+          ip,
+          userAgent,
+          role: userData.role || 'user',
+          method: 'email_password',
+          deviceType: req.deviceType || 'unknown'
+        }
+      );
+    }
+    
+    return res.status(200).json(result);
+  } catch (error) {
+    // Логирование неудачной попытки входа
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      'unknown',
+      req.body?.email || 'unknown@email',
+      'USER_AUTHENTICATION',
+      'LOGIN_FAILED',
+      {
+        ip,
+        userAgent: req.headers['user-agent'] || 'unknown',
+        error: error.message,
+        reason: error instanceof ApiError ? error.message : 'Invalid credentials'
+      }
+    );
+    
+    logger.error(`[LOGIN] ${error.message}`);
+    next(error);
+  }
+};
+
+const logout = async (req, res, next) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    const userData = req.user;
+    const ip = getIp(req);
+
+    const result = await authService.logout(refreshToken, userData);
+    
+    // Логирование выхода
+    if (userData?.id) {
+      await auditLogger.logUserEvent(
+        userData.id,
+        userData.email,
+        'USER_AUTHENTICATION',
+        'LOGOUT',
+        {
+          ip,
+          sessionEnded: true,
+          logoutType: 'manual'
+        }
+      );
+    }
+    
+    res.clearCookie("refreshToken");
+    return res.status(200).json(result);
+  } catch (error) {
+    logger.error(`[LOGOUT] ${error.message}`);
+    next(error);
+  }
+};
+
 const refresh = async (req, res, next) => {
   try {
-    const {refreshToken} = req.cookies;
+    let refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken && req.headers["refresh-token"]) {
+      refreshToken = req.headers["refresh-token"];
+    }
 
     if (!refreshToken) {
-      return next(ApiError.UnauthorizedError());
-    } 
+      throw ApiError.BadRequest("refreshToken не передан");
+    }
 
-    const userData = await authService.refreshService(refreshToken );
-      const isProd = process.env.NODE_ENV === 'production';
+    const ip = getIp(req);
+    const userAgent = req.headers['user-agent'] || 'unknown';
 
-res.cookie('refreshToken', userData.refreshToken, {
-  maxAge: 30 * 24 * 60 * 60 * 1000,
-  httpOnly: true,
-  secure: isProd,           // true — обязательно в проде, т.к. SameSite: 'None' требует HTTPS
-  sameSite: isProd ? 'None' : 'Strict',  // для кросс-доменных запросов — None
-  path: '/',
-});
-      return res.json(userData);
+    const userData = await authService.refreshService(
+      refreshToken,
+      req.deviceType,
+      ip
+    );
 
+    // Логирование обновления токена
+    if (userData?.userId) {
+      await auditLogger.logUserEvent(
+        userData.userId,
+        userData.email || 'unknown@email',
+        'USER_AUTHENTICATION',
+        'TOKEN_REFRESH',
+        {
+          ip,
+          userAgent,
+          deviceType: req.deviceType || 'unknown',
+          tokenRefreshed: true
+        }
+      );
+    }
+
+    // Если это браузер — ставим cookie (для web)
+    if (!req.headers["refresh-token"]) {
+      res.cookie("refreshToken", userData.refreshToken, {
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
+        httpOnly: true,
+        secure: false,
+        sameSite: "Lax",
+        path: "/",
+      });
+    }
+
+    return res.json(userData);
   } catch (e) {
+    // Логирование ошибки обновления токена
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      'unknown',
+      'unknown@email',
+      'USER_AUTHENTICATION',
+      'TOKEN_REFRESH_FAILED',
+      {
+        ip,
+        error: e.message,
+        reason: 'Invalid or expired refresh token'
+      }
+    );
+    
     next(e);
   }
 };
 
-//Тут мы чекаем токены
+const verifyPhoneCode = async (req, res, next) => {
+  try {
+    const { userId, code } = req.body;
+    const ip = getIp(req);
+
+    if (!userId || !code) {
+      throw ApiError.BadRequest("Отсутствует userId или inputCode");
+    }
+
+    const result = await authService.verifyPhoneCode(userId, code);
+
+    if (result.trigger2FACode) {
+      await create2FACodeAndNotify(userId);
+      
+      // Логирование успешной верификации телефона
+      await auditLogger.logUserEvent(
+        userId,
+        result.email || 'unknown@email',
+        'USER_VERIFICATION',
+        'PHONE_VERIFIED',
+        {
+          ip,
+          verificationType: 'phone_code',
+          triggered2FA: true
+        }
+      );
+    } else {
+      // Логирование верификации без 2FA
+      await auditLogger.logUserEvent(
+        userId,
+        result.email || 'unknown@email',
+        'USER_VERIFICATION',
+        'PHONE_VERIFIED',
+        {
+          ip,
+          verificationType: 'phone_code',
+          triggered2FA: false
+        }
+      );
+    }
+    
+    return res.status(200).json(result);
+  } catch (e) {
+    // Логирование ошибки верификации телефона
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      req.body?.userId || 'unknown',
+      'unknown@email',
+      'USER_VERIFICATION',
+      'PHONE_VERIFY_FAILED',
+      {
+        ip,
+        error: e.message,
+        codeAttempt: req.body?.code ? 'yes' : 'no'
+      }
+    );
+    
+    next(e);
+  }
+};
+
+const updateUser = async (req, res, next) => {
+  try {
+    const userData = req.body;
+    const files = req.uploadedFiles;
+    const userId = req.user.id;
+    const ip = getIp(req);
+    
+    console.log("[UPDATE_USER] req.body", req.body);
+    
+    // Получаем старые данные пользователя для сравнения
+    const oldData = await authService.getUserProfile(userId);
+    
+    const result = await authService.updateUser(userId, userData, files);
+    
+    // Определяем изменения для логирования
+    const changes = [];
+    
+    if (oldData) {
+      // Сравниваем имя
+      if (oldData.name !== userData.name) {
+        changes.push({
+          field: 'name',
+          old: oldData.name,
+          new: userData.name
+        });
+      }
+      
+      // Сравниваем телефон
+      if (oldData.phone !== userData.phone) {
+        changes.push({
+          field: 'phone',
+          old: oldData.phone,
+          new: userData.phone
+        });
+      }
+      
+      // Проверяем аватар
+      const hasNewAvatar = files && files.avatar && files.avatar.length > 0;
+      if (hasNewAvatar) {
+        changes.push({
+          field: 'avatar',
+          old: oldData.avatar ? 'has_avatar' : 'no_avatar',
+          new: 'updated'
+        });
+      }
+    }
+    
+    // Логирование обновления профиля
+    await auditLogger.logUserEvent(
+      userId,
+      req.user.email,
+      'USER_PROFILE',
+      'UPDATE_PROFILE',
+      {
+        ip,
+        changes: changes.length > 0 ? changes : [{ field: 'updated', old: null, new: 'profile_data' }],
+        filesCount: files ? Object.keys(files).length : 0
+      }
+    );
+    
+    return res.status(200).json(result);
+  } catch (e) {
+    // Логирование ошибки обновления профиля
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      req.user?.id || 'unknown',
+      req.user?.email || 'unknown@email',
+      'USER_PROFILE',
+      'UPDATE_PROFILE_FAILED',
+      {
+        ip,
+        error: e.message,
+        fieldsUpdated: Object.keys(req.body || {}).join(', ')
+      }
+    );
+    
+    next(e);
+  }
+};
+
+const verify2faCode = async (req, res, next) => {
+  try {
+    const { userId, code, deviceId } = req.body;
+    const ip = getIp(req);
+    const deviceType = req.deviceType || req.useragent.platform || "Unknown";
+
+    if (!userId || !code || !deviceId) {
+      throw ApiError.BadRequest("Отсутствует userId или код");
+    }
+
+    const device = {
+      deviceId: deviceId,
+      deviceModel: req.body.device?.deviceModel || req.useragent.platform,
+      os: req.body.device?.os || req.useragent.os,
+      osVersion: req.body.device?.osVersion || req.useragent.version,
+    };
+
+    const userData = await authService.verify2FAAndNotify(
+      userId,
+      code,
+      deviceType,
+      ip,
+      device
+    );
+
+    // Логирование успешной 2FA верификации
+    await auditLogger.logUserEvent(
+      userId,
+      userData.email || 'unknown@email',
+      'USER_VERIFICATION',
+      '2FA_VERIFIED',
+      {
+        ip,
+        deviceType,
+        deviceId,
+        verificationMethod: 'email_code',
+        newSession: true
+      }
+    );
+
+    const isBrowser =
+      req.useragent.isDesktop || req.useragent.browser !== "unknown";
+
+    if (isBrowser) {
+      const isProd = process.env.NODE_ENV === "prod";
+
+      res.cookie("refreshToken", userData.refreshToken, {
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
+        httpOnly: true,
+        secure: false,
+        sameSite: "Lax",
+        path: "/",
+      });
+
+      return res.status(200).json({ userData, user: userData.user });
+    }
+
+    return res.status(200).json({ userData, user: userData.user });
+  } catch (e) {
+    // Логирование ошибки 2FA верификации
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      req.body?.userId || 'unknown',
+      'unknown@email',
+      'USER_VERIFICATION',
+      '2FA_VERIFY_FAILED',
+      {
+        ip,
+        deviceId: req.body?.deviceId || 'unknown',
+        error: e.message,
+        codeAttempt: req.body?.code ? 'yes' : 'no'
+      }
+    );
+    
+    next(e);
+  }
+};
+
+const resendVerifyPhoneCode = async (req, res, next) => {
+  try {
+    const { userId } = req.body;
+    const ip = getIp(req);
+
+    if (!userId) {
+      throw ApiError.BadRequest("Недостаточно данных");
+    }
+
+    const result = await authService.generatePhoneCode(userId);
+    
+    // Логирование повторной отправки кода телефона
+    await auditLogger.logUserEvent(
+      userId,
+      result.email || 'unknown@email',
+      'USER_VERIFICATION',
+      'RESEND_PHONE_CODE',
+      {
+        ip,
+        phone: result.phone,
+        resendCount: 1
+      }
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    logger.error(`[RESEND_VERIFY_PHONE_CODE] ${error.message}`);
+    next(error);
+  }
+};
+
+const resendFaCode = async (req, res, next) => {
+  try {
+    const { userId } = req.body;
+    const ip = getIp(req);
+
+    if (!userId) {
+      throw ApiError.BadRequest("Недостаточно данных");
+    }
+
+    const result = await create2FACodeAndNotify(userId);
+    
+    // Логирование повторной отправки 2FA кода
+    await auditLogger.logUserEvent(
+      userId,
+      result.email || 'unknown@email',
+      'USER_VERIFICATION',
+      'RESEND_2FA_CODE',
+      {
+        ip,
+        resendCount: 1
+      }
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    logger.error(`[RESEND_FA_CODE] ${error.message}`);
+    next(error);
+  }
+};
+
+const getSessions = async (req, res, next) => {
+  try {
+    const userData = req.user;
+    const ip = getIp(req);
+    
+    if (!userData) {
+      throw ApiError.BadRequest("Недостаточно данных");
+    }
+    
+    const result = await authService.getSessions(userData.id);
+    
+    // Логирование просмотра сессий
+    await auditLogger.logUserEvent(
+      userData.id,
+      userData.email,
+      'USER_SESSIONS',
+      'VIEW_SESSIONS',
+      {
+        ip,
+        sessionCount: result.sessions?.length || 0,
+        activeSessions: result.activeSessions || 0
+      }
+    );
+    
+    return res.status(200).json(result);
+  } catch (error) {
+    logger.error(`[GET_SESSIONS] ${error.message}`);
+    next(error);
+  }
+};
+
+const revokeSession = async (req, res, next) => {
+  try {
+    const userData = req.user;
+    const { sessionId } = req.body;
+
+    console.log('req.body', req.body);
+    
+    const ip = getIp(req);
+
+    if (!sessionId) {
+      throw ApiError.BadRequest("Недостаточно данных");
+    }
+    
+    const result = await authService.revokeSession(userData.id, sessionId);
+    
+    // Логирование отзыва сессии
+    await auditLogger.logUserEvent(
+      userData.id,
+      userData.email,
+      'USER_SESSIONS',
+      'REVOKE_SESSION',
+      {
+        ip,
+        sessionId,
+        revokedBy: 'user',
+        remainingSessions: result.remainingSessions || 0
+      }
+    );
+    
+    return res.status(201).json(result);
+  } catch (error) {
+    logger.error(`[REVOKE_SESSION] ${error.message}`);
+    next(error);
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const userData = req.user;
+    const { oldPassword, newPassword } = req.body;
+    const ip = getIp(req);
+    
+    if (!oldPassword || !newPassword) {
+      throw ApiError.BadRequest("Недостаточно данных");
+    }
+    
+    const result = await authService.changePassword(
+      userData.id,
+      oldPassword,
+      newPassword
+    );
+    
+    // Логирование смены пароля
+    await auditLogger.logUserEvent(
+      userData.id,
+      userData.email,
+      'USER_SECURITY',
+      'CHANGE_PASSWORD',
+      {
+        ip,
+        passwordChanged: true,
+        changedBy: 'user',
+        requiresReauth: true
+      }
+    );
+    
+    return res.status(200).json(result);
+  } catch (error) {
+    // Логирование ошибки смены пароля
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      req.user?.id || 'unknown',
+      req.user?.email || 'unknown@email',
+      'USER_SECURITY',
+      'CHANGE_PASSWORD_FAILED',
+      {
+        ip,
+        error: error.message,
+        reason: 'Invalid old password or weak new password'
+      }
+    );
+    
+    logger.error(`[CHANGE_PASSWORD] ${error.message}`);
+    next(error);
+  }
+};
+
 const check = async (req, res, next) => {
   try {
     const accessToken = req.headers.authorization?.split(" ")[1];
-    const refreshToken = req.body.refreshToken;
+
+    let refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken && req.headers["refresh-token"]) {
+      refreshToken = req.headers["refresh-token"];
+    }
+    if (!refreshToken && req.body?.refreshToken) {
+      refreshToken = req.body.refreshToken;
+    }
 
     if (!accessToken || !refreshToken) {
-      return next(ApiError.UnauthorizedError());
+      console.log("accessToken", accessToken, "refreshToken", refreshToken);
+      throw ApiError.BadRequest("Токены не переданы");
     }
-    const userData = await authService.checkService(accessToken, refreshToken );
-    console.log("checkuserData", userData);
+
+    const ip = getIp(req);
+    const userData = await authService.checkService(
+      accessToken,
+      refreshToken,
+      req.deviceType,
+      ip
+    );
+
+    // Логирование проверки токена
+    if (userData?.userId) {
+      await auditLogger.logUserEvent(
+        userData.userId,
+        userData.email || 'unknown@email',
+        'USER_AUTHENTICATION',
+        'TOKEN_CHECK',
+        {
+          ip,
+          tokenValid: true,
+          deviceType: req.deviceType || 'unknown'
+        }
+      );
+    }
+
+    // Обновляем куку только если refreshToken изменился
+    if (
+      userData.refreshToken !== refreshToken &&
+      !req.headers["refresh-token"]
+    ) {
+      res.cookie("refreshToken", userData.refreshToken, {
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
+        httpOnly: true,
+        secure: false,
+        sameSite: "Lax",
+        path: "/",
+      });
+    }
+
     return res.json(userData);
   } catch (e) {
+    // Логирование ошибки проверки токена
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      'unknown',
+      'unknown@email',
+      'USER_AUTHENTICATION',
+      'TOKEN_CHECK_FAILED',
+      {
+        ip,
+        error: e.message,
+        reason: 'Invalid or expired tokens'
+      }
+    );
+    
     next(e);
   }
 };
 
-const checkVerifiedEmail = async (req, res, next) => {
+const initiatePasswordReset = async (req, res, next) => {
   try {
     const { email } = req.body;
+    const ip = getIp(req);
+    
     if (!email) {
-      throw ApiError.BadRequest("Отсутствует email");
+      throw ApiError.BadRequest("Недостаточно данных");
     }
-    const status = await authService.checkVerifiedEmailService(email);
-      const isProd = process.env.NODE_ENV === 'production';
-
-res.cookie('refreshToken', userData.refreshToken, {
-  maxAge: 30 * 24 * 60 * 60 * 1000,
-  httpOnly: true,
-  secure: isProd,           // true — обязательно в проде, т.к. SameSite: 'None' требует HTTPS
-  sameSite: isProd ? 'None' : 'Strict',  // для кросс-доменных запросов — None
-  path: '/',
-});
-      return res.json(status);
-  } catch (e) {
-    next(e);
+    
+    await authService.initiatePasswordReset(email);
+    
+    // Логирование инициации сброса пароля
+    await auditLogger.logUserEvent(
+      'unknown',
+      email,
+      'USER_SECURITY',
+      'PASSWORD_RESET_INITIATED',
+      {
+        ip,
+        resetMethod: 'email',
+        emailSent: true
+      }
+    );
+    
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    // Логирование ошибки инициации сброса пароля
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      'unknown',
+      req.body?.email || 'unknown@email',
+      'USER_SECURITY',
+      'PASSWORD_RESET_INITIATE_FAILED',
+      {
+        ip,
+        error: error.message,
+        emailExists: error.message.includes('not found') ? 'no' : 'unknown'
+      }
+    );
+    
+    next(error);
   }
 };
 
-const verifyEmail = async (req, res, next) => {
+const completePasswordReset = async (req, res, next) => {
   try {
-    const { token } = req.query;
-
-    if (!token) {
-      return res.status(400).render("verify-result", {
-        title: "Ошибка",
-        message: "Отсутствует токен активации",
-        success: false,
-      });
+    const { email, resetToken, newPassword } = req.body;
+    const ip = getIp(req);
+    
+    if (!email || !resetToken || !newPassword) {
+      throw ApiError.BadRequest("Недостаточно данных");
     }
-
-    await authService.verifyEmail(token);
-
-    return res.render("verify-result", {
-      title: "Почта подтверждена",
-      message: "Вы успешно подтвердили свою почту.",
-      success: true,
-    });
-
-  } catch (e) {
-    console.error("Ошибка подтверждения email:", e.message);
-
-    return res.status(400).render("verify-result", {
-      title: "Ошибка активации",
-      message: e.message || "Произошла ошибка при подтверждении почты.",
-      success: false,
-    });
+    
+    const result = await authService.completePasswordReset(
+      email,
+      resetToken,
+      newPassword
+    );
+    
+    // Логирование успешного сброса пароля
+    await auditLogger.logUserEvent(
+      result.userId || 'unknown',
+      email,
+      'USER_SECURITY',
+      'PASSWORD_RESET_COMPLETED',
+      {
+        ip,
+        resetMethod: 'email_token',
+        passwordChanged: true,
+        requiresReauth: true
+      }
+    );
+    
+    return res.status(200).json(result);
+  } catch (error) {
+    // Логирование ошибки сброса пароля
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      'unknown',
+      req.body?.email || 'unknown@email',
+      'USER_SECURITY',
+      'PASSWORD_RESET_FAILED',
+      {
+        ip,
+        error: error.message,
+        reason: 'Invalid token or weak password'
+      }
+    );
+    
+    next(error);
   }
 };
 
-
-// ПАРОЛИ
-const changePassword = async (req, res, next) => {
+const verifyPasswordResetCode = async (req, res, next) => {
   try {
-    const { oldPassword, newPassword } = req.body;
+    const { email, code } = req.body;
+    const ip = getIp(req);
+    
+    if (!email || !code) {
+      throw ApiError.BadRequest("Недостаточно данных");
+    }
+    
+    const result = await authService.verifyPasswordResetCode(email, code);
+    
+    // Логирование успешной верификации кода сброса
+    await auditLogger.logUserEvent(
+      result.userId || 'unknown',
+      email,
+      'USER_SECURITY',
+      'PASSWORD_RESET_CODE_VERIFIED',
+      {
+        ip,
+        codeValid: true,
+        resetTokenIssued: !!result.resetToken
+      }
+    );
+    
+    return res.status(200).json(result);
+  } catch (error) {
+    // Логирование ошибки верификации кода сброса
+    const ip = getIp(req);
+    await auditLogger.logUserEvent(
+      'unknown',
+      req.body?.email || 'unknown@email',
+      'USER_SECURITY',
+      'PASSWORD_RESET_CODE_INVALID',
+      {
+        ip,
+        error: error.message,
+        codeAttempt: req.body?.code ? 'yes' : 'no'
+      }
+    );
+    
+    next(error);
+  }
+};
+
+const resendResetCode = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const ip = getIp(req);
+    
+    if (!email) {
+      throw ApiError.BadRequest("Недостаточно данных");
+    }
+    
+    const result = await authService.resendResetCode(email);
+    
+    // Логирование повторной отправки кода сброса
+    await auditLogger.logUserEvent(
+      'unknown',
+      email,
+      'USER_SECURITY',
+      'PASSWORD_RESET_CODE_RESENT',
+      {
+        ip,
+        resendCount: 1,
+        emailResent: true
+      }
+    );
+    
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateOnlineStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
     const userId = req.user.id;
-
-    if (!userId || !oldPassword || !newPassword) {
-      return next(ApiError.UnauthorizedError("Токены не предоставлены"));
-    }
-
-    const userData = await authService.changePasswordService(userId, oldPassword, newPassword);
+    const ip = getIp(req);
     
-    return res.json(userData); 
-  } catch (e) {
-    next(e); 
-  }
-};
-
-const forgotPassword = async (req, res, next) => {
-  try {
-    const { email } = req.body;
-
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-      throw ApiError.BadRequest("Некорректный email");
-    }
+    const result = await authService.updateOnlineStatusService(userId, status);
     
-    const status = await authService.forgotPasswordService(email);
-    return res.json({ message: 'Письмо отправлено, проверьте почту', status });
+    // Логирование изменения онлайн статуса
+    await auditLogger.logUserEvent(
+      userId,
+      req.user.email,
+      'USER_STATUS',
+      'UPDATE_ONLINE_STATUS',
+      {
+        ip,
+        newStatus: status,
+      }
+    );
+    
+    return res.json(result);
   } catch (e) {
     next(e);
   }
 };
-
-const checkResetPasswordVerified = async (req, res, next) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      throw ApiError.BadRequest("Отсутствует email");
-    }
-    const status = await authService.checkResetPasswordVerifiedService(email);
-    return res.json(status);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const verifyResetPassword = async (req, res, next) => {
-  try {
-    const { token } = req.query;
-
-    if (!token) {
-      return res.status(400).render("verify-result", {
-        title: "Ошибка",
-        message: "Отсутствует токен сброса пароля",
-        success: false,
-        frontendUrl: process.env.FRONTEND_URL || "/"
-      });
-    }
-
-    await authService.verifyResetPasswordService(token);
-
-    return res.render("verify-result", {
-      title: "Успешно",
-      message: "Вы успешно подтвердили сброс пароля.",
-      success: true,
-      frontendUrl: process.env.FRONTEND_URL || "/"
-    });
-
-  } catch (e) {
-    return res.status(400).render("verify-result", {
-      title: "Ошибка",
-      message: e.message || "Что-то пошло не так",
-      success: false,
-      frontendUrl: process.env.FRONTEND_URL || "/"
-    });
-  }
-};
-
-const checkVerifyStatus = async (req, res, next) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      throw ApiError.BadRequest("Отсутствует email");
-    }
-    const status = await authService.checkVerifyStatusService(email);
-    console.log("status", status);
-    return res.json(status);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const resetForgottenPassword = async (req, res, next) => {
-  try {
-    const { password, email } = req.body;
-
-    if (!email) {
-      throw ApiError.BadRequest("Отсутствует email");
-    }
-    if (!password || password.length < 8) {
-      throw ApiError.BadRequest("Пароль должен содержать минимум 8 символов");
-    }
-
-    await authService.resetPasswordService(password, email);
-    return res.json({ message: 'Пароль успешно изменён' , status: 200});
-  } catch (e) {
-    next(e);
-  }
-};
-
 
 module.exports = {
-  registerUser,
-  loginUser,
-  logoutUser,
+  register,
+  login,
+  logout,
+  resendVerifyPhoneCode,
+  verifyPhoneCode,
+  verify2faCode,
+  resendFaCode,
   refresh,
+  getSessions,
+  changePassword,
+  updateUser,
+  revokeSession,
   check,
-  changePassword, 
-  forgotPassword,
-  resetForgottenPassword,
-  verifyResetPassword,
-  checkVerifyStatus,
-  checkVerifiedEmail,
-  verifyEmail,
-  isEmailExists
+  initiatePasswordReset,
+  completePasswordReset,
+  verifyPasswordResetCode,
+  resendResetCode,
+  updateOnlineStatus,
 };

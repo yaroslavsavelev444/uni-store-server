@@ -1,6 +1,6 @@
 const { default: axios } = require("axios");
 const ApiError = require("../exceptions/api-error");
-const { ContactConstructorModel } = require("../models/indexModels");
+const { ContactConstructorModel } = require("../models/index.models");
 const { sendEmailNotification } = require("../queues/taskQueues");
 
 const submitData = async ({ name, email, phone, captchaToken }) => {

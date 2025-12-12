@@ -12,8 +12,7 @@ const UserSchema = new Schema(
       required: true,
     },
     name: { type: String, required: true },
-    surname: { type: String, required: true },
-
+ phoneVerified: { type: Boolean, default: false },
     activations: {
       emailVerified: { type: Boolean, default: false },
       emailToken: { type: String, select: false },
@@ -21,7 +20,7 @@ const UserSchema = new Schema(
     },
 
     tokens: {
-      resetToken: { type: String, default: null, select: false }, 
+      resetToken: { type: String, default: null, select: false },
       resetTokenStatus: {
         type: String,
         enum: ["pending", "verified", null],
@@ -29,15 +28,15 @@ const UserSchema = new Schema(
       },
       resetTokenExpiration: { type: Date, default: null },
     },
-   passwordChangeHistory: {
-  type: [
-    {
-      timestamp: { type: Date, default: Date.now },
-      ip: { type: String, required: true },
+    passwordChangeHistory: {
+      type: [
+        {
+          timestamp: { type: Date, default: Date.now },
+          ip: { type: String, required: true },
+        },
+      ],
+      select: false,
     },
-  ],
-  select: false,
-},
   },
   { timestamps: true }
 );

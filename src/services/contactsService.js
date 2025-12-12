@@ -1,5 +1,5 @@
 const ApiError = require("../exceptions/api-error");
-const { ContactModel } = require("../models/indexModels");
+const { ContactModel } = require("../models/index.models");
 const { sendEmailNotification } = require("../queues/taskQueues");
 const { formattedDate } = require("../utils/formats");
 

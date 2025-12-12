@@ -1,98 +1,76 @@
 const express = require("express");
 const router = express.Router();
-const upload = require("../middleware/multerMiddleware"); // Место, где мы подключаем multer
-const edit = require("../middleware/uploadProductForEdit"); // Место, где мы подключаем multer
 const adminController = require("../controllers/adminController");
-const orgEdit = require("../middleware/uploadOrgLogoForEdit");
-const uploadOrgFiles = require("../middleware/uploadOrgFiles");
-const { uploadSocialIcons } = require("../middleware/uploadIcons");
-const uploadOrderFile = require("../middleware/uploadOrderFile");
-const uploadHandler = require("../middleware/promoBlockMiddleware");
 
-// ПРОДУКТ
-router.post(
-  "/addProduct",
-  upload.uploadProduct.fields([
-    { name: "instruction", maxCount: 1 },
-    { name: "images", maxCount: 10 }
-  ]),
-  adminController.createProduct
-);
+// ============== PRODUCTS (Продукты) ==============
+router.post("/products", adminController.createProduct);
+// router.delete("/products/:id", adminController.deleteProduct); //TODO аривируем вместо удаления 
 
-router.post(
-  "/editProduct/:id",
-  edit.uploadProductForEdit.fields([
-    { name: "instruction", maxCount: 1 },
-    { name: "images", maxCount: 10 }
-  ]),
-  adminController.editProduct
-);
+// ============== CATEGORIES (Категории) ==============
+router.post("/categories", adminController.createCategory);
+router.put("/categories/:id", adminController.updateCategory);
+router.delete("/categories/:id", adminController.deleteCategory);
 
-router.delete("/deleteProduct", adminController.deleteProduct);
+// ============== ORGANIZATION (Компания) ==============
+router.post("/organization", adminController.createOrganization);
+router.put("/organization/:id", adminController.updateOrganization);
+router.delete("/organization/:id", adminController.deleteOrganization);
 
-//КАТЕГОРИИ
-router.post(
-  "/addCategory",
-  upload.uploadCategory.single("image"),
-  adminController.createCategory
-);
+// Файлы организации
+router.post("/organization/:id/files", adminController.uploadOrganizationFile);
+router.delete("/organization/:id/files/:fileId", adminController.deleteOrganizationFile);
 
-router.put(
-  "/editCategory/:id",
-  upload.uploadCategory.single("image"),
-  adminController.updateCategory
-);
-router.delete("/deleteCategory/:id", adminController.deleteCategory);
+// Социальные ссылки
+router.post("/organization/:id/social-links", adminController.addSocialLink);
+router.delete("/organization/:id/social-links/:linkId", adminController.deleteSocialLink);
 
-//КОМПАНИЯ 
-router.post("/addOrgData", upload.uploadOrgLogo.single("image"), adminController.uploadOrgData);
-router.post("/editOrgData", orgEdit.uploadOrgLogoForEdit.single("image"), adminController.editOrgData);
-router.delete("/deleteOrgData/:id", adminController.deleteOrgData);
-router.post("/uploadOrgFiles/:orgId", uploadOrgFiles, adminController.uploadOrgFiles);
-router.post("/deleteOrgFile/:orgId", adminController.deleteOrgFile);
-router.post("/addOrgSocialLinks/:orgId", uploadSocialIcons, adminController.addOrgSocialLinks);
-router.delete("/deleteOrgSocialLink", adminController.deleteOrgSocialLink);
-//ПОЛЬЗОВАТЕЛИ
-router.post("/toggleAdminRules", adminController.toggleAssignAdminRules);
-router.get("/getUsers", adminController.getUsers);
-router.delete("/deleteUser", adminController.deleteUser);
+// ============== USERS (Пользователи) ==============
+router.get("/users", adminController.getUsers);
+router.patch("/users/:id/role", adminController.updateUserRole);
+router.delete("/users/:id", adminController.deleteUser);
 
+// ============== REVIEWS (Отзывы) ==============
+// Отзывы на продукты
+router.get("/reviews", adminController.getProductsReviews);
+router.get("/reviews/:id", adminController.getProductReviews);
+router.patch("/reviews/:id/status", adminController.updateReviewStatus);
+// router.delete("/reviews/:id", adminController.deleteReview); //TODO аривируем вместо удаления
 
-//ОТЗЫВЫ 
-router.get("/getReviews", adminController.getReviews);
-router.post("/updateReviewStatus/:id", adminController.updateReviewStatus);
+// Отзывы на организацию
+router.get("/organization-reviews", adminController.getOrgReviews);
+router.patch("/organization-reviews/:id/status", adminController.updateOrgReviewStatus);
 
-//КОММентР
-router.post("/updateOrgReviewStatus/:id", adminController.updateOrgReviewStatus);
-router.get("/getOrgReviews", adminController.getOrgReviews);
+// ============== CONTACTS (Контакты) ==============
+// router.patch("/contacts/:id/status", adminController.updateContact);
+// router.delete("/contacts/:id", adminController.deleteContact);
 
-//КОНТАКТЫ 
-router.get("/getContacts", adminController.getContacts);
-router.post("/updateContactStatus", adminController.updateContactStatus);
+// ============== ORDERS (Заказы) ==============
+router.get("/orders", adminController.getOrders);
+router.get("/orders/:id", adminController.getOrder);
+router.patch("/orders/:id/status", adminController.updateOrderStatus);
+router.patch("/orders/:id/cancel", adminController.cancelOrder);
+router.delete("/orders/:id", adminController.deleteOrder);
 
-//ЗАКАЗЫ
-router.get("/getOrders", adminController.getOrders);
-router.post("/cancelOrder", adminController.cancelOrder);
-router.patch("/updateOrderStatus", adminController.updateOrderStatus);
-router.post("/uploadOrderFile/:orderId", uploadOrderFile, adminController.uploadOrderFile);
-router.delete("/deleteOrderFile/:orderId", adminController.deleteOrderFile);
-router.delete("/deleteUploadedFile", adminController.deleteUploadedFile);
-router.post("/changeCategoryData", adminController.changeCategoryData);
-router.post("/clearCategory", adminController.clearCategory);
+// Файлы заказа
+router.post("/orders/:id/files", adminController.uploadOrderFile);
+router.delete("/orders/:id/files/:fileId", adminController.deleteOrderFile);
 
+// ============== PROMOTIONS (Промо-материалы) ==============
+// Промо-блоки
+router.post("/promo-blocks", adminController.createPromoBlock);
+router.get("/promo-blocks", adminController.getPromoBlocks);
+router.get("/promo-blocks/:id", adminController.getPromoBlock);
+router.put("/promo-blocks/:id", adminController.updatePromoBlock);
+router.delete("/promo-blocks/:id", adminController.deletePromoBlock);
 
-//ПРОМО БЛОКИ 
-const uploadPromo = uploadHandler("promo-blocks");
-router.post("/uploadPromoBlock",  uploadPromo.single("image"), adminController.addPromoBlock);
-router.post("/updatePromoBlock/:id", uploadPromo.single("image"), adminController.updatePromoBlock);
-router.delete("/deletePromoBlock/:id", adminController.deletePromoBlock);
+// Главные материалы
+router.post("/main-materials", adminController.createMainMaterial);
+router.get("/main-materials", adminController.getMainMaterials);
+router.get("/main-materials/:id", adminController.getMainMaterial);
+router.put("/main-materials/:id", adminController.updateMainMaterial);
+router.delete("/main-materials/:id", adminController.deleteMainMaterial);
 
-const uploadMainMat = uploadHandler("main-materials");
-router.post("/uploadMainMaterial", uploadMainMat.single("file"), adminController.addMainMaterial);
-router.post("/updateMainMaterial/:id", uploadMainMat.single("file"), adminController.updateMainMaterial);
-router.delete("/deleteMainMaterial/:id", adminController.deleteMainMaterial);
-
-// router.post("/editPromoBlock/:id", adminController.editPromoBlock);
-// router.delete("/deletePromoBlock/:id", adminController.deletePromoBlock);
+// ============== UPLOADED FILES (Загруженные файлы) ==============
+router.delete("/files/:fileId", adminController.deleteUploadedFile);
 
 module.exports = router;

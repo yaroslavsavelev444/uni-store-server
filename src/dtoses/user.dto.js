@@ -4,7 +4,6 @@ class UserDto {
     isActivated;
     role;
     name;
-    surname;
 
     constructor(model) {
         this.id = model._id;
@@ -12,7 +11,6 @@ class UserDto {
         this.isActivated = model.activations.emailVerified;
         this.role = model.role;
         this.name = model.name;
-        this.surname = model.surname;
     }
 };
 

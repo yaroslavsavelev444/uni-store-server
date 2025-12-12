@@ -1,5 +1,5 @@
 const ApiError = require("../exceptions/api-error");
-const { CompanyModel } = require("../models/indexModels");
+const { CompanyModel } = require("../models/index.models");
 
 const uploadCompanyData = async (companyData) => {
     try {

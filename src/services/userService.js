@@ -1,7 +1,7 @@
 const ApiError = require("../exceptions/api-error");
-const { UserModel } = require("../models/indexModels");
+const { UserModel } = require("../models/index.models");
 
-const toggleAssignAdminRules = async (userId) => {
+const updateUserRole = async (userId) => {
   try {
     const userData = await UserModel.findById(userId);
     if (!userData) {
@@ -36,7 +36,7 @@ const deleteUser = async (userId) => {
 };
 
 module.exports = {
-  toggleAssignAdminRules,
+  updateUserRole,
   deleteUser,
   getUsers
 };

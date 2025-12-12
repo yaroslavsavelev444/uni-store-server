@@ -17,7 +17,7 @@ const createProduct = async (req, res, next) => {
   try {
     const { productData } = req.body;
     const { files } = req;
-    console.log(productData, files);
+    
     if (!productData || !req.files) {
       throw ApiError.BadRequest("Отсутствует productData");
     }
@@ -54,18 +54,6 @@ const editProduct = async (req, res, next) => {
   }
 };
 
-const deleteProduct = async (req, res, next) => {
-  try {
-    const { productId } = req.body;
-    if (!productId) {
-      throw ApiError.BadRequest("Отсутствует productId");
-    }
-    const result = await productService.deleteProduct(productId);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
 
 const archieveProduct = async (req, res, next) => {
   try {
@@ -105,7 +93,7 @@ const updateProductData = async (req, res, next) => {
 };
 
 //COMPANY
-const uploadOrgData = async (req, res, next) => {
+const createOrganization = async (req, res, next) => {
   try {
 
     const { companyName, workTime, address, phone, email, description } =
@@ -141,17 +129,17 @@ const uploadOrgData = async (req, res, next) => {
       description,
     };
 
-    const result = await orgService.uploadOrgData(companyData);
+    const result = await orgService.createOrganization(companyData);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
-const editOrgData = async (req, res, next) => {
+const updateOrganization = async (req, res, next) => {
   try {
     const {
-      _id,
+      id,
       companyName,
       workTime,
       address,
@@ -160,12 +148,9 @@ const editOrgData = async (req, res, next) => {
       description,
     } = req.body;
 
-    if (!_id ) {
-      throw ApiError.BadRequest("Не передан ID компании");
-    }
 
     const orgData = {
-      _id,
+      id,
       companyName,
       workTime,
       address,
@@ -173,15 +158,8 @@ const editOrgData = async (req, res, next) => {
       email,
       description,
     };
-    console.log('orgData', orgData);
-
-    const existingOrg = await orgService.findById(orgData._id);
-    if (!existingOrg) {
-      throw ApiError.NotFoundError("Компания не найдена");
-    }
-
     
-    const updatedOrg = await orgService.updateOrgWithImage(
+    const updatedOrg = await orgService.updateOrganization(
       orgData._id,
       orgData,
       req.file,
@@ -196,20 +174,20 @@ const editOrgData = async (req, res, next) => {
   }
 };
 
-const deleteOrgData = async (req, res, next) => {
+const deleteOrganization = async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!id) {
       throw ApiError.BadRequest("Отсутствует companyData");
     }
-    const result = await orgService.deleteOrgData(id);
+    const result = await orgService.deleteOrganization(id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
-const uploadOrgFiles = async (req, res, next) => {
+const uploadOrganizationFile = async (req, res, next) => {
   try {
     const files = req.files;
     const orgId = req.params.orgId;
@@ -223,14 +201,14 @@ const uploadOrgFiles = async (req, res, next) => {
       displayName: req.displayNames?.[index] || file.originalname,
     }));
 
-    const result = await orgService.uploadOrgFiles(filesData, orgId);
+    const result = await orgService.uploadOrganizationFile(filesData, orgId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
-const deleteOrgFile = async (req, res, next) => {
+const deleteOrganizationFile = async (req, res, next) => {
   try {
     const { orgId } = req.params;
     const { filePath } = req.body;
@@ -239,14 +217,14 @@ const deleteOrgFile = async (req, res, next) => {
       throw ApiError.BadRequest("orgId и filePath обязательны");
     }
 
-    const result = await orgService.deleteOrgFile(orgId, filePath);
+    const result = await orgService.deleteOrganizationFile(orgId, filePath);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
-const addOrgSocialLinks = async (req, res, next) => {
+const addSocialLink = async (req, res, next) => {
   try {
     const companyId = req.params.orgId;
     const { url } = req.body;
@@ -255,20 +233,20 @@ const addOrgSocialLinks = async (req, res, next) => {
     if (!url || !icons) {
       throw ApiError.BadRequest("Отсутствует socialLinks");
     }
-    const result = await orgService.addOrgSocialLinks(companyId, url, icons);
+    const result = await orgService.addSocialLink(companyId, url, icons);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
-const deleteOrgSocialLink = async (req, res, next) => {
+const deleteSocialLink = async (req, res, next) => {
   try {
     const { linkId } = req.body;
     if (!linkId) {
       throw ApiError.BadRequest("Отсутствует linkId");
     }
-    const result = await orgService.deleteOrgSocialLink(linkId);
+    const result = await orgService.deleteSocialLink(linkId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -284,7 +262,7 @@ const getUsers = async (req, res, next) => {
     next(e);
   }
 };
-const toggleAssignAdminRules = async (req, res, next) => {
+const updateUserRole = async (req, res, next) => {
   try {
     const { id } = req.body;
 
@@ -292,7 +270,7 @@ const toggleAssignAdminRules = async (req, res, next) => {
       throw ApiError.BadRequest("Отсутствует userId");
     }
     
-    const result = await userService.toggleAssignAdminRules(id);
+    const result = await userService.updateUserRole(id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -322,6 +300,19 @@ const getOrders = async (req, res, next) => {
     next(e);
   }
 };
+
+const getOrder = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    if (!orderId) {
+      throw ApiError.BadRequest("Отсутствует orderId");
+    }
+    const result = await ordersService.getOrderAdmin(orderId);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+}
 const updateOrderStatus = async (req, res, next) => {
   try {
     const { orderId, status } = req.body;
@@ -487,30 +478,13 @@ const changeCategoryData = async (req, res, next) => {
   }
 };
 
-const clearCategory = async (req, res, next) => {
-  const { categoryId } = req.body;
-  try {
-    const result = await categoryService.clearCategory(categoryId);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
 
 //CONTACTS
 
-const getContacts = async (req, res, next) => {
-  try {
-    const result = await contactsService.getContacts();
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
 const updateContactStatus = async (req, res, next) => {
   try {
-    const { contactId, status } = req.body;
+    const { status } = req.body;
+    const { contactId} = req.params;
 
     if (!contactId || !status) {
       throw ApiError.BadRequest("Отсутствует contactData");
@@ -532,14 +506,27 @@ const getOrgReviews = async (req, res, next) => {
     next(e);
   }
 }
-const getReviews = async (req, res, next) => {
+const getProductReviews = async (req, res, next) => {
   try {
-    const result = await reviewService.getReviews();
+    const { id } = req.params;
+    if(!id) {
+      throw ApiError.BadRequest("Отсутствует id");
+    }
+    const result = await reviewService.getProductReviews(id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
+
+const getProductsReviews = async (req, res, next) => {
+  try {
+    const result = await reviewService.getProductsReviews();
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+}
 const updateReviewStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -708,14 +695,13 @@ const deleteMainMaterial = async (req, res, next) => {
 };
 
 module.exports = {
-  deleteProduct,
   updateReviewStatus,
   updateOrgReviewStatus,
   createProduct,
-  deleteOrgFile,
+  deleteOrganizationFile,
   archieveProduct,
   updateProductData,
-  toggleAssignAdminRules,
+  updateUserRole,
   deleteUser,
   updateOrderStatus,
   uploadProductFile,
@@ -723,30 +709,30 @@ module.exports = {
   createCategory,
   deleteCategory,
   changeCategoryData,
-  clearCategory,
   updateContactStatus,
   uploadOrderFile,
   getUsers,
   createCategory,
   updateCategory,
   editProduct,
-  editOrgData,
+  updateOrganization,
   getContacts,
-  deleteOrgData,
-  uploadOrgData,
+  deleteOrganization,
+  createOrganization,
   getOrders,
   cancelOrder,
-  uploadOrgFiles,
-  addOrgSocialLinks,
+  uploadOrganizationFile,
+  addSocialLink,
   deleteOrderFile,
-  getReviews,
+  getProductReviews,
   getOrgReviews,
   addPromoBlock,
   getPromoBlock,
   updatePromoBlock,
   deletePromoBlock,
-  deleteOrgSocialLink,
+  deleteSocialLink,
   addMainMaterial,
   updateMainMaterial,
-  deleteMainMaterial
+  deleteMainMaterial,
+  getProductsReviews
 };

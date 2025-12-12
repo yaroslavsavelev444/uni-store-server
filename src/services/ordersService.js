@@ -1,5 +1,5 @@
 const ApiError = require("../exceptions/api-error");
-const { OrderModel, ProductModel, CompanyModel } = require("../models/indexModels");
+const { OrderModel, ProductModel, CompanyModel } = require("../models/index.models");
 const { sendEmailNotification } = require("../queues/taskQueues");
 const { getCart, clearCart } = require("./cartService");
 const { archieveProduct } = require("./productService");
@@ -71,6 +71,18 @@ const getOrdersAdmin = async () => {
     throw ApiError.InternalServerError(error.message || "Произошла ошибка");
   }
 };
+
+const getOrderAdmin = async (orderId) => {
+  try {
+    const order = await OrderModel.findById(orderId)
+      .populate("products.product")
+      .populate("user")
+      .populate("companyData.company");
+    return order;
+  } catch (error) {
+    throw ApiError.InternalServerError(error.message || "Произошла ошибка");
+  }
+}
 const updateOrderStatus = async (orderId, status, userId) => {
   try {
     const order = await OrderModel.findById(orderId).populate("products.product", "title").populate("user", "email");
@@ -264,5 +276,6 @@ module.exports = {
   createOrder,
   getCompanies,
   deleteCompany,
-  deleteOrderFile
+  deleteOrderFile,
+  getOrderAdmin
 };

@@ -1,11 +1,15 @@
 const ApiError = require("../exceptions/api-error");
-const { ProductReviewModel, OrgReview } = require("../models/indexModels");
+const { ProductReviewModel, OrgReview } = require("../models/index.models");
 const { sendEmailNotification } = require("../queues/taskQueues");
 const { checkIfUserBoughtProduct } = require("./productService");
 
 
-const getReviews = async () => {
+const getProductsReviews = async () => {
     return await ProductReviewModel.find().populate("user", "name");
+}
+
+const getProductReviews = async (productId) => {
+    return await ProductReviewModel.find({ productId }).populate("user", "name");
 }
 const addProductReview = async (userId, productId, { pros, cons, comment, rating }) => {
     const hasBought = await checkIfUserBoughtProduct(userId, productId);
@@ -35,9 +39,6 @@ const addOrgReview = async (userId, theme, comment) => {
 const getOrgReviews = async () => {
    return await OrgReview.find({status: "accept"}).populate("userId", "name");
 };
-const getProductReviews = async (productId) => {
-    return await ProductReviewModel.find({ productId });;
-};
 const getUserReviews = async (userId) => {
     return await ProductReviewModel.find({ user: userId }).populate("user", "name")
     .sort({ createdAt: -1 });;
@@ -56,8 +57,8 @@ module.exports = {
     addOrgReview,
     updateReviewStatus,
     getOrgReviews,
-    getProductReviews,
+    getProductsReviews,
     getUserReviews,
-    getReviews,
+    getProductReviews,
     updateOrgReviewStatus
 };

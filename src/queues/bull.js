@@ -1,15 +1,9 @@
-const Bull = require('bull');
-
-const redis = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
-  maxRetriesPerRequest: 3,
-  connectTimeout: 180000,
-};
-
+const Bull = require("bull");
+const logger = require("../logger/logger");
+const redis = require("../redis/redisConfig");
 const defaultJobOptions = {
-  removeOnComplete: 1000,
-  removeOnFail: 5000,    
+  removeOnComplete: 1000, // Удалять после 1000 задач
+  removeOnFail: 5000, // Оставлять последние 5000 ошибок для анализа
 };
 
 const limiter = {
@@ -27,20 +21,48 @@ const settings = {
   drainDelay: 60, // задержка перед завершением, когда очередь пуста.
 };
 
-const emailQueues = new Bull('emailQueues', { redis, defaultJobOptions, settings, limiter });
-const logQueues = new Bull('logQueues', { redis, defaultJobOptions, settings, limiter });
-const errorLogQueues = new Bull('errorLogQueues', { redis, defaultJobOptions, settings, limiter });
-
-emailQueues.on('error', (err) => {
-  console.error('Ошибка очереди:', err);
-});
-logQueues.on('error', (err) => {
-  console.error('Ошибка очереди логов:', err);
-});
-errorLogQueues.on('error', (err) => {
-  console.error('Ошибка очереди логов ошибок:', err);
+const taskQueues = new Bull("taskQueues", {
+  redis,
+  defaultJobOptions,
+  settings,
+  limiter,
 });
 
-console.log('Queues initialized: logQueues, errorLogQueues');
 
-module.exports = { emailQueues, logQueues, errorLogQueues };
+const moderateQueues = new Bull("moderateQueues", {
+  redis,
+  defaultJobOptions,
+  settings,
+  limiter,
+});
+
+const pushNotificationsQueues = new Bull("pushNotificationsQueues", {
+  redis,
+  defaultJobOptions,
+  settings,
+  limiter,
+});
+
+
+taskQueues
+  .on('completed', job => logger.debug(`Job ${job.id} completed`))
+  .on('failed', (job, err) => logger.error(`Job ${job.id} failed: ${err.message}`));
+
+moderateQueues
+  .on('completed', job => logger.debug(`Job ${job.id} completed`))
+  .on('failed', (job, err) => logger.error(`Job ${job.id} failed: ${err.message}`));
+
+pushNotificationsQueues
+  .on('completed', job => logger.debug(`Job ${job.id} completed`))
+  .on('failed', (job, err) => logger.error(`Job ${job.id} failed: ${err.message}`));
+
+process.on('SIGTERM', async () => {
+  await taskQueues.close();
+  await moderateQueues.close();
+  await pushNotificationsQueues.close();
+  logger.info('Task queue closed');
+});
+
+logger.info("Queues initialized: taskQueues, moderateQueues, pushNotificationsQueues");
+
+module.exports = { taskQueues, moderateQueues, pushNotificationsQueues };

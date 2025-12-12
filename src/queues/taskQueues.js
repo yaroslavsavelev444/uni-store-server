@@ -1,74 +1,123 @@
+const ApiError = require("../exceptions/api-error");
+const logger = require("../logger/logger");
+require("../models/index.models");
+const {
+  taskQueues,
+  moderateQueues,
+  pushNotificationsQueues,
+} = require("./bull");
 
-const ApiError = require('../exceptions/api-error');
-const { emailQueues , logQueues, errorLogQueues } = require('./bull');
-require('dotenv').config();
-const path = require("path");
+async function sendEmailNotification(email, type, data) {
+  logger.info(
+    `sendEmailNotificationLetter: ${JSON.stringify(
+      { email, type, data },
+      null,
+      2
+    )}`
+  );
 
-const errorLogPath = path.resolve(
-  __dirname,
-  "../logs/error.log");
-
-// Отправка на почту 
-async function sendEmailNotification(email, type, data, tg = false) {
-  
-  console.log("sendEmailNotification" , email, type, data);
-  if(!email || !type || !data) {
-    console.log('Отсутствуют обязательные данные');
-    throw ApiError.BadRequest('Отсутствуют обязательные данные');
+  if (!email || !type || !data) {
+    logger.info("Отсутствуют обязательные данные");
+    throw ApiError.BadRequest("Отсутствуют обязательные данные");
   }
 
   try {
-    const job = await emailQueues.add("sendEmailNotification", {
+    const job = await taskQueues.add("sendEmailNotification", {
       email,
       type,
       data,
-      tg
     });
-    console.log(`Task added to queue: ${job.id}`);
+    logger.info(`Task added to queue: ${job.id}`);
   } catch (error) {
-    console.error("Error sending email notification:", error);
+    logger.error("Error sending email notification:", error);
     throw ApiError.InternalServerError("Error sending email notification");
   }
 }
 
+async function sendPushNotification({
+  title,
+  body,
+  data = {},
+  options = {},
+  dbSave,
+  userId,
+  delay = 0,
+  jobId = null,
+}) {
+  console.log(
+    title,
+    body,
+    data,
+    options,
+    dbSave,
+    userId,
+    delay,
+    jobId
+  );
 
-//Запись логов в файл или бд
-
-async function writeLogs( logFilePath, logEntry) {
-  console.log('logFilePath, logEntry', logFilePath, logEntry);
-
-  if (!logFilePath || !logEntry || Object.keys(logEntry).length === 0) {
-    console.log('Ошибка: отсутствуют обязательные данные для логирования.');
-    throw ApiError.BadRequest("Ошибка: отсутствуют обязательные данные.");
-  }
-
-  // Запись логов в файл или бд
   try {
-    await logQueues.add("sendLogs", { logFilePath, logEntry });
-  } catch (error) {
-      console.error("Ошибка при добавлении задачи в очередь логирования:", error);
-      throw ApiError.InternalServerError("Ошибка при добавлении задачи в очередь логирования.");
-  }
+    const jobOptions = {
+      // removeOnComplete: true,
+      // removeOnFail: true,
+    };
 
+    if (delay && typeof delay === "number" && delay > 0) {
+      jobOptions.delay = delay;
+    }
+
+    if (jobId) {
+      jobOptions.jobId = jobId;
+    }
+
+    await pushNotificationsQueues.add(
+      "sendPushNotification",
+      {  title, body, data, options, dbSave, userId },
+      jobOptions
+    );
+  } catch (error) {
+    console.log("Ошибка при отправке пуш-уведомления:", error);
+    throw ApiError.InternalServerError("Ошибка при отправке пуш-уведомления.");
+  }
 }
 
-async function writeErrorLogs(logEntry, isCritical) {
-
-  if (!errorLogPath || !logEntry || Object.keys(logEntry).length === 0) {
-    console.log('Ошибка: отсутствуют обязательные данные для логирования.');
-    throw ApiError.BadRequest("Ошибка: отсутствуют обязательные данные.");
+async function reviewModerate(reviewId) {
+  if (!reviewId) {
+    throw ApiError.BadRequest("userId and reviewId are required");
   }
 
-  // Запись логов в файл или бд
   try {
-    await errorLogQueues.add("sendLogErrors", { errorLogPath, logEntry, isCritical });
+    const job = await moderateQueues.add("moderateReview", { reviewId });
+    logger.info(`Task added: ${job.id}`);
   } catch (error) {
-      console.error("Ошибка при добавлении задачи в очередь логирования:", error);
-      throw ApiError.InternalServerError("Ошибка при добавлении задачи в очередь логирования.");
+    logger.error("Error adding task:", error);
+    throw ApiError.InternalServerError("Ошибка постановки задачи");
   }
-
 }
 
+async function sendTelegramNotification(
+  message,
+  level = "error",
+  metadata = {},
+  options = {}
+) {
+  try {
+    const job = await taskQueues.add("sendTelegramNotification", {
+      message,
+      level,
+      metadata,
+      options,
+    });
+    logger.info(`Telegram notification task added to queue: ${job.id}`);
+    return job.id;
+  } catch (error) {
+    logger.error("Error queueing Telegram notification:", error);
+    return null;
+  }
+}
 
-
-module.exports = {  sendEmailNotification , writeLogs, writeErrorLogs};
+module.exports = {
+  sendEmailNotification,
+  sendPushNotification,
+  reviewModerate,
+  sendTelegramNotification,
+};

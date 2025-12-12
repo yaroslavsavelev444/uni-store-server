@@ -1,0 +1,159 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: polet-app-dev
+    ports:
+      - "3003:3003"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo1:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - backend
+    command: ["npm", "run", "dev"]
+    volumes:
+      - .:/app
+      - polet_node_modules:/app/node_modules  # ✅ Исправлено
+      - ./logs:/app/src/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: polet-worker-dev
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo1:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - backend
+    command: ["node", "src/queues/worker/processors.js"]
+    volumes:
+      - .:/app
+      - polet_node_modules:/app/node_modules  # ✅ Исправлено
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "processors.js"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: polet-redis-dev
+    ports:
+      - "6381:6379"
+    volumes:
+      - polet_redis_data:/data  # ✅ Исправлено
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mongo1:
+    image: mongo:6.0
+    container_name: mongo1-polet-dev
+    ports:
+      - "27030:27017"
+    volumes:
+      - polet_mongo1_data:/data/db  # ✅ Исправлено
+    command: mongod --replSet rs0 --bind_ip_all
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - backend
+
+  mongo2:
+    image: mongo:6.0
+    container_name: mongo2-polet-dev
+    ports:
+      - "27031:27017"
+    volumes:
+      - polet_mongo2_data:/data/db  # ✅ Исправлено
+    command: mongod --replSet rs0 --bind_ip_all
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - backend
+
+  mongo3:
+    image: mongo:6.0
+    container_name: mongo3-polet-dev
+    ports:
+      - "27032:27017"
+    volumes:
+      - polet_mongo3_data:/data/db  # ✅ Исправлено
+    command: mongod --replSet rs0 --bind_ip_all
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - backend
+
+  rs-init:
+    image: node:20-alpine
+    container_name: rs-init-polet-dev
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    volumes:
+      - ./init-replica.js:/app/init.js
+    working_dir: /app
+    command: sh -c "npm install mongodb && node init.js"
+    networks:
+      - backend
+
+  admin-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev   
+    container_name: polet-admin-init
+    depends_on:
+      rs-init:
+        condition: service_completed_successfully
+    command: ["node", "src/scripts/createAdmin.js"] 
+    restart: "on-failure"
+    env_file:
+      - .env
+    networks:
+      - backend
+    volumes:
+      - .:/app
+      - polet_node_modules:/app/node_modules  # ✅ Исправлено
+    
+networks:
+  backend:
+
+volumes:
+  polet_redis_data:
+  polet_mongo1_data:
+  polet_mongo2_data:
+  polet_mongo3_data:
+  polet_node_modules:
