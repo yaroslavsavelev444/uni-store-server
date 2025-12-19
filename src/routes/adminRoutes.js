@@ -46,10 +46,10 @@ router.patch("/organization-reviews/:id/status", adminController.updateOrgReview
 
 // ============== ORDERS (Заказы) ==============
 router.get("/orders", adminController.getOrders);
-router.get("/orders/:id", adminController.getOrder);
+// router.get("/orders/:id", adminController.getOrder);
 router.patch("/orders/:id/status", adminController.updateOrderStatus);
 router.patch("/orders/:id/cancel", adminController.cancelOrder);
-router.delete("/orders/:id", adminController.deleteOrder);
+// router.delete("/orders/:id", adminController.deleteOrder);
 
 // Файлы заказа
 router.post("/orders/:id/files", adminController.uploadOrderFile);
@@ -57,16 +57,16 @@ router.delete("/orders/:id/files/:fileId", adminController.deleteOrderFile);
 
 // ============== PROMOTIONS (Промо-материалы) ==============
 // Промо-блоки
-router.post("/promo-blocks", adminController.createPromoBlock);
-router.get("/promo-blocks", adminController.getPromoBlocks);
+// router.post("/promo-blocks", adminController.createPromoBlock);
+// router.get("/promo-blocks", adminController.getPromoBlocks);
 router.get("/promo-blocks/:id", adminController.getPromoBlock);
 router.put("/promo-blocks/:id", adminController.updatePromoBlock);
 router.delete("/promo-blocks/:id", adminController.deletePromoBlock);
 
 // Главные материалы
-router.post("/main-materials", adminController.createMainMaterial);
-router.get("/main-materials", adminController.getMainMaterials);
-router.get("/main-materials/:id", adminController.getMainMaterial);
+// router.post("/main-materials", adminController.createMainMaterial);
+// router.get("/main-materials", adminController.getMainMaterials);
+// router.get("/main-materials/:id", adminController.getMainMaterial);
 router.put("/main-materials/:id", adminController.updateMainMaterial);
 router.delete("/main-materials/:id", adminController.deleteMainMaterial);
 

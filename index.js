@@ -88,7 +88,6 @@ const notificationsRoutes = require("./src/routes/notificationsRoutes");
 const categoriesRoutes = require("./src/routes/categoriesRoutes");
 const orgRoutes = require("./src/routes/orgRoutes");
 const ordersRoutes = require("./src/routes/ordersRoutes");
-const constructorFormRoutes = require("./src/routes/constructorFormRoutes");
 const bullBoardRouter = require("./src/queues/bullBoard");
 const healthcheckRoutes = require("./src/routes/healthcheckRoutes");
 const authMiddleware = require("./src/middlewares/auth-middleware");
@@ -119,7 +118,6 @@ app.use("/reviews", reviewsRoutes);
 app.use("/promoBlocks", promoBlocksRoutes);
 app.use("/orders", authMiddleware(["all"]), ordersRoutes);
 app.use("/cart", authMiddleware(["all"]), cartRoutes);
-app.use("/constructorForm", constructorFormRoutes);
 app.use("/admin/queues", bullBoardRouter);
 app.use("/admin", authMiddleware(["admin"]), adminRoutes);
 

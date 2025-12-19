@@ -716,7 +716,6 @@ module.exports = {
   updateCategory,
   editProduct,
   updateOrganization,
-  getContacts,
   deleteOrganization,
   createOrganization,
   getOrders,

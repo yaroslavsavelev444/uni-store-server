@@ -124,9 +124,9 @@ services:
       mongo3:
         condition: service_healthy
     volumes:
-      - ./init-replica.js:/app/init.js
+      - ./init-replica.js:/app/init-replica.js
     working_dir: /app
-    command: sh -c "npm install mongodb && node init.js"
+    command: sh -c "npm install mongodb && node init-replica.js"
     networks:
       - backend
 

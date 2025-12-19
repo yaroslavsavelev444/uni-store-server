@@ -6,7 +6,6 @@ const OrgReview = require("./org-review-model");
 const OrgModel = require("./org-model");
 const PromoBlockModel = require("./promo-block-model");
 const MainMaterialModel = require("./main-material-model");
-const ContactConstructorModel = require("./contact-constructor-model");
 const ContactModel = require("./contact-model");
 const CategoryModel = require("./category-model");
 const CompanyModel = require("./company-model");
@@ -25,7 +24,6 @@ module.exports = {
   OrgModel,
   PromoBlockModel,
   MainMaterialModel,
-  ContactConstructorModel,
   ContactModel,
   CategoryModel,
   CompanyModel,
