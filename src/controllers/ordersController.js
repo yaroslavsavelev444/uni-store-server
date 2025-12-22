@@ -46,23 +46,50 @@ const createOrder = async (req, res, next) => {
   }
 };
 
-const deleteCompany = async (req, res, next) => {
+
+
+const uploadOrderFile = async (req, res, next) => {
   try {
-    const { id } = req.body;
-    if (!id) {
-      throw ApiError.BadRequest("Отсутствует id");
+    const orderId = req.params.orderId;
+    const file = req.file;
+
+    if (!file || !orderId) {
+      return res.status(400).json({ message: "Файл не был загружен" });
     }
-    const result = await ordersService.deleteCompany(id);
+
+    const fileData = {
+      path: path.join(req.uploadPath, file.filename).replace(/\\/g, "/"),
+      name: req.displayName || file.originalname,
+    };
+
+    const result = await ordersService.uploadOrderFile(fileData, orderId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
+const deleteOrderFile = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!orderId) {
+      throw ApiError.BadRequest("orderId и filePath обязательны");
+    }
+
+    const result = await ordersService.deleteOrderFile(orderId);
+    res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+
 module.exports = {
   getOrders,
   cancelOrder,
   createOrder,
   getCompanies,
-  deleteCompany
+  uploadOrderFile,
+  deleteOrderFile,
 };

@@ -1,64 +1,52 @@
 const ApiError = require("../exceptions/api-error");
-const { ProductReviewModel, OrgReview } = require("../models/index.models");
+const { ProductReviewModel } = require("../models/index.models");
 const { sendEmailNotification } = require("../queues/taskQueues");
 const { checkIfUserBoughtProduct } = require("./productService");
 
-
 const getProductsReviews = async () => {
-    return await ProductReviewModel.find().populate("user", "name");
-}
+  return await ProductReviewModel.find().populate("user");
+};
 
 const getProductReviews = async (productId) => {
-    return await ProductReviewModel.find({ productId }).populate("user", "name");
-}
-const addProductReview = async (userId, productId, { pros, cons, comment, rating }) => {
-    const hasBought = await checkIfUserBoughtProduct(userId, productId);
-    if (!hasBought) {
-      throw ApiError.BadRequest("Вы не купили данный товар");
-    }
-  
-    const review = await ProductReviewModel.create({
-      user: userId,
-      productId,
-      pros,
-      cons,
-      comment,
-      rating,
-    });
-  
-    sendEmailNotification(process.env.SMTP_USER, "newProductReview", {
-      reviewData: review.toObject(),
-    });
-  
-    return review;
-  };
-
-const addOrgReview = async (userId, theme, comment) => {
-    return await OrgReview.create({ userId, theme, comment });
-};
-const getOrgReviews = async () => {
-   return await OrgReview.find({status: "accept"}).populate("userId", "name");
-};
-const getUserReviews = async (userId) => {
-    return await ProductReviewModel.find({ user: userId }).populate("user", "name")
-    .sort({ createdAt: -1 });;
-};
-//ADMIN
-const updateReviewStatus = async (id, status) => {
-    return await ProductReviewModel.findByIdAndUpdate(id, { status });
+  return await ProductReviewModel.find({ productId }).populate("user");
 };
 
-const updateOrgReviewStatus = async (id, status) => {
-    return await OrgReview.findByIdAndUpdate(id, { status });
+const addProductReview = async (
+  userId,
+  productId,
+  { pros, cons, comment, rating }
+) => {
+  const hasBought = await checkIfUserBoughtProduct(userId, productId);
+  if (!hasBought) {
+    throw ApiError.BadRequest("Вы не купили данный товар");
+  }
+
+  const review = await ProductReviewModel.create({
+    user: userId,
+    productId,
+    pros,
+    cons,
+    comment,
+    rating,
+  });
+
+  sendEmailNotification(process.env.SMTP_USER, "newProductReview", {
+    reviewData: review.toObject(),
+  });
+
+  return review;
+};
+
+const update = async (id, data) => {
+  return await ProductReviewModel.findByIdAndUpdate(id, data, {
+    new: true,
+    runValidators: true,
+  });
 };
 
 module.exports = {
-    addProductReview,
-    addOrgReview,
-    updateReviewStatus,
-    getOrgReviews,
-    getProductsReviews,
-    getUserReviews,
-    getProductReviews,
-    updateOrgReviewStatus
+  addProductReview,
+  getProductsReviews,
+  getProductReviews,
+  update,
 };

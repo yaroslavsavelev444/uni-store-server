@@ -1,8 +1,98 @@
 const express = require('express');
 const router = express.Router();
-const productsController = require('../controllers/productsController');
+const productController = require('../controllers/productsController');
+const authMiddleware = require('../middlewares/auth-middleware');
+const {
+  createProductSchema,
+  updateProductSchema,
+  productQuerySchema,
+  productSearchSchema, // ДОБАВЛЕНО
+  updateStatusSchema, // ДОБАВЛЕНО
+  updateStockSchema // ДОБАВЛЕНО
+} = require('../validators/product.validator');
+const {
+  validateObjectId,
+  validateQueryParams,
+  validateProduct
+} = require('../middlewares/validation.middleware');
+const Joi = require('joi');
 
-router.get('/getProducts', productsController.getProducts);
-router.get('/getProductDetails', productsController.getProductDetails);
+// Публичные эндпоинты
+router.get(
+  '/',
+  validateQueryParams(productQuerySchema),
+  productController.getAllProducts
+);
+
+router.get(
+  '/search',
+  validateQueryParams(productSearchSchema), // ДОБАВЛЕНО: валидация query params
+  productController.searchProducts
+);
+
+router.get(
+  '/statuses',
+  productController.getProductStatuses
+);
+
+router.get(
+  '/:id',
+  validateObjectId('id'),
+  productController.getProductById
+);
+
+router.get(
+  '/:id/related',
+  validateObjectId('id'),
+  productController.getRelatedProducts
+);
+
+// Защищенные эндпоинты (только для администраторов)
+router.use(authMiddleware(['admin'])); // ИЗМЕНЕНО: middleware авторизации
+
+router.post(
+  '/',
+  validateProduct(createProductSchema),
+  productController.createProduct
+);
+
+router.put(
+  '/:id',
+  authMiddleware(['admin']), // ДОБАВИТЬ
+  validateObjectId('id'),
+  validateProduct(updateProductSchema), // ДОБАВИТЬ: валидация данных
+  productController.updateProduct
+);
+
+router.patch(
+  '/:id/status',
+  authMiddleware(['admin']), // ДОБАВИТЬ
+  validateObjectId('id'),
+  validateProduct(updateStatusSchema), // ДОБАВИТЬ: валидация данных
+  productController.updateProductStatus
+);
+
+router.patch(
+  '/:id/stock',
+  authMiddleware(['admin']), // ДОБАВИТЬ
+  validateObjectId('id'),
+  validateProduct(updateStockSchema), // ДОБАВИТЬ: валидация данных
+  productController.updateStock
+);
+
+router.post(
+  '/:id/related',
+  authMiddleware(['admin']), // ДОБАВИТЬ
+  validateObjectId('id'),
+  validateProduct(Joi.object({ relatedProductId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).required() })), // ДОБАВИТЬ
+  productController.addRelatedProduct
+);
+
+
+router.delete(
+  '/:id',
+  validateObjectId('id'),
+  productController.deleteProduct
+);
 
 module.exports = router;

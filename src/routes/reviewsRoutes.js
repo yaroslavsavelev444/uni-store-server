@@ -3,15 +3,9 @@ const router = express.Router();
 const reviewsController = require("../controllers/reviewsController");
 const authMiddleware = require("../middlewares/auth-middleware");
 
-router.post(
-  "/addProductReview/:id",
-  authMiddleware,
-  reviewsController.addProductReview
-);
-router.post("/addOrgReview", authMiddleware(["all"]), reviewsController.addOrgReview);
-router.get("/getUserReviews", authMiddleware(["all"]), reviewsController.getUserReviews);
-
-router.get("/getOrgReviews", reviewsController.getOrgReviews);
-router.get("/getProductReviews", reviewsController.getProductReviews);
+router.post("/add/:id", authMiddleware(["user"]), reviewsController.add);
+router.get("/", reviewsController.get);
+router.get("/:id", authMiddleware(["all"]), reviewsController.getUserReviews);
+router.patch("/update", authMiddleware(["admin"]), reviewsController.update);
 
 module.exports = router;

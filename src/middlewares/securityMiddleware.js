@@ -69,8 +69,6 @@ const safeAdminPatterns = [
 
   /^\/admin\/getProductReviews$/,
   /^\/admin\/updateReviewStatus\/[^/]+$/,
-  /^\/admin\/getOrgReviews$/,
-  /^\/admin\/updateOrgReviewStatus\/[^/]+$/,
 
   /^\/admin\/getContacts$/,
   /^\/admin\/updateContactStatus$/,

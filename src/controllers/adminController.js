@@ -8,7 +8,6 @@ const categoryService = require("../services/categoryService");
 const contactsService = require("../services/contactsService");
 const promoBlockService =require("../services/promoBlockService");
 const path = require("path");
-const orgService = require("../services/orgService");
 const { log } = require("console");
 //PRODUCT
 const createProduct = async (req, res, next) => {
@@ -29,229 +28,6 @@ const createProduct = async (req, res, next) => {
   }
 };
 
-const editProduct = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { productData, deletedImages, removeInstruction } = req.body;
-
-    if (!id || !productData) {
-      throw ApiError.BadRequest("Отсутствует productData");
-    }
-    
-    console.log('editProductCOntroller', productData, 'deleted', deletedImages,'remove' ,removeInstruction, req.files);
-    
-
-    const result = await productService.editProduct(
-  id,
-  productData,
-  req.files,          // <== на правильное место
-  deletedImages,
-  removeInstruction
-);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
-
-const archieveProduct = async (req, res, next) => {
-  try {
-    const { productId } = req.body;
-    if (!productId) {
-      throw ApiError.BadRequest("Отсутствует productId");
-    }
-    const result = await productService.archieveProduct(productId);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-const uploadProductFile = async (req, res, next) => {
-  try {
-    const file = req.file; // Получаем файл из запроса
-    if (!file) {
-      throw ApiError.BadRequest("Отсутствует file");
-    }
-    const result = await productService.uploadProductFile(file);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-const updateProductData = async (req, res, next) => {
-  try {
-    const { productData } = req.body;
-    if (!productData) {
-      throw ApiError.BadRequest("Отсутствует productData");
-    }
-    const result = await productService.updateProductData(productData);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
-//COMPANY
-const createOrganization = async (req, res, next) => {
-  try {
-
-    const { companyName, workTime, address, phone, email, description } =
-      req.body;
-
-    if (!req.file || !req.uploadPath || !req.savedFilename) {
-      throw ApiError.BadRequest("Изображение не было загружено");
-    }
-
-    if (
-      !companyName ||
-      !workTime ||
-      !address ||
-      !phone ||
-      !email ||
-      !description
-    ) {
-      console.log(companyName, workTime, address, phone, email, description);
-      throw ApiError.BadRequest("Заполните все обязательные поля");
-    }
-
-    const imagePath = path
-      .join(req.uploadPath, req.savedFilename)
-      .replace(/\\/g, "/");
-
-    const companyData = {
-      logo: imagePath,
-      companyName,
-      workTime,
-      address,
-      phone,
-      email,
-      description,
-    };
-
-    const result = await orgService.createOrganization(companyData);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const updateOrganization = async (req, res, next) => {
-  try {
-    const {
-      id,
-      companyName,
-      workTime,
-      address,
-      phone,
-      email,
-      description,
-    } = req.body;
-
-
-    const orgData = {
-      id,
-      companyName,
-      workTime,
-      address,
-      phone,
-      email,
-      description,
-    };
-    
-    const updatedOrg = await orgService.updateOrganization(
-      orgData._id,
-      orgData,
-      req.file,
-      req.uploadPath,
-      req.savedFilename,
-      existingOrg.image
-    );
-
-    res.status(200).json(updatedOrg);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const deleteOrganization = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    if (!id) {
-      throw ApiError.BadRequest("Отсутствует companyData");
-    }
-    const result = await orgService.deleteOrganization(id);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const uploadOrganizationFile = async (req, res, next) => {
-  try {
-    const files = req.files;
-    const orgId = req.params.orgId;
-
-    if (!files || files.length === 0) {
-      return res.status(400).json({ message: "Файлы не были загружены" });
-    }
-
-    const filesData = files.map((file, index) => ({
-      path: path.join(req.uploadPath, file.filename).replace(/\\/g, "/"),
-      displayName: req.displayNames?.[index] || file.originalname,
-    }));
-
-    const result = await orgService.uploadOrganizationFile(filesData, orgId);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const deleteOrganizationFile = async (req, res, next) => {
-  try {
-    const { orgId } = req.params;
-    const { filePath } = req.body;
-
-    if (!orgId || !filePath) {
-      throw ApiError.BadRequest("orgId и filePath обязательны");
-    }
-
-    const result = await orgService.deleteOrganizationFile(orgId, filePath);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const addSocialLink = async (req, res, next) => {
-  try {
-    const companyId = req.params.orgId;
-    const { url } = req.body;
-    const icons = req.files;
-
-    if (!url || !icons) {
-      throw ApiError.BadRequest("Отсутствует socialLinks");
-    }
-    const result = await orgService.addSocialLink(companyId, url, icons);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const deleteSocialLink = async (req, res, next) => {
-  try {
-    const { linkId } = req.body;
-    if (!linkId) {
-      throw ApiError.BadRequest("Отсутствует linkId");
-    }
-    const result = await orgService.deleteSocialLink(linkId);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-}
 
 //USERS
 const getUsers = async (req, res, next) => {
@@ -498,14 +274,6 @@ const updateContactStatus = async (req, res, next) => {
 };
 
 //REVIEWS
-const getOrgReviews = async (req, res, next) => {
-  try {
-    const result = await reviewService.getOrgReviews(req.user);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-}
 const getProductReviews = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -543,23 +311,6 @@ const updateReviewStatus = async (req, res, next) => {
   }
 };
 
-const updateOrgReviewStatus = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!id || !status) {
-      console.log(id, action);
-      
-      throw ApiError.BadRequest("Отсутствует status");
-    }
-
-    const result = await reviewService.updateOrgReviewStatus(id, status);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
-  }
-};
 
 
 const addPromoBlock = async (req, res, next) => {
@@ -696,15 +447,10 @@ const deleteMainMaterial = async (req, res, next) => {
 
 module.exports = {
   updateReviewStatus,
-  updateOrgReviewStatus,
   createProduct,
-  deleteOrganizationFile,
-  archieveProduct,
-  updateProductData,
   updateUserRole,
   deleteUser,
   updateOrderStatus,
-  uploadProductFile,
   deleteUploadedFile,
   createCategory,
   deleteCategory,
@@ -714,22 +460,14 @@ module.exports = {
   getUsers,
   createCategory,
   updateCategory,
-  editProduct,
-  updateOrganization,
-  deleteOrganization,
-  createOrganization,
   getOrders,
   cancelOrder,
-  uploadOrganizationFile,
-  addSocialLink,
   deleteOrderFile,
   getProductReviews,
-  getOrgReviews,
   addPromoBlock,
   getPromoBlock,
   updatePromoBlock,
   deletePromoBlock,
-  deleteSocialLink,
   addMainMaterial,
   updateMainMaterial,
   deleteMainMaterial,

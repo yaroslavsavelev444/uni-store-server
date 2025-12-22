@@ -18,43 +18,6 @@ const getOrders = async (userData) => {
   }
 };
 
-const getCompanies = async (userId) => {
-  try {
-    const companies = await CompanyModel.find({ user: userId });
-    return companies;
-  } catch (error) {
-    throw ApiError.InternalServerError(error.message || "Произошла ошибка");
-  }
-};
-
-const deleteCompany = async (companyId) => {
-  try {
-    const company = await CompanyModel.findByIdAndDelete(companyId);
-    return company;
-  } catch (error) {
-    throw ApiError.InternalServerError(error.message || "Произошла ошибка");
-  }
-};
-
-const cancelOrder = async (orderId, userData) => {
-  try {
-    const order = await OrderModel.findById(orderId).populate("user", "email");
-
-    if (order.user._id.toString() !== userData.id.toString()) {
-      throw ApiError.BadRequest("Вы не можете отменить этот заказ");
-    }
-
-    order.status = "cancelled";
-
-    sendEmailNotification(process.env.SMTP_USER, "orderCancelledByUser", {
-      orderData: order.toObject(), 
-    });
-
-    return await order.save();
-  } catch (error) {
-    throw ApiError.InternalServerError(error.message || "Произошла ошибка");
-  }
-};
 
 //ТО ЧТО БЫЛО В ORDER SERVICE
 
@@ -65,7 +28,6 @@ const getOrdersAdmin = async () => {
       .populate("user")
       .populate("companyData.company")
       .sort({ createdAt: -1 });
-    console.log(orders);
     return orders;
   } catch (error) {
     throw ApiError.InternalServerError(error.message || "Произошла ошибка");
@@ -272,10 +234,7 @@ module.exports = {
   getOrdersAdmin,
   cancelOrderAdmin,
   getOrders,
-  cancelOrder,
   createOrder,
-  getCompanies,
-  deleteCompany,
   deleteOrderFile,
   getOrderAdmin
 };
