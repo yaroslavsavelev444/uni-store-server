@@ -132,11 +132,6 @@ const ProductSchema = new Schema(
       default: true,
       index: true 
     },
-    isFeatured: { 
-      type: Boolean, 
-      default: false,
-      index: true 
-    },
     showOnMainPage: { 
       type: Boolean, 
       default: false,
@@ -316,7 +311,6 @@ ProductSchema.index({ category: 1, status: 1, isVisible: 1 });
 ProductSchema.index({ title: "text", description: "text", sku: "text" });
 ProductSchema.index({ priceForIndividual: 1 });
 ProductSchema.index({ createdAt: -1 });
-ProductSchema.index({ isFeatured: 1, isVisible: 1 });
 ProductSchema.index({ showOnMainPage: 1, isVisible: 1 });
 
 // Middleware

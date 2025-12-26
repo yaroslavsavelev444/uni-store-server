@@ -32,13 +32,14 @@ const CategorySchema = new Schema({
     maxlength: 2000 
   },
   
-  // Изображение
+    // Изображение - делаем полностью опциональным
   image: { 
-    url: { type: String, required: true },
+    url: { type: String }, // Убрали required: true
     alt: { type: String, maxlength: 255 },
     size: Number,
     mimetype: String
   },
+
   
   // Порядок сортировки
   order: { 
@@ -52,10 +53,6 @@ const CategorySchema = new Schema({
     type: Boolean, 
     default: true,
     index: true 
-  },
-  isFeatured: { 
-    type: Boolean, 
-    default: false 
   },
   
   // SEO

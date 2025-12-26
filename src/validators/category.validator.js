@@ -1,16 +1,13 @@
 const Joi = require('joi');
 
-// Валидация URL изображения
+// Упрощенная схема для изображения
 const imageSchema = Joi.object({
-  url: Joi.string(),
-    // .required()
-    // .uri()
-    // .pattern(/^\/uploads\/(temp|categories)\/images\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/)
-    // .message('Некорректный формат пути к изображению. Ожидается путь из папки uploads'),
+  url: Joi.string().pattern(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/i)
+    .message('Изображение должно быть из папки uploads'),
   alt: Joi.string().max(255).optional(),
   size: Joi.number().integer().positive().optional(),
   mimetype: Joi.string().valid('image/jpeg', 'image/png', 'image/webp', 'image/gif').optional()
-});
+}).optional();
 
 // Схема для создания категории
 const createCategorySchema = Joi.object({
@@ -42,15 +39,16 @@ const createCategorySchema = Joi.object({
     .max(2000)
     .trim(),
   
- image: Joi.alternatives().try(
-  imageSchema,
-  Joi.string()
-    .pattern(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/i)
-    .message('Изображение должно быть из папки uploads')
-)
-.optional(),
-
-
+  // Упрощаем - изображение полностью опциональное
+  image: Joi.alternatives()
+    .try(
+      imageSchema,
+      Joi.string()
+        .pattern(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/i)
+        .message('Изображение должно быть из папки uploads'),
+      Joi.valid(null, '') // Разрешаем null и пустую строку
+    )
+    .optional(),
   
   order: Joi.number()
     .integer()
@@ -60,8 +58,6 @@ const createCategorySchema = Joi.object({
   isActive: Joi.boolean()
     .default(true),
   
-  isFeatured: Joi.boolean()
-    .default(false),
   
   metaTitle: Joi.string()
     .max(255)
@@ -101,15 +97,16 @@ const updateCategorySchema = Joi.object({
     .trim()
     .optional(),
   
-  image: Joi.alternatives().try(
-    imageSchema,
-    Joi.string()
-      .uri()
-      .pattern(/^\/uploads\/(temp|categories)\/images\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/)
-      .message('Изображение должно быть из папки uploads'),
-    Joi.valid(null)
-  )
-  .optional(),
+  // Аналогично для обновления
+  image: Joi.alternatives()
+    .try(
+      imageSchema,
+      Joi.string()
+        .pattern(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/i)
+        .message('Изображение должно быть из папки uploads'),
+      Joi.valid(null, '') // Разрешаем null и пустую строку
+    )
+    .optional(),
   
   order: Joi.number()
     .integer()
@@ -119,8 +116,6 @@ const updateCategorySchema = Joi.object({
   isActive: Joi.boolean()
     .optional(),
   
-  isFeatured: Joi.boolean()
-    .optional(),
   
   metaTitle: Joi.string()
     .max(255)
@@ -134,10 +129,8 @@ const updateCategorySchema = Joi.object({
     .items(Joi.string().max(50))
     .optional()
 }).min(1);
-
 // Схема для запроса списка категорий
 const categoryQuerySchema = Joi.object({
-  featured: Joi.boolean(),
   active: Joi.boolean(),
   search: Joi.string(),
   sortBy: Joi.string().valid('name', 'order', 'createdAt', 'productCount'),

@@ -7,7 +7,6 @@ class CategoryController {
   async getAllCategories(req, res, next) {
     try {
       const {
-        featured,
         active = true,
         search,
         sortBy = 'order',
@@ -17,7 +16,7 @@ class CategoryController {
       } = req.validatedQuery || req.query;
       
       const categories = await categoryService.getAllCategories(
-        { featured, active, search },
+        { active, search },
         { sortBy, sortOrder, includeInactive, withProductCount }
       );
       

@@ -189,9 +189,6 @@ const createProductSchema = Joi.object({
   isVisible: Joi.boolean()
     .default(true),
   
-  isFeatured: Joi.boolean()
-    .default(false),
-  
   showOnMainPage: Joi.boolean()
     .default(false),
   
@@ -226,7 +223,6 @@ const productQuerySchema = Joi.object({
   minPrice: Joi.number().positive().max(1000000),
   maxPrice: Joi.number().positive().max(1000000).min(Joi.ref('minPrice')),
   inStock: Joi.boolean(),
-  featured: Joi.boolean(),
   search: Joi.string().max(100),
   sortBy: Joi.string().valid('price', 'title', 'createdAt', 'updatedAt', 'popularity', 'stockQuantity'),
   sortOrder: Joi.string().valid('asc', 'desc').default('desc'),

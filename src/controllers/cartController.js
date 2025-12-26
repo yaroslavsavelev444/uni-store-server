@@ -1,51 +1,56 @@
 const ApiError = require("../exceptions/api-error");
 const cartService = require("../services/cartService");
 
-const getCart = async (req, res, next) => {
-  try {
-    const cart = await cartService.getCart(req.user.id);
-    res.json(cart);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const setCartItem = async (req, res, next) => {
-  try {
-    const { id, quantity } = req.body;
-    const cart = await cartService.setCartItem(req.user.id, id, quantity);
-    res.status(200).json(cart);
-  } catch (e) {
-    next(e);
-  }
-};
-
-const deleteItem = async (req, res, next) => {
-  try {
-    const { id } = req.body;
-    if(!id) {
-      throw ApiError.BadRequest("Отсутствует id");
+class CartController {
+  async getCart(req, res, next) {
+    try {
+      const cart = await cartService.getCart(req.user.id);
+      console.log('getCart', cart);
+      
+      res.json(cart);
+    } catch (error) {
+      next(error);
     }
-    const cart = await cartService.deleteItem(req.user.id, id);
-    res.status(200).json(cart);
-  } catch (e) {
-    next(e);
   }
-};
 
-const clearCart = async (req, res, next) => {
-  try {
-    const cart = await cartService.clearCart(req.user.id);
-    res.status(200).json(cart);
-  } catch (e) {
-    next(e);
+  async addOrUpdateItem(req, res, next) {
+    try {
+      const { productId, quantity } = req.body;
+      const cart = await cartService.addOrUpdateItem(req.user.id, productId, quantity);
+      res.status(200).json(cart);
+    } catch (error) {
+      next(error);
+    }
   }
-};
 
+  async removeItem(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const cart = await cartService.removeItem(req.user.id, productId);
+      res.status(200).json(cart);
+    } catch (error) {
+      next(error);
+    }
+  }
 
-module.exports = {
-  getCart,
-  setCartItem,
-  deleteItem,
-  clearCart,
-};
+  async decreaseQuantity(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const cart = await cartService.decreaseQuantity(req.user.id, productId);
+      res.status(200).json(cart);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async clearCart(req, res, next) {
+    try {
+      const result = await cartService.clearCart(req.user.id);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+
+module.exports = new CartController();

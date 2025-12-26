@@ -39,6 +39,23 @@ class ProductController {
     }
   }
   
+
+  async getProductBySku(req, res, next) {
+    try {
+      const { sku } = req.params;
+      const { populate = 'none' } = req.query;
+      const isAdmin = req.user && req.user.role === 'admin';
+      
+      const product = await productService.getProductBySku(sku, { populate, isAdmin });
+      
+      res.json({
+        success: true,
+        data: product
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
   async createProduct(req, res, next) {
     try {
       const productData = req.validatedData;
@@ -110,6 +127,67 @@ class ProductController {
     }
   }
   
+ async getHints (req, res, next) {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) {
+      return res.json([]); // минимум 2 символа
+    }
+
+    const result = await productService.getHints(q);
+    console.log("[GET_HINTS_PRODUCT] result", JSON.stringify(result));
+    return res.status(200).json(result);
+  } catch (error) {
+    const errorMessage = error?.message || "Unknown error";
+    logger.error(`[GET_HINTS_PRODUCT] ${errorMessage}`);
+    next(
+      error instanceof ApiError
+        ? error
+        : ApiError.InternalServerError(errorMessage)
+    );
+  }
+};
+
+async saveSearchHistory (req, res, next) {
+  try {
+    const { productId: rawProductId } = req.body;
+    
+    const productId =
+      typeof rawProductId === "object" && rawProductId.selectedProductId
+        ? rawProductId.selectedProductId
+        : rawProductId;
+
+    if (!productId) throw ApiError.BadRequest("Недостаточно данных");
+
+    const record = await productService.saveSearchHistory(
+      req.user.id,
+      productId
+    );
+
+    res.json(record);
+  } catch (err) {
+    next(err);
+  }
+};
+
+async getSearchHistory (req, res, next){
+  try {
+    const history = await productService.getSearchHistory(req.user.id);
+    res.json(history);
+  } catch (err) {
+    next(err);
+  }
+};
+
+async clearSearchHistory (req, res, next) {
+  try {
+    const result = await productService.clearSearchHistory(req.user.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
   async updateProductStatus(req, res, next) {
     try {
       const { id } = req.params;

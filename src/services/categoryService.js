@@ -10,7 +10,6 @@ class CategoryService {
   // Получить все категории с фильтрацией
   async getAllCategories(filters = {}, options = {}) {
     const {
-      featured,
       active = true,
       search,
       sortBy = 'order',
@@ -27,10 +26,6 @@ class CategoryService {
       query.isActive = active;
     }
     
-    // Фильтрация по featured
-    if (featured !== undefined) {
-      query.isFeatured = featured;
-    }
     
     // Поиск по названию
     if (search) {
@@ -287,13 +282,13 @@ async moveImageFromTemp(tempPath) {
     
     const category = await CategoryModel.findById(id);
     if (!category) {
-      throw ApiError.NotFound('Категория не найдена');
+      throw ApiError.NotFoundError('Категория не найдена');
     }
     
     // Проверяем, есть ли продукты в этой категории
     const productCount = await ProductModel.countDocuments({ category: id });
     if (productCount > 0) {
-      throw ApiError.Conflict('Невозможно удалить категорию с товарами');
+      throw ApiError.BadRequest('Невозможно удалить категорию с товарами');
     }
     
     // Удаляем изображение

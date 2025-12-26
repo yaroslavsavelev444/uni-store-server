@@ -1,4 +1,3 @@
-
 const CartModel = require("./cart-model");
 const ProductModel = require("./product-model");
 const ProductReviewModel = require("./product-review-model");
@@ -19,6 +18,9 @@ const FeedbackModel = require("./feedback-model");
 const MessageModel = require("./message-model");
 const RoomModel = require("./room-model");
 const KeyEncryptModel = require("./key-encrypt-model");
+const UserSearchModel = require("./user-search-model");
+const { FaqTopicModel, FaqQuestionModel } = require("./faq-model");
+const WishlistModel = require("./wishlist-model");
 module.exports = {
   CartModel,
   ProductModel,
@@ -39,5 +41,9 @@ module.exports = {
   FeedbackModel,
   MessageModel,
   RoomModel,
-  KeyEncryptModel
+  KeyEncryptModel,
+  UserSearchModel,
+  FaqTopicModel,
+  FaqQuestionModel,
+  WishlistModel
 };

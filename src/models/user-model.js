@@ -12,7 +12,7 @@ const UserSchema = new Schema(
       required: true,
     },
     name: { type: String, required: true },
- phoneVerified: { type: Boolean, default: false },
+    phoneVerified: { type: Boolean, default: false },
     activations: {
       emailVerified: { type: Boolean, default: false },
       emailToken: { type: String, select: false },

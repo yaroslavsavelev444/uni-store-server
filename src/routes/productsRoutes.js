@@ -17,6 +17,13 @@ const {
 } = require('../middlewares/validation.middleware');
 const Joi = require('joi');
 
+
+router.get('/getHints', productController.getHints);
+
+//История поиска 
+router.post('/saveSearchHistory', authMiddleware(['all']), productController.saveSearchHistory);
+router.get('/getSearchHistory', authMiddleware(['all']), productController.getSearchHistory);
+router.post('/clearSearchHistory', authMiddleware(['all']), productController.clearSearchHistory);
 // Публичные эндпоинты
 router.get(
   '/',
@@ -39,6 +46,11 @@ router.get(
   '/:id',
   validateObjectId('id'),
   productController.getProductById
+);
+
+router.get(
+  '/sku/:sku',
+  productController.getProductBySku
 );
 
 router.get(
