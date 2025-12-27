@@ -1,11 +1,49 @@
+// routes/reviews.routes.js
 const express = require("express");
 const router = express.Router();
-const reviewsController = require("../controllers/reviewsController");
+const ReviewsController = require("../controllers/reviewsController");
 const authMiddleware = require("../middlewares/auth-middleware");
 
-router.post("/add/:id", authMiddleware(["user"]), reviewsController.add);
-router.get("/", reviewsController.get);
-router.get("/:id", authMiddleware(["all"]), reviewsController.getUserReviews);
-router.patch("/update", authMiddleware(["admin"]), reviewsController.update);
+const reviewsController = new ReviewsController();
+
+router.get(
+  "/products/:productId/reviews",
+  reviewsController.getProductReviews.bind(reviewsController)
+);
+
+router.get(
+  "/products/:productId/reviews/stats",
+  reviewsController.getProductReviewsStats.bind(reviewsController)
+);
+
+router.get(
+  "/users/reviews",
+  authMiddleware(["user", "admin"]),
+  reviewsController.getUserReviews.bind(reviewsController)
+);
+
+router.post(
+  "/products/:productId/reviews",
+  authMiddleware(["user", "admin"]),
+  reviewsController.createReview.bind(reviewsController)
+);
+
+router.patch(
+  "/reviews/:reviewId/status",
+  authMiddleware(["admin"]),
+  reviewsController.updateReviewStatus.bind(reviewsController)
+);
+
+router.get(
+  "/admin/reviews",
+  authMiddleware(["admin"]),
+  reviewsController.getAllReviews.bind(reviewsController)
+);
+
+router.get(
+  "/reviews/:reviewId",
+  authMiddleware(["user", "admin"]),
+  reviewsController.getReviewById.bind(reviewsController)
+);
 
 module.exports = router;

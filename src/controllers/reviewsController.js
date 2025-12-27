@@ -1,65 +1,153 @@
+// controllers/reviews.controller.js
 const ApiError = require("../exceptions/api-error");
-const reviewService = require("../services/reviewService");
+const ReviewsService = require("../services/reviewService");
 
-const add = async (req, res, next) => {
-  try {
-    const { pros, cons, comment, rating } = req.body;
-    const { id: productId } = req.params;
+class ReviewsController {
+  constructor() {
+    this.reviewsService = new ReviewsService();
+  }
+  async getProductReviews(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const { status = "approved", sort = "-createdAt" } = req.query;
 
-    if (!pros || !cons || !comment || !rating || !productId) {
-      throw ApiError.BadRequest("Не заполнены все поля отзыва");
+      if (!productId) {
+        throw ApiError.BadRequest("Отсутствует productId");
+      }
+
+      const reviews = await this.reviewsService.getProductReviews(productId, {
+        status,
+        sort,
+      });
+
+      res.json(reviews);
+    } catch (e) {
+      next(e);
     }
-
-    // сохраняем как один текст или раздельно (лучше раздельно)
-    const review = await reviewService.addProductReview(
-      req.user.id,
-      productId,
-      { pros, cons, comment, rating }
-    );
-
-    return res.json(review);
-  } catch (e) {
-    next(e);
   }
-};
 
-const get = async (req, res, next) => {
-  const { productId } = req.query;
-  if (!productId) {
-    throw ApiError.BadRequest("Отсутствует productId");
-  }
-  try {
-    const reviews = await reviewService.getProductReviews(productId);
-    return res.json(reviews);
-  } catch (e) {
-    next(e);
-  }
-};
+  async getProductReviewsStats(req, res, next) {
+    try {
+      const { productId } = req.params;
 
-const getUserReviews = async (req, res, next) => {
-  try {
-    const reviews = await reviewService.getUserReviews(req.user.id);
-    return res.json(reviews);
-  } catch (e) {
-    next(e);
-  }
-};
+      if (!productId) {
+        throw ApiError.BadRequest("Отсутствует productId");
+      }
 
-const update = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    if (!id) {
-      throw ApiError.BadRequest("Отсутствует id");
+      const stats = await this.reviewsService.getProductReviewsStats(productId);
+      res.json(stats);
+    } catch (e) {
+      next(e);
     }
-    const result = await reviewService.updateReview(id, req.body);
-    res.status(200).json(result);
-  } catch (e) {
-    next(e);
   }
-};
-module.exports = {
-  add,
-  get,
-  getUserReviews,
-  update,
-};
+
+  async getUserReviews(req, res, next) {
+    try {
+      const { status, sort = "-createdAt" } = req.query;
+      const reviews = await this.reviewsService.getUserReviews(req.user.id, {
+        status,
+        sort,
+      });
+      res.json(reviews);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  async createReview(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const userId = req.user.id;
+      const { rating, title, comment, pros = [], cons = [] } = req.body;
+
+      if (!productId) {
+        throw ApiError.BadRequest("Отсутствует productId");
+      }
+
+      if (!rating || !comment) {
+        throw ApiError.BadRequest("Рейтинг и комментарий обязательны");
+      }
+
+      if (rating < 1 || rating > 5) {
+        throw ApiError.BadRequest("Рейтинг должен быть от 1 до 5");
+      }
+
+      const review = await this.reviewsService.createReview({
+        userId,
+        productId,
+        rating,
+        title,
+        comment,
+        pros: Array.isArray(pros) ? pros : [pros],
+        cons: Array.isArray(cons) ? cons : [cons],
+      });
+
+      res.status(201).json(review);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  async updateReviewStatus(req, res, next) {
+    try {
+      const { reviewId } = req.params;
+      const { status } = req.body;
+
+      if (!reviewId) {
+        throw ApiError.BadRequest("Отсутствует reviewId");
+      }
+
+      if (!status || !["pending", "approved", "rejected"].includes(status)) {
+        throw ApiError.BadRequest("Некорректный статус");
+      }
+
+      const review = await this.reviewsService.updateReviewStatus(
+        reviewId,
+        status
+      );
+      res.json(review);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  async getAllReviews(req, res, next) {
+    try {
+      const { status, productId, userId, sort = "-createdAt" } = req.query;
+
+      const reviews = await this.reviewsService.getAllReviews({
+        status,
+        productId,
+        userId,
+        sort,
+      });
+
+      res.json(reviews);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  async getReviewById(req, res, next) {
+    try {
+      const { reviewId } = req.params;
+
+      if (!reviewId) {
+        throw ApiError.BadRequest("Отсутствует reviewId");
+      }
+
+      const review = await this.reviewsService.getReviewById(reviewId);
+
+      // Проверка прав доступа
+      if (req.user.role !== "admin" && review.user.toString() !== req.user.id) {
+        throw ApiError.Forbidden();
+      }
+
+      res.json(review);
+    } catch (e) {
+      next(e);
+    }
+  }
+}
+
+module.exports = ReviewsController;

@@ -1,0 +1,34 @@
+{"level":"INFO","time":"2025-12-27T08:59:57.674Z","pid":24852,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"WARN","time":"2025-12-27T09:03:52.789Z","pid":24852,"hostname":"ff9bc7466ec8","event":"SLOW_REQUEST","requestId":"req_8a6fde10-c30e-4826-a494-3ae4dbf699c6","method":"GET","path":"/getSearchHistory","originalUrl":"/products/getSearchHistory","status":304,"duration":"838ms","ip":"172.18.0.1","userId":"69450fb001e690d49676ca44","userType":"admin","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36","referer":"http://localhost:3000/","timestamp":"2025-12-27T09:03:52.788Z","threshold":"500ms"}
+{"level":"WARN","time":"2025-12-27T09:03:52.793Z","pid":24852,"hostname":"ff9bc7466ec8","event":"SLOW_REQUEST","requestId":"req_4a5510fb-66aa-4dac-a7af-5d23ce8a0ed9","method":"GET","path":"/getUnreadCount","originalUrl":"/notifications/getUnreadCount","status":304,"duration":"795ms","ip":"172.18.0.1","userId":"69450fb001e690d49676ca44","userType":"admin","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36","referer":"http://localhost:3000/","timestamp":"2025-12-27T09:03:52.791Z","threshold":"500ms"}
+{"level":"WARN","time":"2025-12-27T09:03:52.823Z","pid":24852,"hostname":"ff9bc7466ec8","event":"SLOW_REQUEST","requestId":"req_51ad6787-f71b-4cd7-8f0d-e8addf494040","method":"POST","path":"/check","originalUrl":"/auth/check","status":200,"duration":"804ms","ip":"172.18.0.1","userId":"anonymous","userType":"guest","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36","referer":"http://localhost:3000/","timestamp":"2025-12-27T09:03:52.823Z","threshold":"500ms"}
+{"level":"INFO","time":"2025-12-27T09:03:56.834Z","pid":25008,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:03:57.776Z","pid":25032,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:04:05.063Z","pid":25050,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"WARN","time":"2025-12-27T09:09:06.777Z","pid":25050,"hostname":"ff9bc7466ec8","event":"SLOW_REQUEST","requestId":"req_290a31f1-39df-4409-9d7f-348ab067afd0","method":"GET","path":"/summary","originalUrl":"/wishlist/summary","status":304,"duration":"526ms","ip":"172.18.0.1","userId":"69450fb001e690d49676ca44","userType":"admin","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36","referer":"http://localhost:3000/","timestamp":"2025-12-27T09:09:06.776Z","threshold":"500ms"}
+{"level":"WARN","time":"2025-12-27T09:13:45.493Z","pid":25050,"hostname":"ff9bc7466ec8","event":"SLOW_REQUEST","requestId":"req_047b9037-bd7b-44e8-902e-ff809db68bb8","method":"POST","path":"/check","originalUrl":"/auth/check","status":200,"duration":"551ms","ip":"172.18.0.1","userId":"anonymous","userType":"guest","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36","referer":"http://localhost:3000/","timestamp":"2025-12-27T09:13:45.492Z","threshold":"500ms"}
+{"level":"INFO","time":"2025-12-27T09:39:53.161Z","pid":26342,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:40:06.271Z","pid":26366,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:40:18.148Z","pid":26387,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:41:17.910Z","pid":26465,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:41:20.817Z","pid":26483,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:41:28.498Z","pid":26504,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:41:34.147Z","pid":26518,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:41:50.537Z","pid":26545,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:42:02.315Z","pid":26568,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:42:18.064Z","pid":26592,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:44:20.621Z","pid":26686,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:50:33.720Z","pid":26919,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:51:08.125Z","pid":26958,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:51:24.070Z","pid":26984,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:51:42.476Z","pid":27004,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:52:55.270Z","pid":27067,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:52:57.511Z","pid":27084,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:53:01.371Z","pid":27099,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:53:15.411Z","pid":27125,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:53:16.764Z","pid":27139,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:53:31.908Z","pid":27159,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:53:34.265Z","pid":27173,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:54:29.039Z","pid":27223,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:54:38.084Z","pid":27243,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
+{"level":"INFO","time":"2025-12-27T09:54:42.099Z","pid":27257,"hostname":"ff9bc7466ec8","msg":"🔄 Логгер инициализирован"}
