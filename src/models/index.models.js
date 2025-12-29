@@ -8,7 +8,9 @@ const CategoryModel = require("./category-model");
 const CompanyModel = require("./company-model");
 const TokenModel = require("./token-model");
 const UserModel = require("./user-model");
-const OrderModel = require("./order-model");
+const {OrderModel,
+  OrderStatus,
+  DeliveryMethod} = require("./order-model");
 const UserSessionModel = require("./user-session-model");
 const UserSecurityModel = require("./user-security-model");
 const NotificationModel = require("./notification-model");
@@ -21,6 +23,8 @@ const KeyEncryptModel = require("./key-encrypt-model");
 const UserSearchModel = require("./user-search-model");
 const { FaqTopicModel, FaqQuestionModel } = require("./faq-model");
 const WishlistModel = require("./wishlist-model");
+const PickupPointModel = require("./pickup-point-model");
+const TransportCompanyModel = require("./transport-company-model");
 module.exports = {
   CartModel,
   ProductModel,
@@ -33,6 +37,8 @@ module.exports = {
   TokenModel,
   UserModel,
   OrderModel,
+  OrderStatus,
+  DeliveryMethod,
   UserSessionModel,
   UserSecurityModel,
   NotificationModel,
@@ -45,5 +51,7 @@ module.exports = {
   UserSearchModel,
   FaqTopicModel,
   FaqQuestionModel,
-  WishlistModel
+  WishlistModel,
+  PickupPointModel,
+  TransportCompanyModel
 };

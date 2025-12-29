@@ -1,101 +1,258 @@
+// models/order-model.js
 const { Schema, model } = require("mongoose");
 
-const OrderShema = new Schema(
+const OrderStatus = {
+  PENDING: "pending",
+  CONFIRMED: "confirmed",
+  PROCESSING: "processing",
+  PACKED: "packed",
+  SHIPPED: "shipped",
+  DELIVERED: "delivered",
+  READY_FOR_PICKUP: "ready_for_pickup",
+  CANCELLED: "cancelled",
+  REFUNDED: "refunded"
+};
+
+const DeliveryMethod = {
+  DELIVERY: "delivery",
+  PICKUP: "pickup"
+};
+
+const OrderSchema = new Schema(
   {
-    user: { type: Schema.Types.ObjectId, ref: "User" },
-    deliveryMethod: {
+    // Основная информация
+    orderNumber: {
       type: String,
-      enum: ["delivery", "pickup"],
+      unique: true,
       required: true,
+      index: true
     },
-    deliveryData: {
-      tk: { type: String },
-      address: { type: String },
-      comment: { type: String },
+    user: { 
+      type: Schema.Types.ObjectId, 
+      ref: "User",
+      required: true,
+      index: true
     },
-    recipientData: {
-      name: { type: String, required: true },
-      phone: { type: String, required: true },
-    },
-    priceDetails: {
-      totalPrice: { type: Number, required: true },
-      totalPriceWithDiscount: { type: Number, required: true },
-    },
-    isCompany: { type: Boolean, required: true, default: false },
-    companyData: {
-      company: { type: Schema.Types.ObjectId, ref: "Company" },
-    },
-    products: [
-      {
-        product: {
-          type: Schema.Types.ObjectId,
-          ref: "Product",
-          required: true,
-        },
-        quantity: { type: Number, required: true },
-        price: { type: Number, required: true },
-        priceWithDiscount: { type: Number },
-        totalPrice: { type: Number, required: true },
-        totalPriceWithDiscount: { type: Number, required: true },
+    
+    // Информация о доставке
+    delivery: {
+      method: {
+        type: String,
+        enum: Object.values(DeliveryMethod),
+        required: true,
+        default: DeliveryMethod.DELIVERY
       },
-    ],
-    file: {
-      path: { type: String },
-      name: { type: String },
+      address: {
+        street: String,
+        city: String,
+        postalCode: String,
+        country: String
+      },
+      pickupPoint: {
+        name: String,
+        address: String,
+        hours: String
+      },
+      trackingNumber: String,
+      carrier: String,
+      estimatedDelivery: Date,
+      notes: String
     },
+    
+    // Информация о получателе
+    recipient: {
+      fullName: { type: String, required: true },
+      phone: { type: String, required: true },
+      email: { type: String },
+      companyName: String,
+      taxId: String
+    },
+    
+    // Информация о компании (если заказ от компании)
+    companyInfo: {
+      companyId: { type: Schema.Types.ObjectId, ref: "Company" },
+      name: String,
+      address: String,
+      taxNumber: String
+    },
+    
+    // Товары в заказе
+    items: [{
+      product: {
+        type: Schema.Types.ObjectId,
+        ref: "Product",
+        required: true
+      },
+      sku: String,
+      name: String,
+      quantity: {
+        type: Number,
+        required: true,
+        min: 1
+      },
+      unitPrice: { // Цена за единицу на момент заказа
+        type: Number,
+        required: true,
+        min: 0
+      },
+      discount: { // Скидка на товар
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      totalPrice: { // Общая цена за позицию
+        type: Number,
+        required: true,
+        min: 0
+      },
+      weight: Number,
+      dimensions: {
+        length: Number,
+        width: Number,
+        height: Number
+      }
+    }],
+    
+    // Финансовая информация
+    pricing: {
+      subtotal: { // Сумма без скидок и доставки
+        type: Number,
+        required: true,
+        min: 0
+      },
+      discount: { // Общая скидка по заказу
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      shippingCost: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      tax: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      total: { // Итоговая сумма к оплате
+        type: Number,
+        required: true,
+        min: 0
+      },
+      currency: {
+        type: String,
+        default: "RUB"
+      }
+    },
+    
+    // Платежная информация
+    payment: {
+      method: String,
+      status: {
+        type: String,
+        enum: ["pending", "paid", "failed", "refunded"],
+        default: "pending"
+      },
+      transactionId: String,
+      paidAt: Date,
+      paymentDetails: Schema.Types.Mixed
+    },
+    
+    // Статус заказа
     status: {
       type: String,
-      enum: [
-        "pending",
-        "confirmed",
-        "rejected",
-        "packed",
-        "sent",
-        "cancelled",
-        "waiting",
-        "ready",
-      ],
+      enum: Object.values(OrderStatus),
       required: true,
-      default: "pending",
+      default: OrderStatus.PENDING,
+      index: true
     },
-    statusHistory: [
-      {
-        status: {
-          type: String,
-          enum: [
-            "created",
-            "pending",
-            "confirmed",
-            "rejected",
-            "packed",
-            "sent",
-            "cancelled",
-            "waiting",
-            "ready",
-          ],
-          required: true,
-        },
-        changedAt: {
-          type: Date,
-          default: Date.now,
-        },
-        changedBy: {
-          type: Schema.Types.ObjectId,
-          ref: "User", // или 'Admin' — зависит от твоей системы
-          required: true,
-        },
-        comment: { type: String }, // например: "Позвонили клиенту, подтвердил"
+    
+    // История статусов
+    statusHistory: [{
+      status: {
+        type: String,
+        enum: Object.values(OrderStatus),
+        required: true
       },
-    ],
-    cancelData: {
-      reason: { type: String },
-      date: { type: Date },
+      changedAt: {
+        type: Date,
+        default: Date.now
+      },
+      changedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true
+      },
+      comment: String,
+      metadata: Schema.Types.Mixed
+    }],
+    
+    // Информация об отмене
+    cancellation: {
+      reason: String,
       cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
+      cancelledAt: Date,
+      refundAmount: Number,
+      notes: String
     },
+    
+    // Прикрепленные файлы
+    attachments: [{
+      name: String,
+      path: String,
+      size: Number,
+      mimeType: String,
+      uploadedAt: {
+        type: Date,
+        default: Date.now
+      },
+      uploadedBy: { type: Schema.Types.ObjectId, ref: "User" }
+    }],
+    
+    // Метаданные
+    notes: String,
+    internalNotes: String,
+    tags: [String],
+    
+    // Системные поля
+    ipAddress: String,
+    userAgent: String,
+    source: {
+      type: String,
+      enum: ["web", "mobile", "api", "admin"],
+      default: "web"
+    }
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
 
-module.exports = model("Order", OrderShema);
+// Генерация номера заказа
+OrderSchema.pre("save", async function(next) {
+  if (this.isNew) {
+    const year = new Date().getFullYear();
+    const count = await this.constructor.countDocuments({
+      createdAt: { $gte: new Date(`${year}-01-01`) }
+    });
+    this.orderNumber = `ORD-${year}-${(count + 1).toString().padStart(6, '0')}`;
+  }
+  next();
+});
+
+// Индексы для быстрого поиска
+OrderSchema.index({ createdAt: -1 });
+OrderSchema.index({ status: 1, createdAt: -1 });
+OrderSchema.index({ "payment.status": 1 });
+OrderSchema.index({ "delivery.method": 1 });
+
+const OrderModel = model("Order", OrderSchema);
+
+module.exports = {
+  OrderModel,
+  OrderStatus,
+  DeliveryMethod
+};
