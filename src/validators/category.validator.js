@@ -2,12 +2,12 @@ const Joi = require('joi');
 
 // Упрощенная схема для изображения
 const imageSchema = Joi.object({
-  url: Joi.string().pattern(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/i)
-    .message('Изображение должно быть из папки uploads'),
+  url: Joi.string().required(),
   alt: Joi.string().max(255).optional(),
   size: Joi.number().integer().positive().optional(),
   mimetype: Joi.string().valid('image/jpeg', 'image/png', 'image/webp', 'image/gif').optional()
 }).optional();
+
 
 // Схема для создания категории
 const createCategorySchema = Joi.object({
@@ -43,12 +43,11 @@ const createCategorySchema = Joi.object({
   image: Joi.alternatives()
     .try(
       imageSchema,
-      Joi.string()
-        .pattern(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/i)
-        .message('Изображение должно быть из папки uploads'),
-      Joi.valid(null, '') // Разрешаем null и пустую строку
+      Joi.string(),
+      Joi.valid(null, '')
     )
     .optional(),
+
   
   order: Joi.number()
     .integer()
@@ -101,12 +100,11 @@ const updateCategorySchema = Joi.object({
   image: Joi.alternatives()
     .try(
       imageSchema,
-      Joi.string()
-        .pattern(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/i)
-        .message('Изображение должно быть из папки uploads'),
-      Joi.valid(null, '') // Разрешаем null и пустую строку
+      Joi.string(),
+      Joi.valid(null, '')
     )
     .optional(),
+
   
   order: Joi.number()
     .integer()

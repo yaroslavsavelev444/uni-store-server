@@ -104,7 +104,7 @@ class PickupPointService {
       logger.error('[PickupPointService] Error creating pickup point:', error);
       
       if (error.code === 11000) {
-        throw ApiError.Conflict('Пункт самовывоза с таким именем уже существует');
+        throw ApiError.BadRequest('Пункт самовывоза с таким именем уже существует');
       }
       
       throw ApiError.DatabaseError('Ошибка при создании пункта самовывоза');

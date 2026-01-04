@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const ordersController = require('../controllers/ordersController');
 const authMiddleware = require('../middlewares/auth-middleware');
+const { validateCreateOrder } = require('../validators/order.validator');
 // const upload = require('../middlewares/upload-middleware');
 
 // ========== USER ROUTES ==========
@@ -21,6 +22,7 @@ router.get(
 router.post(
   '/',
   authMiddleware('user'),
+  validateCreateOrder, // <-- Добавляем валидатор
   ordersController.createOrder
 );
 

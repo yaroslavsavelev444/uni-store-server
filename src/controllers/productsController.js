@@ -3,14 +3,31 @@ const ApiError = require('../exceptions/api-error');
 const { ProductStatus } = require('../models/product-model');
 const fs = require('fs').promises;
 const path = require('path');
+const { 
+  processProductFiles, 
+  cleanupOldProductFiles 
+} = require('../utils/productFileProcessor');
 
-class ProductController {
+const productController = {
   
   async getAllProducts(req, res, next) {
     try {
       const query = req.validatedQuery || {};
       
+      // Преобразуем excludeIds в массив, если это строка
+      if (query.excludeIds) {
+        if (typeof query.excludeIds === 'string') {
+          query.excludeIds = [query.excludeIds];
+        } else if (Array.isArray(query.excludeIds)) {
+          // Убедимся, что все ID валидны
+          query.excludeIds = query.excludeIds.filter(id => 
+            mongoose.Types.ObjectId.isValid(id)
+          );
+        }
+      }
+      
       const result = await productService.getAllProducts(query);
+      console.log('resultresultresultresult', result);
       
       res.json({
         success: true,
@@ -20,8 +37,8 @@ class ProductController {
     } catch (error) {
       next(error);
     }
-  }
-  
+  },
+
   async getProductById(req, res, next) {
     try {
       const { id } = req.params;
@@ -37,16 +54,16 @@ class ProductController {
     } catch (error) {
       next(error);
     }
-  }
-  
+  },
 
   async getProductBySku(req, res, next) {
     try {
       const { sku } = req.params;
       const { populate = 'none' } = req.query;
       const isAdmin = req.user && req.user.role === 'admin';
-      
-      const product = await productService.getProductBySku(sku, { populate, isAdmin });
+      const userId = req.user && req.user.id;
+      const product = await productService.getProductBySku(sku, { populate, isAdmin, userId });
+      console.log('product',product );
       
       res.json({
         success: true,
@@ -55,31 +72,17 @@ class ProductController {
     } catch (error) {
       next(error);
     }
-  }
+  },
+
   async createProduct(req, res, next) {
     try {
       const productData = req.validatedData;
       const userId = req.user.id;
       
-      // Валидация файлов (опционально, только для локальных файлов)
-      if (productData.mainImage && productData.mainImage.startsWith('/uploads/')) {
-        await this.validateLocalFileExists(productData.mainImage);
-      }
+      // Обрабатываем изображения и инструкцию через FileManager
+      const processedData = await processProductFiles(productData);
       
-      if (productData.images && productData.images.length > 0) {
-        for (const image of productData.images) {
-          if (image.url.startsWith('/uploads/')) {
-            await this.validateLocalFileExists(image.url);
-          }
-        }
-      }
-      
-      if (productData.instructionFile && productData.instructionFile.url && 
-          productData.instructionFile.url.startsWith('/uploads/')) {
-        await this.validateLocalFileExists(productData.instructionFile.url);
-      }
-      
-      const product = await productService.createProduct(productData, userId);
+      const product = await productService.createProduct(processedData, userId);
       
       res.status(201).json({
         success: true,
@@ -89,7 +92,7 @@ class ProductController {
     } catch (error) {
       next(error);
     }
-  }
+  },
   
   async updateProduct(req, res, next) {
     try {
@@ -97,25 +100,24 @@ class ProductController {
       const updateData = req.validatedData;
       const userId = req.user.id;
       
-      // Валидация файлов
-      if (updateData.mainImage && updateData.mainImage.startsWith('/uploads/')) {
-        await this.validateLocalFileExists(updateData.mainImage);
-      }
+      console.log("[UPDATE_PRODUCT] updateData", JSON.stringify(updateData));
       
-      if (updateData.images && updateData.images.length > 0) {
-        for (const image of updateData.images) {
-          if (image.url.startsWith('/uploads/')) {
-            await this.validateLocalFileExists(image.url);
-          }
-        }
-      }
+      // Обрабатываем изображения и инструкцию через FileManager
+      const processedData = await processProductFiles(updateData);
       
-      if (updateData.instructionFile && updateData.instructionFile.url && 
-          updateData.instructionFile.url.startsWith('/uploads/')) {
-        await this.validateLocalFileExists(updateData.instructionFile.url);
-      }
+      console.log("[UPDATE_PRODUCT] processedData", JSON.stringify(processedData));
       
-      const product = await productService.updateProduct(id, updateData, userId);
+      // Получаем существующий продукт для удаления старых файлов
+      const existingProduct = await productService.getProductById(id, { isAdmin: true });
+      
+      console.log("[UPDATE_PRODUCT] existingProduct", JSON.stringify(existingProduct));
+      
+      // Удаляем старые файлы если они были заменены
+      // await cleanupOldProductFiles(existingProduct, processedData);
+      
+      const product = await productService.updateProduct(id, processedData, userId);
+      
+      console.log("[UPDATE_PRODUCT] updated product", JSON.stringify(product));
       
       res.json({
         success: true,
@@ -123,70 +125,186 @@ class ProductController {
         data: product
       });
     } catch (error) {
+      console.error("[UPDATE_PRODUCT] error", error);
       next(error);
     }
-  }
-  
- async getHints (req, res, next) {
-  try {
-    const { q } = req.query;
-    if (!q || q.length < 2) {
-      return res.json([]); // минимум 2 символа
+  },
+
+  async getHints(req, res, next) {
+    try {
+      const { q } = req.query;
+      if (!q || q.length < 2) {
+        return res.json([]); // минимум 2 символа
+      }
+
+      const result = await productService.getHints(q);
+      console.log("[GET_HINTS_PRODUCT] result", JSON.stringify(result));
+      return res.status(200).json(result);
+    } catch (error) {
+      const errorMessage = error?.message || "Unknown error";
+      console.error(`[GET_HINTS_PRODUCT] ${errorMessage}`);
+      next(
+        error instanceof ApiError
+          ? error
+          : ApiError.InternalServerError(errorMessage)
+      );
     }
+  },
 
-    const result = await productService.getHints(q);
-    console.log("[GET_HINTS_PRODUCT] result", JSON.stringify(result));
-    return res.status(200).json(result);
-  } catch (error) {
-    const errorMessage = error?.message || "Unknown error";
-    logger.error(`[GET_HINTS_PRODUCT] ${errorMessage}`);
-    next(
-      error instanceof ApiError
-        ? error
-        : ApiError.InternalServerError(errorMessage)
-    );
-  }
-};
+  async saveSearchHistory(req, res, next) {
+    try {
+      const { productId: rawProductId } = req.body;
+      
+      const productId =
+        typeof rawProductId === "object" && rawProductId.selectedProductId
+          ? rawProductId.selectedProductId
+          : rawProductId;
 
-async saveSearchHistory (req, res, next) {
-  try {
-    const { productId: rawProductId } = req.body;
-    
-    const productId =
-      typeof rawProductId === "object" && rawProductId.selectedProductId
-        ? rawProductId.selectedProductId
-        : rawProductId;
+      if (!productId) throw ApiError.BadRequest("Недостаточно данных");
 
-    if (!productId) throw ApiError.BadRequest("Недостаточно данных");
+      const record = await productService.saveSearchHistory(
+        req.user.id,
+        productId
+      );
 
-    const record = await productService.saveSearchHistory(
-      req.user.id,
-      productId
-    );
+      res.json(record);
+    } catch (err) {
+      next(err);
+    }
+  },
 
-    res.json(record);
-  } catch (err) {
-    next(err);
-  }
-};
+  async getSimilarProducts(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { limit = 4, strategy = 'mixed' } = req.query;
+      
+      // Получаем текущий продукт
+      const currentProduct = await productService.getProductById(id, { populate: 'category' });
+      
+      if (!currentProduct) {
+        throw ApiError.NotFound('Продукт не найден');
+      }
+      
+      let similarProducts = [];
+      
+      const limitNum = parseInt(limit);
+      
+      switch (strategy) {
+        case 'category':
+          // Поиск по категории
+          const categoryResult = await productService.getAllProducts({
+            category: currentProduct.category?._id,
+            excludeIds: [id],
+            limit: limitNum,
+            sortBy: 'popularity'
+          });
+          similarProducts = categoryResult.products || [];
+          break;
+          
+        case 'price':
+          // Поиск по ценовому диапазону (±30%)
+          const priceRange = {
+            minPrice: currentProduct.priceForIndividual * 0.7,
+            maxPrice: currentProduct.priceForIndividual * 1.3,
+            excludeIds: [id],
+            limit: limitNum,
+            sortBy: 'popularity'
+          };
+          const priceResult = await productService.getAllProducts(priceRange);
+          similarProducts = priceResult.products || [];
+          break;
+          
+        case 'mixed':
+        default:
+          // Комбинированная стратегия: сначала по категории, потом по цене
+          const categoryQuery = {
+            category: currentProduct.category?._id,
+            excludeIds: [id],
+            limit: limitNum,
+            sortBy: 'popularity'
+          };
+          
+          const categoryResultMixed = await productService.getAllProducts(categoryQuery);
+          const categoryProducts = categoryResultMixed.products || [];
+          
+          if (categoryProducts.length < limitNum) {
+            const remaining = limitNum - categoryProducts.length;
+            const priceRangeMixed = {
+              minPrice: currentProduct.priceForIndividual * 0.7,
+              maxPrice: currentProduct.priceForIndividual * 1.3,
+              excludeIds: [id, ...categoryProducts.map(p => p._id)],
+              limit: remaining,
+              sortBy: 'popularity'
+            };
+            const priceResultMixed = await productService.getAllProducts(priceRangeMixed);
+            const additionalProducts = priceResultMixed.products || [];
+            similarProducts = [...categoryProducts, ...additionalProducts];
+          } else {
+            similarProducts = categoryProducts.slice(0, limitNum);
+          }
+          break;
+      }
+      
+      // Обрезаем до лимита на всякий случай
+      similarProducts = similarProducts.slice(0, limitNum);
+      
+      res.json({
+        success: true,
+        data: similarProducts
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 
-async getSearchHistory (req, res, next){
-  try {
-    const history = await productService.getSearchHistory(req.user.id);
-    res.json(history);
-  } catch (err) {
-    next(err);
-  }
-};
+  // Метод для получения продуктов по категории с поддержкой excludeIds
+  async getProductsByCategory(req, res, next) {
+    try {
+      const { categoryId } = req.params;
+      const { 
+        limit = 20, 
+        excludeIds,
+        sortBy = 'popularity',
+        sortOrder = 'desc'
+      } = req.query;
+      
+      const result = await productService.getAllProducts({
+        category: categoryId,
+        excludeIds: excludeIds ? 
+          (Array.isArray(excludeIds) ? excludeIds : [excludeIds]) : 
+          undefined,
+        limit: parseInt(limit),
+        sortBy,
+        sortOrder
+      });
+      
+      res.json({
+        success: true,
+        data: result.products,
+        pagination: result.pagination
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 
-async clearSearchHistory (req, res, next) {
-  try {
-    const result = await productService.clearSearchHistory(req.user.id);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
-};
+  async getSearchHistory(req, res, next) {
+    try {
+      const history = await productService.getSearchHistory(req.user.id);
+      res.json(history);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async clearSearchHistory(req, res, next) {
+    try {
+      const result = await productService.clearSearchHistory(req.user.id);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
 
   async updateProductStatus(req, res, next) {
     try {
@@ -204,7 +322,7 @@ async clearSearchHistory (req, res, next) {
     } catch (error) {
       next(error);
     }
-  }
+  },
   
   async deleteProduct(req, res, next) {
     try {
@@ -220,7 +338,7 @@ async clearSearchHistory (req, res, next) {
     } catch (error) {
       next(error);
     }
-  }
+  },
   
   async getRelatedProducts(req, res, next) {
     try {
@@ -236,7 +354,7 @@ async clearSearchHistory (req, res, next) {
     } catch (error) {
       next(error);
     }
-  }
+  },
   
   async addRelatedProduct(req, res, next) {
     try {
@@ -259,7 +377,7 @@ async clearSearchHistory (req, res, next) {
     } catch (error) {
       next(error);
     }
-  }
+  },
   
   async updateStock(req, res, next) {
     try {
@@ -277,7 +395,7 @@ async clearSearchHistory (req, res, next) {
     } catch (error) {
       next(error);
     }
-  }
+  },
   
   async searchProducts(req, res, next) {
     try {
@@ -297,14 +415,14 @@ async clearSearchHistory (req, res, next) {
     } catch (error) {
       next(error);
     }
-  }
+  },
   
   async getProductStatuses(req, res, next) {
     try {
       const statuses = Object.entries(ProductStatus).map(([key, value]) => ({
         key,
         value,
-        label: this.getStatusLabel(value)
+        label: productController.getStatusLabel(value)
       }));
       
       res.json({
@@ -314,7 +432,7 @@ async clearSearchHistory (req, res, next) {
     } catch (error) {
       next(error);
     }
-  }
+  },
   
   async validateLocalFileExists(filePath) {
     try {
@@ -336,7 +454,7 @@ async clearSearchHistory (req, res, next) {
       }
       throw error;
     }
-  }
+  },
   
   getStatusLabel(status) {
     const labels = {
@@ -347,6 +465,6 @@ async clearSearchHistory (req, res, next) {
     };
     return labels[status] || status;
   }
-}
+};
 
-module.exports = new ProductController();
+module.exports = productController;

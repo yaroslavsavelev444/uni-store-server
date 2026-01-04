@@ -176,14 +176,15 @@ const createProductSchema = Joi.object({
   
   discount: Joi.object({
     isActive: Joi.boolean().default(false),
-    percentage: Joi.number().min(0).max(100).optional(),
-    amount: Joi.number().positive().max(Joi.ref('priceForIndividual')).optional(),
+    percentage: Joi.number().min(0).max(100).optional().allow(null),
+    amount: Joi.number().min(0).max(Joi.ref('priceForIndividual')).optional().allow(null),
     validFrom: Joi.date().iso().optional(),
     validUntil: Joi.date().iso().greater(Joi.ref('validFrom')).optional(),
     minQuantity: Joi.number().integer().min(1).optional().default(1)
   })
   .optional()
-  .allow(null), // ДОБАВИТЬ: allow null
+  .allow(null),
+
 
   
   isVisible: Joi.boolean()
@@ -228,7 +229,14 @@ const productQuerySchema = Joi.object({
   sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
-  populate: Joi.string().valid('category', 'relatedProducts', 'all', 'none').default('none')
+  showOnMainPage: Joi.boolean().default(false),
+  populate: Joi.string().valid('category', 'relatedProducts', 'all', 'none').default('none'),
+  excludeIds: Joi.alternatives().try(
+    Joi.string().pattern(/^[0-9a-fA-F]{24}$/),
+    Joi.array().items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
+  ),
+  
+
 })
 .with('maxPrice', 'minPrice'); // ДОБАВЛЕНО: валидация диапазона цен
 

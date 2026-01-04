@@ -2,165 +2,248 @@
 const logger = require("../logger/logger");
 const fileService = require("../services/fileService");
 
-const uploadFiles = async (req, res, next) => {
-  try {
-    // Ваш middleware сохраняет в req.uploadedFiles
-    const files = req.uploadedFiles || req.files;
-    const userId = req.user?.id || req.body.userId;
+class FilesController {
+  /**
+   * Загрузка файлов
+   */
+  async uploadFiles(req, res) {
+    try {
+      // Получаем файлы из middleware
+      const files = req.uploadedFiles || req.files || [];
+      const userId = req.user?.id || req.body.userId;
 
-    console.log('Files received:', files);
-    console.log('User ID:', userId);
+      logger.info(`[UPLOAD_FILES] Запрос от пользователя ${userId}, файлов: ${files.length}`);
 
-    if (!files || (Array.isArray(files) && files.length === 0)) {
-      return res.status(400).json({
-        success: false,
-        message: "Нет файлов для загрузки"
-      });
-    }
-
-    // Преобразуем файлы в массив
-    const fileArray = Array.isArray(files) ? files : [];
-    
-    if (fileArray.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Нет файлов для загрузки"
-      });
-    }
-
-    // Обрабатываем каждый файл
-    const results = [];
-    
-    for (const file of fileArray) {
-      try {
-        const result = await fileService.saveFile(userId, file);
-        results.push({
-          id: result.tempName,
-          tempName: result.tempName,
-          url: result.url,
-          userId: result.userId,
-          originalName: file.originalname,
-          name: file.originalname,
-          size: file.size,
-          mimeType: file.mimetype,
-          createdAt: new Date().toISOString(),
-        });
-      } catch (error) {
-        logger.error(`Ошибка обработки файла ${file.originalname}:`, error);
-        // Продолжаем обработку других файлов
-        results.push({
-          error: `Ошибка обработки файла ${file.originalname}: ${error.message}`,
-          originalName: file.originalname
+      // Проверяем наличие файлов
+      if (!files || files.length === 0) {
+        logger.warn('[UPLOAD_FILES] Нет файлов для загрузки');
+        return res.status(400).json({
+          success: false,
+          message: "Нет файлов для загрузки"
         });
       }
-    }
 
-    // Разделяем успешные и неуспешные загрузки
-    const successfulUploads = results.filter(r => !r.error);
-    const failedUploads = results.filter(r => r.error);
+      // Обрабатываем файлы
+      const results = [];
+      const errors = [];
 
-    if (successfulUploads.length === 0) {
+      for (const file of Array.isArray(files) ? files : [files]) {
+        try {
+          if (!file || !file.originalname || !file.filename) {
+            throw new Error('Некорректный файл');
+          }
+
+          const result = await fileService.saveFile(userId, file);
+          results.push({
+            id: result.tempName,
+            tempName: result.tempName,
+            url: result.url,
+            userId: result.userId,
+            originalName: file.originalname,
+            name: file.originalname,
+            size: file.size,
+            mimeType: file.mimetype,
+            createdAt: new Date().toISOString(),
+            alt: file.originalname
+          });
+        } catch (error) {
+          logger.error(`Ошибка обработки файла: ${error.message}`, error);
+          errors.push({
+            fileName: file?.originalname || 'Неизвестный файл',
+            error: error.message
+          });
+        }
+      }
+
+      // Проверяем, есть ли успешные загрузки
+      if (results.length === 0) {
+        logger.error('[UPLOAD_FILES] Не удалось загрузить ни один файл');
+        return res.status(500).json({
+          success: false,
+          message: "Не удалось загрузить ни один файл",
+          errors
+        });
+      }
+
+      logger.info(`[UPLOAD_FILES] Успешно загружено ${results.length} файлов`);
+
+      // Возвращаем результат
+      return res.status(200).json(results);
+
+    } catch (error) {
+      logger.error(`[UPLOAD_FILES] ${error.message}`, error);
       return res.status(500).json({
         success: false,
-        message: "Не удалось загрузить ни один файл",
-        errors: failedUploads.map(f => f.error)
+        message: "Внутренняя ошибка сервера",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-
-    // Логируем результат
-    logger.info(`[UPLOAD_FILES] Успешно загружено ${successfulUploads.length} файлов пользователем ${userId}`);
-    
-    if (failedUploads.length > 0) {
-      logger.warn(`[UPLOAD_FILES] Не удалось загрузить ${failedUploads.length} файлов`);
-    }
-
-    return res.status(200).json(successfulUploads);
-  } catch (error) {
-    logger.error(`[UPLOAD_FILES] ${error.message}`, error);
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
   }
-};
 
+  /**
+   * Удаление файлов
+   */
+  async deleteFiles(req, res) {
+    try {
+      const { files } = req.body;
+      
+      logger.info(`[DELETE_FILES] Запрос на удаление ${files?.length || 0} файлов`);
 
-const deleteFiles = async (req, res, next) => {
-  try {
-    const { files } = req.body;
-    
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      return res.status(400).json({
+      // Валидация входных данных
+      if (!files || !Array.isArray(files) || files.length === 0) {
+        logger.warn('[DELETE_FILES] Нет файлов для удаления');
+        return res.status(400).json({
+          success: false,
+          message: "Нет файлов для удаления"
+        });
+      }
+
+      // Проверяем, что все элементы - строки
+      if (files.some(file => typeof file !== 'string')) {
+        logger.warn('[DELETE_FILES] Некорректные данные файлов');
+        return res.status(400).json({
+          success: false,
+          message: "Некорректные данные файлов"
+        });
+      }
+
+      // Удаляем файлы
+      const results = await fileService.deleteFiles(files);
+
+      // Проверяем результат удаления
+      const successfulDeletes = results.filter(r => r.success).length;
+      const failedDeletes = results.filter(r => !r.success);
+
+      if (failedDeletes.length > 0) {
+        logger.warn(`[DELETE_FILES] Не удалось удалить ${failedDeletes.length} файлов`);
+      }
+
+      logger.info(`[DELETE_FILES] Удалено ${successfulDeletes} файлов`);
+
+      return res.status(200).json({ 
+        success: true,
+        message: `Удалено ${successfulDeletes} файлов`,
+        details: results
+      });
+
+    } catch (error) {
+      logger.error(`[DELETE_FILES] ${error.message}`, error);
+      return res.status(500).json({
         success: false,
-        message: "Нет файлов для удаления"
+        message: "Внутренняя ошибка сервера при удалении файлов"
       });
     }
-
-    await fileService.deleteFiles(files);
-    
-    logger.info(`[DELETE_FILES] Удалено ${files.length} файлов`);
-    
-    return res.status(200).json({ 
-      success: true,
-      message: `Удалено ${files.length} файлов`
-    });
-  } catch (error) {
-    logger.error(`[DELETE_FILES] ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
   }
-};
 
-// Дополнительные методы
-const getFileInfo = async (req, res, next) => {
-  try {
-    const { fileId } = req.params;
-    const fileInfo = await fileService.getFileInfo(fileId);
-    
-    if (!fileInfo) {
-      return res.status(404).json({
+  /**
+   * Получение информации о файле
+   */
+  async getFileInfo(req, res) {
+    try {
+      const { tempName } = req.params;
+
+      if (!tempName) {
+        return res.status(400).json({
+          success: false,
+          message: "Не указан идентификатор файла"
+        });
+      }
+
+      const fileInfo = await fileService.getFileInfo(tempName);
+
+      if (!fileInfo) {
+        return res.status(404).json({
+          success: false,
+          message: "Файл не найден"
+        });
+      }
+
+      return res.status(200).json(fileInfo);
+
+    } catch (error) {
+      logger.error(`[GET_FILE_INFO] ${error.message}`, error);
+      return res.status(500).json({
         success: false,
-        message: "Файл не найден"
+        message: "Ошибка получения информации о файле"
       });
     }
-    
-    return res.status(200).json(fileInfo);
-  } catch (error) {
-    logger.error(`[GET_FILE_INFO] ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
   }
-};
 
-const downloadFile = async (req, res, next) => {
-  try {
-    const { tempName } = req.params;
-    const filePath = await fileService.getFilePath(tempName);
-    
-    if (!filePath) {
-      return res.status(404).json({
+  /**
+   * Скачивание файла
+   */
+  async downloadFile(req, res) {
+    try {
+      const { tempName } = req.params;
+
+      if (!tempName) {
+        return res.status(400).json({
+          success: false,
+          message: "Не указан идентификатор файла"
+        });
+      }
+
+      const filePath = await fileService.getFilePath(tempName);
+
+      if (!filePath) {
+        return res.status(404).json({
+          success: false,
+          message: "Файл не найден"
+        });
+      }
+
+      // Отправляем файл
+      res.download(filePath, (error) => {
+        if (error) {
+          logger.error(`[DOWNLOAD_FILE] Ошибка отправки файла: ${error.message}`);
+          if (!res.headersSent) {
+            return res.status(500).json({
+              success: false,
+              message: "Ошибка отправки файла"
+            });
+          }
+        }
+      });
+
+    } catch (error) {
+      logger.error(`[DOWNLOAD_FILE] ${error.message}`, error);
+      return res.status(500).json({
         success: false,
-        message: "Файл не найден"
+        message: "Ошибка при скачивании файла"
       });
     }
-    
-    res.download(filePath);
-  } catch (error) {
-    logger.error(`[DOWNLOAD_FILE] ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
   }
-};
 
-module.exports = { 
-  uploadFiles, 
-  deleteFiles,
-  getFileInfo,
-  downloadFile
-};
+  /**
+   * Получение списка файлов пользователя
+   */
+  async getUserFiles(req, res) {
+    try {
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Не указан идентификатор пользователя"
+        });
+      }
+
+      const userFiles = await fileService.getUserFiles(userId);
+
+      return res.status(200).json({
+        success: true,
+        files: userFiles,
+        count: userFiles.length
+      });
+
+    } catch (error) {
+      logger.error(`[GET_USER_FILES] ${error.message}`, error);
+      return res.status(500).json({
+        success: false,
+        message: "Ошибка получения файлов пользователя"
+      });
+    }
+  }
+}
+
+module.exports = new FilesController();

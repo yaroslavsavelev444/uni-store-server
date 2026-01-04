@@ -15,24 +15,30 @@ class FileManager {
  * @returns {Promise<boolean>} - true если файл существует
  */
 static async validateFileExists(filePath) {
+  let originalFilePath = filePath; // Сохраняем оригинальный путь
+  
   try {
     console.log(`[FILE_MANAGER] Проверка файла: ${filePath}`);
     
     let absolutePath;
     
+    // Если это полный URL, извлекаем путь
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      const url = new URL(filePath);
+      filePath = url.pathname; // Извлекаем только путь
+      console.log(`[FILE_MANAGER] Извлечен путь из URL: ${filePath}`);
+    }
+    
     // Если путь начинается с /uploads/ (относительный URL)
     if (filePath.startsWith('/uploads/')) {
       // Преобразуем в абсолютный путь от корня проекта
-      // Если вы используете Docker, путь может быть /app/src/uploads/temp/
-      // Если локально, то ваш полный путь
       absolutePath = path.join(process.cwd(), filePath);
       
       // Альтернативные пути для проверки
       const possiblePaths = [
         absolutePath,
-        path.join(__dirname, '..', '..', filePath), // для Docker контейнера
-        path.join(__dirname, '..', '..', '..', filePath), // альтернативная структура
-        path.join(process.cwd(), 'src', filePath.substring(1)), // если filePath уже содержит /uploads
+        path.join(process.cwd(), 'src', filePath.substring(1)), // /app/src/uploads/temp/...
+        path.join(__dirname, '..', '..', filePath.substring(1)), // для Docker контейнера
       ];
       
       console.log(`[FILE_MANAGER] Возможные пути:`, possiblePaths);
@@ -60,18 +66,17 @@ static async validateFileExists(filePath) {
     
     console.log(`[FILE_MANAGER] Финальный проверяемый путь: ${absolutePath}`);
     await fs.access(absolutePath);
-    console.log(`[FILE_MANAGER] Файл существует: ${filePath}`);
+    console.log(`[FILE_MANAGER] Файл существует: ${originalFilePath}`);
     return true;
   } catch (error) {
-    console.error(`[FILE_MANAGER] Ошибка проверки файла ${filePath}:`, error.message);
+    console.error(`[FILE_MANAGER] Ошибка проверки файла ${originalFilePath}:`, error.message);
     
     if (error.code === 'ENOENT') {
-      throw new Error(`Файл не найден: ${filePath}. Полный путь: ${absolutePath || 'не определен'}`);
+      throw new Error(`Файл не найден: ${originalFilePath}`);
     }
-    throw new Error(`Ошибка при проверке файла ${filePath}: ${error.message}`);
+    throw new Error(`Ошибка при проверке файла ${originalFilePath}: ${error.message}`);
   }
 }
-
   /**
    * Удаляет файл
    * @param {string} filePath - путь к файлу
@@ -425,26 +430,51 @@ static async validateFileExists(filePath) {
       console.error('Ошибка при очистке временных файлов:', error);
     }
   }
-/**
- * Получает абсолютный путь к файлу
- * @param {string} filePath - путь к файлу (относительный или абсолютный)
- * @returns {string} - абсолютный путь
- */
-/**
- * Получает абсолютный путь к файлу
- * @param {string} filePath - путь к файлу (относительный или абсолютный)
- * @returns {string} - абсолютный путь
- */
-/**
- * Получает абсолютный путь к файлу
- * @param {string} filePath - путь к файлу (относительный или абсолютный)
- * @returns {string} - абсолютный путь
- */
+
+
+  static getFileUrl(filePath) {
+  // Если это уже полный URL, возвращаем как есть
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    return filePath;
+  }
+  
+  // Если это не начинается с /uploads/, возвращаем как есть
+  if (!filePath.startsWith('/uploads/')) {
+    return filePath;
+  }
+  
+  // Получаем настройки сервера из env
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = process.env.HOST || 'localhost';
+  const port = process.env.PORT || '3003';
+  
+  // Формируем URL
+  let fullUrl;
+  if (port === '80' || port === '443' || port === '') {
+    fullUrl = `${protocol}://${host}${filePath}`;
+  } else {
+    fullUrl = `${protocol}://${host}:${port}${filePath}`;
+  }
+  
+  return fullUrl;
+}
+
+
 static getAbsolutePath(filePath) {
   console.log(`[FILE_MANAGER] Получение абсолютного пути для: ${filePath}`);
   
   const fs = require('fs');
   const path = require('path');
+  
+  // Если это полный URL, извлекаем путь
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    const url = new URL(filePath);
+    filePath = url.pathname; // Извлекаем только путь
+    
+    // Декодируем URL-encoded символы
+    filePath = decodeURIComponent(filePath);
+    console.log(`[FILE_MANAGER] Извлечен и декодирован путь из URL: ${filePath}`);
+  }
   
   // Проверяем, является ли путь реальным абсолютным путем в файловой системе
   const isRealAbsolutePath = (filePath) => {
@@ -472,7 +502,6 @@ static getAbsolutePath(filePath) {
       path.join(process.cwd(), relativePath),                     // /app/uploads/temp/...
       path.join(process.cwd(), 'src', relativePath),              // /app/src/uploads/temp/...
       path.join(__dirname, '..', '..', relativePath),             // из utils/fileManager.js
-      path.join(process.cwd(), '..', 'uploads', filePath.substring(8)), // альтернатива
     ];
     
     console.log(`[FILE_MANAGER] Проверяемые пути для ${filePath}:`, possiblePaths);

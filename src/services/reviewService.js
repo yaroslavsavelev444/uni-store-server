@@ -3,6 +3,8 @@ const ApiError = require("../exceptions/api-error");
 const { ProductModel, ProductReviewModel } = require("../models/index.models");
 const redisClient = require("../redis/redis.client");
 const { sendEmailNotification } = require("../queues/taskQueues");
+const { hasUserPurchasedProductBySku } = require("./purchaseCheckService");
+const PurchaseCheckService = require("./purchaseCheckService");
 
 class ReviewsService {
   constructor() {
@@ -150,8 +152,14 @@ class ReviewsService {
     }
 
     // Проверяем, покупал ли пользователь товар (если требуется)
-    // const hasBought = await this.checkIfUserBoughtProduct(userId, productId);
-    // Пока пропустим эту проверку, но можно добавить логику из orderService
+    const hasBought = await PurchaseCheckService.hasUserPurchasedProductBySku(
+      userId,
+      product.sku
+    )
+
+    if (!hasBought) {
+      throw ApiError.BadRequest("Вы не купили этот товар");
+    }
 
     const review = await ProductReviewModel.create({
       user: userId,

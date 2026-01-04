@@ -5,7 +5,7 @@ class ServerConfig {
   constructor() {
     this.protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
     this.host = process.env.HOST || 'localhost';
-    this.port = process.env.PORT || 3000;
+    this.port = process.env.PORT || 3003;
     this.baseUrl = process.env.BASE_URL || `${this.protocol}://${this.host}:${this.port}`;
     
     // Путь для файлов (может быть другой сервер/CDN)

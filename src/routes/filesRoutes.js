@@ -10,8 +10,8 @@ router.post(
   authMiddleware(["all"]),
   multerMiddleware({
     fields: "files",
-    maxFileSizeMB: 10,
-    imagesOnly: true,
+    maxFileSizeMB: 30,
+    imagesOnly: false,
     useTemp: true,
   }),
   filesController.uploadFiles

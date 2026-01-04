@@ -20,6 +20,16 @@ const Joi = require('joi');
 
 router.get('/getHints', productController.getHints);
 
+router.get(
+  '/:id/similar',
+  validateObjectId('id'),
+  validateQueryParams(Joi.object({
+    limit: Joi.number().integer().min(1).max(20).default(4),
+    strategy: Joi.string().valid('category', 'price', 'mixed').default('mixed')
+  })),
+  productController.getSimilarProducts
+);
+
 //История поиска 
 router.post('/saveSearchHistory', authMiddleware(['all']), productController.saveSearchHistory);
 router.get('/getSearchHistory', authMiddleware(['all']), productController.getSearchHistory);
@@ -50,6 +60,7 @@ router.get(
 
 router.get(
   '/sku/:sku',
+  authMiddleware.optionalAuth('all', true),
   productController.getProductBySku
 );
 
@@ -72,7 +83,7 @@ router.put(
   '/:id',
   authMiddleware(['admin']), // ДОБАВИТЬ
   validateObjectId('id'),
-  validateProduct(updateProductSchema), // ДОБАВИТЬ: валидация данных
+  // validateProduct(updateProductSchema), // ДОБАВИТЬ: валидация данных
   productController.updateProduct
 );
 
@@ -80,7 +91,7 @@ router.patch(
   '/:id/status',
   authMiddleware(['admin']), // ДОБАВИТЬ
   validateObjectId('id'),
-  validateProduct(updateStatusSchema), // ДОБАВИТЬ: валидация данных
+  // validateProduct(updateStatusSchema), // ДОБАВИТЬ: валидация данных
   productController.updateProductStatus
 );
 

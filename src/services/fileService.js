@@ -7,90 +7,115 @@ const serverConfig = require("../config/serverConfig");
 
 class FileService {
   constructor() {
-      this.uploadsDir = path.join(process.cwd(), serverConfig.uploadsDir);
+    this.uploadsDir = path.join(process.cwd(), serverConfig.uploadsDir);
     this.tempDir = path.join(this.uploadsDir, "temp");
     this.ensureDirectories();
   }
 
+  /**
+   * Создание необходимых директорий
+   */
   async ensureDirectories() {
     try {
       await fs.mkdir(this.uploadsDir, { recursive: true });
       await fs.mkdir(this.tempDir, { recursive: true });
+      
+      // Создаем .gitkeep файлы
+      await Promise.all([
+        fs.writeFile(path.join(this.uploadsDir, '.gitkeep'), ''),
+        fs.writeFile(path.join(this.tempDir, '.gitkeep'), '')
+      ]);
+      
+      logger.info(`[FILE_SERVICE] Директории созданы: ${this.tempDir}`);
     } catch (error) {
-      logger.error(`Ошибка создания директорий: ${error.message}`);
+      logger.error(`[FILE_SERVICE] Ошибка создания директорий: ${error.message}`);
+      throw error;
     }
   }
 
-  generateTempName(originalName) {
-    const timestamp = Date.now();
-    const randomString = crypto.randomBytes(8).toString('hex');
-    const extension = path.extname(originalName);
-    return `${timestamp}_${randomString}${extension}`;
+  /**
+   * Сохранение файла
+   */
+  async saveFile(userId, file) {
+    try {
+      // Проверяем входные данные
+      if (!file || !file.filename || !file.path) {
+        throw new Error('Некорректные данные файла');
+      }
+
+      const tempName = file.filename;
+      const tempPath = file.path;
+
+      logger.info(`[FILE_SERVICE] Сохранение файла: ${tempName} для пользователя ${userId}`);
+
+      // Проверяем существование файла
+      try {
+        await fs.access(tempPath);
+      } catch (error) {
+        throw new Error(`Файл не найден по пути: ${tempPath}`);
+      }
+
+      // Создаем метаданные
+      const fileMeta = {
+        id: crypto.randomUUID(),
+        tempName,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        uploadedAt: new Date().toISOString(),
+        userId,
+        path: `/uploads/temp/${tempName}`,
+        url: serverConfig.getTempFileUrl(tempName),
+        alt: path.parse(file.originalname).name
+      };
+
+      // Сохраняем метаданные
+      await this.saveFileMetadata(userId, fileMeta);
+
+      logger.info(`[FILE_SERVICE] Файл сохранен: ${tempName}`);
+
+      return fileMeta;
+
+    } catch (error) {
+      logger.error(`[FILE_SERVICE] Ошибка сохранения файла: ${error.message}`, error);
+      throw error;
+    }
   }
 
-  async saveFile(userId, file) {
-    // У вашего файла уже есть filename от multer
-    const tempName = file.filename; // Используем уже сгенерированное имя
-    const tempPath = file.path; // Используем полный путь из multer
-    
-    logger.info(`Файл сохранен multer: ${tempName} (${file.originalname}) по пути: ${tempPath}`);
-
-    // Сохраняем метаданные
+  /**
+   * Сохранение метаданных файла
+   */
+  async saveFileMetadata(userId, fileMeta) {
     const metaPath = path.join(this.tempDir, `${userId}_meta.json`);
-    const fileMeta = {
-      id: tempName,
-      tempName,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
-      uploadedAt: new Date().toISOString(),
-      userId,
-      // Изменено: теперь возвращаем относительный путь
-      path: `/uploads/temp/${tempName}`,
-      // Добавлено: полный URL формируется на сервере
-      url: serverConfig.getTempFileUrl(tempName),
-      // Добавлено: для обратной совместимости
-      relativeUrl: `/uploads/temp/${tempName}`
-    };
-
-
     let existingMeta = [];
+
     try {
       const metaContent = await fs.readFile(metaPath, 'utf8');
       existingMeta = JSON.parse(metaContent);
     } catch (error) {
-      // Файл не существует, это нормально
-      logger.info(`Создаем новый файл метаданных для пользователя ${userId}`);
+      // Файл не существует, создаем новый
+      logger.info(`[FILE_SERVICE] Создание нового файла метаданных для пользователя ${userId}`);
     }
 
+    // Удаляем старую запись с таким же tempName
+    existingMeta = existingMeta.filter(meta => meta.tempName !== fileMeta.tempName);
+    
+    // Добавляем новую запись
     existingMeta.push(fileMeta);
-    await fs.writeFile(metaPath, JSON.stringify(existingMeta, null, 2));
 
-    logger.info(`Метаданные сохранены для файла: ${tempName}`);
-
-    return fileMeta;
+    // Сохраняем
+    await fs.writeFile(metaPath, JSON.stringify(existingMeta, null, 2), 'utf8');
+    
+    logger.debug(`[FILE_SERVICE] Метаданные сохранены для файла: ${fileMeta.tempName}`);
   }
 
-  async saveFiles(userId, files) {
-    const fileArray = Array.isArray(files) ? files : Object.values(files).flat();
+  /**
+   * Удаление файлов
+   */
+  async deleteFiles(tempNames) {
     const results = [];
 
-    for (const file of fileArray) {
-      try {
-        const result = await this.saveFile(userId, file);
-        results.push(result);
-      } catch (error) {
-        logger.error(`Ошибка сохранения файла ${file.originalname}:`, error);
-        // Пробрасываем ошибку дальше
-        throw new Error(`Ошибка сохранения файла ${file.originalname}: ${error.message}`);
-      }
-    }
-
-    return results;
-  }
-
-  async deleteFiles(tempNames) {
-    const deletePromises = tempNames.map(async (tempName) => {
+    for (const tempName of tempNames) {
       try {
         const filePath = path.join(this.tempDir, tempName);
         
@@ -98,79 +123,102 @@ class FileService {
         try {
           await fs.access(filePath);
         } catch (error) {
-          logger.warn(`Файл ${tempName} не существует, пропускаем удаление`);
-          return { success: true, tempName, warning: 'Файл не существует' };
+          logger.warn(`[FILE_SERVICE] Файл ${tempName} не существует`);
+          results.push({ 
+            success: true, 
+            tempName, 
+            message: 'Файл не существует (возможно уже удален)' 
+          });
+          continue;
         }
         
+        // Удаляем файл
         await fs.unlink(filePath);
-        logger.info(`Файл удален: ${tempName}`);
-        return { success: true, tempName };
-      } catch (error) {
-        logger.error(`Ошибка удаления файла ${tempName}:`, error);
-        return { success: false, tempName, error: error.message };
-      }
-    });
+        
+        // Очищаем метаданные
+        await this.cleanupMetadata(tempName);
+        
+        results.push({ 
+          success: true, 
+          tempName, 
+          message: 'Файл успешно удален' 
+        });
+        
+        logger.info(`[FILE_SERVICE] Файл удален: ${tempName}`);
 
-    const results = await Promise.all(deletePromises);
-    
-    // Также очищаем метаданные
-    await this.cleanupMetadata();
+      } catch (error) {
+        logger.error(`[FILE_SERVICE] Ошибка удаления файла ${tempName}:`, error);
+        results.push({ 
+          success: false, 
+          tempName, 
+          error: error.message 
+        });
+      }
+    }
 
     return results;
   }
 
-  async cleanupMetadata() {
+  /**
+   * Очистка метаданных
+   */
+  async cleanupMetadata(tempName) {
     try {
-      const files = await fs.readdir(this.tempDir);
-      const metaFiles = files.filter(f => f.endsWith('_meta.json'));
+      const metaFiles = await fs.readdir(this.tempDir);
+      const userMetaFiles = metaFiles.filter(f => f.endsWith('_meta.json'));
 
-      for (const metaFile of metaFiles) {
+      for (const metaFile of userMetaFiles) {
         const metaPath = path.join(this.tempDir, metaFile);
         const metaContent = await fs.readFile(metaPath, 'utf8');
         const metadata = JSON.parse(metaContent);
 
-        // Фильтруем только существующие файлы
-        const filteredMetadata = [];
-        for (const meta of metadata) {
-          const filePath = path.join(this.tempDir, meta.tempName);
-          try {
-            await fs.access(filePath);
-            filteredMetadata.push(meta);
-          } catch (error) {
-            // Файл не существует, пропускаем
-            logger.info(`Файл ${meta.tempName} не существует, удаляем из метаданных`);
-          }
-        }
+        // Фильтруем записи без указанного файла
+        const filteredMetadata = metadata.filter(meta => meta.tempName !== tempName);
 
-        await fs.writeFile(metaPath, JSON.stringify(filteredMetadata, null, 2));
-        logger.info(`Метаданные очищены для ${metaFile}`);
+        if (filteredMetadata.length !== metadata.length) {
+          await fs.writeFile(metaPath, JSON.stringify(filteredMetadata, null, 2), 'utf8');
+          logger.debug(`[FILE_SERVICE] Метаданные очищены для файла: ${tempName}`);
+        }
       }
     } catch (error) {
-      logger.error(`Ошибка очистки метаданных: ${error.message}`);
+      logger.error(`[FILE_SERVICE] Ошибка очистки метаданных: ${error.message}`);
     }
   }
 
+  /**
+   * Получение информации о файле
+   */
   async getFileInfo(tempName) {
     try {
       const metaFiles = await fs.readdir(this.tempDir);
-      const metaFile = metaFiles.find(f => f.endsWith('_meta.json'));
+      const userMetaFiles = metaFiles.filter(f => f.endsWith('_meta.json'));
 
-      if (metaFile) {
+      for (const metaFile of userMetaFiles) {
         const metaPath = path.join(this.tempDir, metaFile);
         const metaContent = await fs.readFile(metaPath, 'utf8');
         const metadata = JSON.parse(metaContent);
         
-        return metadata.find(m => m.tempName === tempName);
+        const fileInfo = metadata.find(m => m.tempName === tempName);
+        
+        if (fileInfo) {
+          return fileInfo;
+        }
       }
-    } catch (error) {
-      logger.error(`Ошибка получения информации о файле ${tempName}:`, error);
-    }
 
-    return null;
+      return null;
+
+    } catch (error) {
+      logger.error(`[FILE_SERVICE] Ошибка получения информации о файле ${tempName}:`, error);
+      return null;
+    }
   }
 
+  /**
+   * Получение пути к файлу
+   */
   async getFilePath(tempName) {
     const filePath = path.join(this.tempDir, tempName);
+    
     try {
       await fs.access(filePath);
       return filePath;
@@ -179,92 +227,86 @@ class FileService {
     }
   }
 
-  enrichFilesWithFullUrls(files) {
-    if (!files) return [];
-    
-    const arr = Array.isArray(files) ? files : [files];
-    
-    return arr.map(file => {
-      if (!file) return null;
+  /**
+   * Получение файлов пользователя
+   */
+  async getUserFiles(userId) {
+    try {
+      const metaPath = path.join(this.tempDir, `${userId}_meta.json`);
       
-      // Если файл - строка (путь)
-      if (typeof file === 'string') {
-        return {
-          url: serverConfig.getFileUrl(file),
-          path: file,
-          filename: path.basename(file)
-        };
+      try {
+        await fs.access(metaPath);
+      } catch (error) {
+        return []; // Файл метаданных не существует
       }
+
+      const metaContent = await fs.readFile(metaPath, 'utf8');
+      const metadata = JSON.parse(metaContent);
+
+      // Проверяем существование файлов
+      const validFiles = [];
       
-      // Если файл - объект
-      const result = { ...file };
-      
-      // Обновляем URL если есть path или url
-      if (file.path && !file.url) {
-        result.url = serverConfig.getFileUrl(file.path);
-      } else if (file.url && !file.path && file.url.startsWith('/')) {
-        result.path = file.url;
-        result.url = serverConfig.getFileUrl(file.url);
-      } else if (file.url && file.url.startsWith('http')) {
-        result.path = file.url.replace(serverConfig.filesBaseUrl, '');
+      for (const fileMeta of metadata) {
+        const filePath = path.join(this.tempDir, fileMeta.tempName);
+        
+        try {
+          await fs.access(filePath);
+          validFiles.push(fileMeta);
+        } catch (error) {
+          // Файл не существует, удаляем из метаданных
+          await this.cleanupMetadata(fileMeta.tempName);
+        }
       }
-      
-      return result;
-    }).filter(Boolean);
+
+      return validFiles;
+
+    } catch (error) {
+      logger.error(`[FILE_SERVICE] Ошибка получения файлов пользователя ${userId}:`, error);
+      return [];
+    }
   }
 
   /**
-   * Подготавливает файлы для ответа API
-   * @param {Array|Object|string} files - файлы
-   * @param {Object} options - опции
-   * @returns {Array} подготовленные файлы
+   * Получение статистики файлов
    */
-  prepareFilesForResponse(files, options = {}) {
-    const {
-      includeFullUrl = true,
-      includeRelativePath = true,
-      includeMetadata = true
-    } = options;
+  async getFilesStats() {
+    try {
+      const files = await fs.readdir(this.tempDir);
+      const metaFiles = files.filter(f => f.endsWith('_meta.json'));
+      
+      let totalFiles = 0;
+      let totalSize = 0;
+      const users = new Set();
 
-    if (!files) return [];
-    
-    const arr = Array.isArray(files) ? files : [files];
-    
-    return arr.map(file => {
-      if (!file) return null;
-      
-      // Если строка
-      if (typeof file === 'string') {
-        const result = {};
-        if (includeRelativePath) result.path = file;
-        if (includeFullUrl) result.url = serverConfig.getFileUrl(file);
-        if (includeMetadata) {
-          result.filename = path.basename(file);
-          result.extension = path.extname(file);
-        }
-        return result;
-      }
-      
-      // Если объект
-      const result = { ...file };
-      
-      // Гарантируем наличие полного URL
-      if (includeFullUrl && !result.url && result.path) {
-        result.url = serverConfig.getFileUrl(result.path);
-      } else if (includeFullUrl && result.url && result.url.startsWith('/')) {
-        result.url = serverConfig.getFileUrl(result.url);
-      }
-      
-      // Гарантируем наличие относительного пути
-      if (includeRelativePath && !result.path && result.url) {
-        // Извлекаем относительный путь из полного URL
-        if (result.url.startsWith(serverConfig.filesBaseUrl)) {
-          result.path = result.url.replace(serverConfig.filesBaseUrl, '');
+      for (const metaFile of metaFiles) {
+        try {
+          const metaPath = path.join(this.tempDir, metaFile);
+          const metaContent = await fs.readFile(metaPath, 'utf8');
+          const metadata = JSON.parse(metaContent);
+          
+          totalFiles += metadata.length;
+          metadata.forEach(meta => {
+            totalSize += meta.size || 0;
+            if (meta.userId) {
+              users.add(meta.userId);
+            }
+          });
+        } catch (error) {
+          // Пропускаем поврежденные файлы метаданных
         }
       }
-      
-      return result;
-    }).filter(Boolean);
+
+      return {
+        totalFiles,
+        totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
+        uniqueUsers: users.size,
+        storagePath: this.tempDir
+      };
+
+    } catch (error) {
+      logger.error(`[FILE_SERVICE] Ошибка получения статистики файлов: ${error.message}`);
+      return null;
+    }
   }
 }
 

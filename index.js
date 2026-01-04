@@ -1,3 +1,4 @@
+
 const events = require("events");
 events.EventEmitter.defaultMaxListeners = 20;
 
@@ -97,7 +98,9 @@ const fileRoutes = require("./src/routes/filesRoutes");
 const faqRoutes = require("./src/routes/faqRoutes");
 const usersRoutes = require("./src/routes/usersRoutes");
 const wishlistRoutes = require("./src/routes/wishlistRoutes");
+const companyRoutes = require("./src/routes/companyRoutes");
 const deliveryRoutes = require("./src/routes/deliveryRoutes");
+const contentBlockRoutes = require("./src/routes/contentBlockRoutes");
 const requestContextMiddleware = require("./src/middlewares/request-context-middleware");
 const auditRequestMiddleware = require("./src/middlewares/audit-request-middleware");
 const consentRoutes = require("./src/routes/consentRoutes");
@@ -123,7 +126,9 @@ app.use("/files", fileRoutes);
 app.use("/categories", categoriesRoutes);
 app.use("/products", productsRoutes);
 app.use("/reviews", reviewsRoutes);
+app.use("/company", companyRoutes);
 app.use("/faq", faqRoutes);
+app.use("/content-blocks", contentBlockRoutes);
 app.use("/users", usersRoutes);
 app.use("/delivery", deliveryRoutes);
 app.use("/promoBlocks", promoBlocksRoutes);

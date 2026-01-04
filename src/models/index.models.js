@@ -25,6 +25,7 @@ const { FaqTopicModel, FaqQuestionModel } = require("./faq-model");
 const WishlistModel = require("./wishlist-model");
 const PickupPointModel = require("./pickup-point-model");
 const TransportCompanyModel = require("./transport-company-model");
+const ContentBlockModel = require("./content-block-model");
 module.exports = {
   CartModel,
   ProductModel,
@@ -53,5 +54,6 @@ module.exports = {
   FaqQuestionModel,
   WishlistModel,
   PickupPointModel,
-  TransportCompanyModel
+  TransportCompanyModel,
+  ContentBlockModel
 };

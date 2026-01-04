@@ -199,45 +199,52 @@ class OrdersController {
   async uploadAttachment(req, res, next) {
     try {
       const { id } = req.params;
-      const file = req.file;
+      const { filePath } = req.body;
+      const userId = req.user.id;
       
-      if (!file) {
-        throw ApiError.BadRequest('Файл не был загружен');
+      if (!filePath) {
+        throw ApiError.BadRequest('Путь к файлу не указан');
       }
       
-      // Здесь должна быть логика сохранения файла и привязки к заказу
-      // Вернем заглушку для примера
+      // Вызываем сервисный метод
+      const order = await OrderService.uploadAttachment(id, filePath, userId);
+      
+      // Находим последнее добавленное вложение
+      const lastAttachment = order.attachments[order.attachments.length - 1];
       
       res.status(200).json({
         success: true,
         message: 'Файл успешно загружен',
-        fileName: file.originalname,
-        fileSize: file.size
+        order,
+        attachment: lastAttachment
       });
     } catch (error) {
       next(error);
     }
   }
-  
+
   /**
-   * Удаление файла заказа
+   * Удаление файла заказа (админ)
    * DELETE /api/admin/orders/:id/attachments/:fileId
    */
   async deleteAttachment(req, res, next) {
     try {
       const { id, fileId } = req.params;
+      const userId = req.user.id;
       
-      // Здесь должна быть логика удаления файла
-      // Вернем заглушку для примера
+      // Вызываем сервисный метод
+      const order = await OrderService.deleteAttachment(id, fileId, userId);
       
       res.status(200).json({
         success: true,
-        message: 'Файл успешно удален'
+        message: 'Файл успешно удален',
+        order
       });
     } catch (error) {
       next(error);
     }
   }
+
 }
 
 module.exports = new OrdersController();

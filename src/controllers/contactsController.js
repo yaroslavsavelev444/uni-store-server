@@ -5,46 +5,66 @@ const logger = require('../logger/logger');
 class СontactsController {
   
   /**
-   * Получить контакты (публичный доступ)
+   * Получить контакты (публичный доступ) - ТОЛЬКО АКТИВНЫЕ
    */
   async getContacts(req, res, next) {
     try {
-      const contacts = await contactsService.getContacts();
-      
-      // Если контакты неактивны, возвращаем 404 для не-админов
-      if (!contacts.isActive && !req.user?.role?.includes('admin')) {
-        return next(ApiError.NotFoundError('Контакты временно недоступны'));
+      // Защита от undefined req
+      if (!req) {
+        logger.warn('Request object is null in getContacts');
+        return res.json({
+          success: true,
+          data: contactsService.getEmptyStructureForUsers(),
+          message: 'Контакты временно недоступны'
+        });
       }
       
-      // Устанавливаем заголовки для кеширования на клиенте
-      res.set({
-        'Cache-Control': 'public, max-age=300', // 5 минут
-        'ETag': `"${contacts.version}-${contacts.updatedAt?.getTime() || 0}"`,
-        'Last-Modified': contacts.updatedAt?.toUTCString() || new Date().toUTCString()
-      });
+      // Флаг, является ли пользователь админом
+      const isAdmin = (req.user && req.user.role && req.user.role.includes('admin')) || false;
       
-      // Проверка If-None-Match для HTTP кеширования
-      const clientETag = req.headers['if-none-match'];
-      if (clientETag === `"${contacts.version}-${contacts.updatedAt?.getTime() || 0}"`) {
-        return res.status(304).end(); // Not Modified
+      // Для обычных пользователей всегда получаем только активные контакты
+      const contacts = await contactsService.getContacts(isAdmin);
+      
+      // Для обычных пользователей проверяем, активны ли контакты
+      if (!isAdmin) {
+        // Если контакты не найдены или неактивны, возвращаем пустую структуру
+        if (!contacts || !contacts.isActive) {
+          return res.json({
+            success: true,
+            data: contactsService.getEmptyStructureForUsers(),
+            message: 'Контакты временно недоступны'
+          });
+        }
       }
       
       res.json({
         success: true,
         data: contacts,
         meta: {
-          version: contacts.version,
-          cache: process.env.CACHE_ENABLED !== 'false'
+          version: contacts.version || 0,
+          cache: !isAdmin,
+          isAdmin: isAdmin
         }
       });
       
     } catch (error) {
+      logger.error('Error in getContacts:', error);
+      
+      // В случае ошибки возвращаем пустую структуру для пользователей
+      if (error.status === 404 || error.message?.includes('не найдены')) {
+        return res.json({
+          success: true,
+          data: contactsService.getEmptyStructureForUsers(),
+          message: 'Контакты временно недоступны'
+        });
+      }
+      
       next(error);
     }
   }
   
   /**
-   * Получить контакты для админа
+   * Получить контакты для админа (все, включая неактивные)
    */
   async getAdminContacts(req, res, next) {
     try {
@@ -52,10 +72,15 @@ class СontactsController {
       
       res.json({
         success: true,
-        data: contacts
+        data: contacts,
+        meta: {
+          isAdmin: true,
+          cache: false
+        }
       });
       
     } catch (error) {
+      logger.error('Error in getAdminContacts:', error);
       next(error);
     }
   }
@@ -65,6 +90,10 @@ class СontactsController {
    */
   async updateContacts(req, res, next) {
     try {
+      if (!req.user || !req.user.id) {
+        throw ApiError.UnauthorizedError('Пользователь не авторизован');
+      }
+      
       const userId = req.user.id;
       
       const contacts = await contactsService.updateContacts(
@@ -84,11 +113,13 @@ class СontactsController {
         meta: {
           updatedBy: userId,
           version: contacts.version,
-          cacheInvalidated: true
+          cacheInvalidated: true,
+          isAdmin: true
         }
       });
       
     } catch (error) {
+      logger.error('Error in updateContacts:', error);
       next(error);
     }
   }
@@ -98,19 +129,30 @@ class СontactsController {
    */
   async toggleActive(req, res, next) {
     try {
+      if (!req.user || !req.user.id) {
+        throw ApiError.UnauthorizedError('Пользователь не авторизован');
+      }
+      
       const userId = req.user.id;
       
       const isActive = await contactsService.toggleActive(userId);
+      
+      logger.info(`User ${userId} toggled contacts active status to ${isActive}`);
       
       res.json({
         success: true,
         message: `Контакты ${isActive ? 'активированы' : 'деактивированы'}`,
         data: { 
           isActive
+        },
+        meta: {
+          updatedBy: userId,
+          isAdmin: true
         }
       });
       
     } catch (error) {
+      logger.error('Error in toggleActive:', error);
       next(error);
     }
   }
@@ -126,10 +168,14 @@ class СontactsController {
       
       res.json({
         success: true,
-        data: history
+        data: history,
+        meta: {
+          isAdmin: true
+        }
       });
       
     } catch (error) {
+      logger.error('Error in getChangeHistory:', error);
       next(error);
     }
   }
@@ -139,7 +185,11 @@ class СontactsController {
    */
   async exportVCard(req, res, next) {
     try {
-      const vCard = await contactsService.exportAsVCard();
+      // Проверяем, является ли пользователь админом
+      const isAdmin = (req.user && req.user.role && req.user.role.includes('admin')) || false;
+      
+      // Для экспорта vCard всегда используем только активные контакты
+      const vCard = await contactsService.exportAsVCard(isAdmin);
       
       // Устанавливаем заголовки для скачивания
       res.set({
@@ -151,7 +201,16 @@ class СontactsController {
       res.send(vCard);
       
     } catch (error) {
-      next(error);
+      logger.error('Error in exportVCard:', error);
+      
+      // В случае ошибки возвращаем пустой vCard
+      const emptyVCard = contactsService.generateEmptyVCard();
+      res.set({
+        'Content-Type': 'text/vcard',
+        'Content-Disposition': 'attachment; filename="contacts.vcf"',
+        'Content-Length': Buffer.byteLength(emptyVCard, 'utf8')
+      });
+      res.send(emptyVCard);
     }
   }
   
@@ -170,6 +229,7 @@ class СontactsController {
       });
       
     } catch (error) {
+      logger.error('Health check failed:', error);
       res.status(503).json({
         success: false,
         status: 'unhealthy',

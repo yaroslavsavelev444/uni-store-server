@@ -6,66 +6,87 @@ const redisClient = require('../redis/redis.client');
 // Ключи для Redis
 const CACHE_KEYS = {
   CONTACTS: 'contacts',
-  CONTACTS_ADMIN: 'contacts:admin'
+  CONTACTS_ADMIN: 'contacts:admin',
+  CONTACTS_ACTIVE: 'contacts:active' // Новый ключ для активных контактов
 };
 
-// Время жизни кеша (5 минут)
-const CACHE_TTL = 300;
+// Время жизни кеша
+const CACHE_TTL = {
+  PUBLIC: 300,     // 5 минут для публичных данных
+  ADMIN: 60,       // 1 минута для админских данных
+  ACTIVE: 300      // 5 минут для активных контактов
+};
 
 class OrganizationContactService {
   
   /**
-   * Получить контакты (с кешированием)
+   * Получить контакты
+   * @param {boolean} isAdmin - является ли пользователь админом
    */
-  async getContacts(admin = false) {
+  async getContacts(isAdmin = false) {
     try {
-      const cacheKey = CACHE_KEYS.CONTACTS;
+      let cacheKey;
+      let cacheTtl;
+      
+      // Определяем ключ кеша в зависимости от роли пользователя
+      if (isAdmin) {
+        cacheKey = CACHE_KEYS.CONTACTS_ADMIN;
+        cacheTtl = CACHE_TTL.ADMIN;
+      } else {
+        cacheKey = CACHE_KEYS.CONTACTS_ACTIVE;
+        cacheTtl = CACHE_TTL.ACTIVE;
+      }
       
       // Пробуем получить из кеша
-      if (!admin && process.env.CACHE_ENABLED !== 'false') {
+      if (process.env.CACHE_ENABLED !== 'false') {
         try {
           const cached = await redisClient.getJson(cacheKey);
           if (cached) {
-            logger.debug(`Cache hit for ${cacheKey}`);
+            logger.debug(`Cache hit for ${cacheKey} (isAdmin: ${isAdmin})`);
             return cached;
           }
         } catch (cacheError) {
           logger.warn(`Cache read error for ${cacheKey}:`, cacheError.message);
-          // Продолжаем без кеша при ошибке
         }
       }
       
-      // Получаем из БД (всегда первый документ для синглтона)
-      const contacts = await ContactModel.findOne({})
-        .select(!admin ? '-updatedBy -__v -_id' : '')
+      // Строим фильтр в зависимости от роли пользователя
+      const filter = {};
+      if (!isAdmin) {
+        // Для обычных пользователей - только активные контакты
+        filter.isActive = true;
+      }
+      
+      // Получаем из БД
+      const contacts = await ContactModel.findOne(filter)
         .lean();
       
-      // Если нет данных, возвращаем структуру по умолчанию
+      let result;
+      
       if (!contacts) {
-        const defaultStructure = this.getDefaultStructure();
-        
-        // Кешируем только если не админ и кеш включен
-        if (!admin && process.env.CACHE_ENABLED !== 'false') {
-          try {
-            await redisClient.setJson(cacheKey, defaultStructure, CACHE_TTL);
-          } catch (cacheError) {
-            logger.warn(`Cache write error for ${cacheKey}:`, cacheError.message);
-          }
+        if (isAdmin) {
+          // Для админа возвращаем структуру по умолчанию даже если нет данных
+          result = this.getDefaultStructure();
+          result.isActive = false; // По умолчанию неактивно для админа
+        } else {
+          // Для пользователя возвращаем пустую структуру
+          result = this.getEmptyStructureForUsers();
         }
-        
-        return defaultStructure;
+      } else {
+        result = contacts;
       }
       
-      // Кешируем только если не админ и кеш включен
-      if (!admin && process.env.CACHE_ENABLED !== 'false') {
+      // Кешируем результат
+      if (process.env.CACHE_ENABLED !== 'false') {
         try {
-          await redisClient.setJson(cacheKey, contacts, CACHE_TTL);
+          await redisClient.setJson(cacheKey, result, cacheTtl);
+          logger.debug(`Cache set for ${cacheKey} (ttl: ${cacheTtl}s)`);
         } catch (cacheError) {
           logger.warn(`Cache write error for ${cacheKey}:`, cacheError.message);
         }
       }
       
-      return contacts;
+      return result;
       
     } catch (error) {
       logger.error('Error getting contacts:', error);
@@ -74,46 +95,10 @@ class OrganizationContactService {
   }
   
   /**
-   * Получить контакты для админа (с отдельным кешем)
+   * Получить контакты для админа (всегда все, даже неактивные)
    */
   async getContactsForAdmin() {
-    try {
-      const cacheKey = CACHE_KEYS.CONTACTS_ADMIN;
-      
-      // Пробуем получить из кеша (кеш админских данных на 1 минуту)
-      if (process.env.CACHE_ENABLED !== 'false') {
-        try {
-          const cached = await redisClient.getJson(cacheKey);
-          if (cached) {
-            logger.debug(`Admin cache hit for ${cacheKey}`);
-            return cached;
-          }
-        } catch (cacheError) {
-          logger.warn(`Admin cache read error for ${cacheKey}:`, cacheError.message);
-        }
-      }
-      
-      const contacts = await ContactModel.findOne({})
-        .populate('updatedBy', 'email firstName lastName avatar')
-        .lean();
-      
-      const result = contacts || this.getDefaultStructure();
-      
-      // Кешируем админские данные на 1 минуту
-      if (process.env.CACHE_ENABLED !== 'false') {
-        try {
-          await redisClient.setJson(cacheKey, result, 60); // 1 минута для админских данных
-        } catch (cacheError) {
-          logger.warn(`Admin cache write error for ${cacheKey}:`, cacheError.message);
-        }
-      }
-      
-      return result;
-      
-    } catch (error) {
-      logger.error('Error getting contacts for admin:', error);
-      throw ApiError.InternalServerError('Ошибка при получении контактов для админа');
-    }
+    return this.getContacts(true); // Используем общий метод с флагом isAdmin
   }
   
   /**
@@ -132,7 +117,7 @@ class OrganizationContactService {
         }
       }
       
-      // Ищем существующие контакты
+      // Ищем существующие контакты (любого статуса, т.к. админ может обновлять)
       let contacts = await ContactModel.findOne({}).session(session);
       
       if (contacts) {
@@ -151,6 +136,7 @@ class OrganizationContactService {
         // Создаем новые
         contacts = new ContactModel({
           ...data,
+          isActive: data.isActive !== undefined ? data.isActive : false, // По умолчанию неактивны
           updatedBy: userId,
           version: 1
         });
@@ -159,17 +145,19 @@ class OrganizationContactService {
       
       await session.commitTransaction();
       
-      // Инвалидируем кеш
-      await this.invalidateCache();
+      // Инвалидируем все кеши контактов
+      await this.invalidateAllCaches();
       
-      // Получаем обновленные данные
+      // Получаем обновленные данные для ответа
       const result = await ContactModel.findById(contacts._id)
+        .populate('updatedBy', 'email firstName lastName avatar')
         .select('-__v -_id')
         .lean();
       
       logger.info(`Contacts updated by user ${userId}`, {
         userId,
-        version: result.version
+        version: result.version,
+        isActive: result.isActive
       });
       
       return result;
@@ -191,7 +179,6 @@ class OrganizationContactService {
         throw ApiError.BadRequest(error.message);
       }
       
-      // Проверяем, что это не ApiError, чтобы не перезаписать
       if (!(error instanceof ApiError)) {
         throw ApiError.InternalServerError('Ошибка при обновлении контактов');
       }
@@ -211,10 +198,26 @@ class OrganizationContactService {
     try {
       session.startTransaction();
       
+      // Ищем контакты (любого статуса, т.к. админ)
       const contacts = await ContactModel.findOne({}).session(session);
       
       if (!contacts) {
-        throw ApiError.NotFoundError('Контакты не найдены');
+        // Если контактов нет, создаем с активным статусом
+        const newContacts = new ContactModel({
+          companyName: 'Новая компания',
+          isActive: true,
+          updatedBy: userId,
+          version: 1
+        });
+        await newContacts.save({ session });
+        await session.commitTransaction();
+        
+        // Инвалидируем кеш
+        await this.invalidateAllCaches();
+        
+        logger.info(`New contacts created and activated by user ${userId}`);
+        
+        return true; // isActive = true
       }
       
       const oldStatus = contacts.isActive;
@@ -224,10 +227,14 @@ class OrganizationContactService {
       
       await session.commitTransaction();
       
-      // Инвалидируем кеш
-      await this.invalidateCache();
+      // Инвалидируем все кеши контактов
+      await this.invalidateAllCaches();
       
-      logger.info(`Contacts ${contacts.isActive ? 'activated' : 'deactivated'} by user ${userId}`);
+      logger.info(`Contacts ${contacts.isActive ? 'activated' : 'deactivated'} by user ${userId}`, {
+        userId,
+        oldStatus,
+        newStatus: contacts.isActive
+      });
       
       return contacts.isActive;
       
@@ -260,46 +267,23 @@ class OrganizationContactService {
   
   /**
    * Экспорт контактов в формате vCard
+   * @param {boolean} isAdmin - является ли пользователь админом
    */
-  async exportAsVCard() {
+  async exportAsVCard(isAdmin = false) {
     try {
-      const contacts = await this.getContacts();
+      // Получаем контакты с учетом прав пользователя
+      const contacts = await this.getContacts(isAdmin);
+      
+      // Если контакты не активны и пользователь не админ, возвращаем пустой vCard
+      if (!isAdmin && (!contacts || !contacts.isActive)) {
+        return this.generateEmptyVCard();
+      }
       
       if (!contacts.companyName) {
         throw ApiError.NotFoundError('Контакты не найдены');
       }
       
-      // Формируем vCard
-      const vCard = [
-        'BEGIN:VCARD',
-        'VERSION:3.0',
-        `FN:${contacts.companyName}`,
-        `ORG:${contacts.companyName}`
-      ];
-      
-      // Добавляем телефоны
-      if (contacts.phones && contacts.phones.length > 0) {
-        contacts.phones.forEach(phone => {
-          const type = phone.type === 'support' ? 'WORK' : 'OTHER';
-          vCard.push(`TEL;TYPE=${type}:${phone.value}`);
-        });
-      }
-      
-      // Добавляем email
-      if (contacts.emails && contacts.emails.length > 0) {
-        contacts.emails.forEach(email => {
-          vCard.push(`EMAIL:${email.value}`);
-        });
-      }
-      
-      // Добавляем адрес
-      if (contacts.physicalAddress) {
-        vCard.push(`ADR:;;${contacts.physicalAddress}`);
-      }
-      
-      vCard.push('END:VCARD');
-      
-      return vCard.join('\n');
+      return this.generateVCard(contacts);
       
     } catch (error) {
       logger.error('Error exporting vCard:', error);
@@ -336,29 +320,50 @@ class OrganizationContactService {
   }
   
   /**
-   * Инвалидация кеша
+   * Инвалидация ВСЕХ кешей контактов
    */
-  async invalidateCache() {
+  async invalidateAllCaches() {
     try {
       const keys = [
         CACHE_KEYS.CONTACTS,
-        CACHE_KEYS.CONTACTS_ADMIN
+        CACHE_KEYS.CONTACTS_ADMIN,
+        CACHE_KEYS.CONTACTS_ACTIVE
       ];
       
       await redisClient.bulkDel(keys);
       
-      logger.debug('Cache invalidated');
+      logger.debug('All contacts caches invalidated');
       
     } catch (error) {
       logger.warn('Cache invalidation failed:', error.message);
-      // Не прерываем выполнение если кеш не очистился
     }
   }
   
   /**
-   * Структура по умолчанию
+   * Структура по умолчанию (для админов)
    */
   getDefaultStructure() {
+    return {
+      companyName: '',
+      legalAddress: '',
+      physicalAddress: '',
+      phones: [],
+      emails: [],
+      socialLinks: [],
+      otherContacts: [],
+      workingHours: '',
+      isActive: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      version: 0,
+      updatedBy: null
+    };
+  }
+  
+  /**
+   * Пустая структура для обычных пользователей
+   */
+  getEmptyStructureForUsers() {
     return {
       companyName: '',
       legalAddress: '',
@@ -396,6 +401,61 @@ class OrganizationContactService {
     }
     
     return true;
+  }
+  
+  /**
+   * Генерация пустого vCard
+   */
+  generateEmptyVCard() {
+    return [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      'FN:Контакты недоступны',
+      'ORG:Контакты временно недоступны',
+      'NOTE:Контакты временно недоступны. Попробуйте позже.',
+      'END:VCARD'
+    ].join('\n');
+  }
+  
+  /**
+   * Генерация vCard из контактов
+   */
+  generateVCard(contacts) {
+    const vCard = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${contacts.companyName || 'Компания'}`,
+      `ORG:${contacts.companyName || 'Компания'}`
+    ];
+    
+    // Добавляем телефоны
+    if (contacts.phones && contacts.phones.length > 0) {
+      contacts.phones.forEach(phone => {
+        const type = phone.type === 'support' ? 'WORK' : 'OTHER';
+        vCard.push(`TEL;TYPE=${type}:${phone.value}`);
+      });
+    }
+    
+    // Добавляем email
+    if (contacts.emails && contacts.emails.length > 0) {
+      contacts.emails.forEach(email => {
+        vCard.push(`EMAIL:${email.value}`);
+      });
+    }
+    
+    // Добавляем адрес
+    if (contacts.physicalAddress) {
+      vCard.push(`ADR:;;${contacts.physicalAddress}`);
+    }
+    
+    // Добавляем заметку о времени работы
+    if (contacts.workingHours) {
+      vCard.push(`NOTE:Время работы: ${contacts.workingHours}`);
+    }
+    
+    vCard.push('END:VCARD');
+    
+    return vCard.join('\n');
   }
 }
 
