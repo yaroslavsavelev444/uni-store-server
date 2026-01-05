@@ -135,6 +135,9 @@ const logout = async (req, res, next) => {
     const userData = req.user;
     const ip = getIp(req);
 
+    if(!refreshToken || !userData) {
+      throw ApiError.BadRequest("не все данные");
+    }
     const result = await authService.logout(refreshToken, userData);
     
     // Логирование выхода
@@ -417,14 +420,12 @@ const verify2faCode = async (req, res, next) => {
       const isHTTPS = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
 
       res.cookie("refreshToken", userData.refreshToken, {
-  maxAge: 30 * 24 * 60 * 60 * 1000,
-  httpOnly: true,
-  secure: true, // всегда true для Safari
-  sameSite: isProd ? "None" : "Lax",
-  path: "/",
-  domain: isProd ? ".npo-polet.ru" : undefined, // с точкой в начале для всех поддоменов
-});
-
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
+        httpOnly: true,
+        secure: isProd || isHTTPS, // true для продакшена и HTTPS
+        sameSite: isProd ? "None" : "Lax", // "None" для продакшена с HTTPS
+        path: "/",
+      });
 
       return res.status(200).json({ userData, user: userData.user });
     }
