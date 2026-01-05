@@ -42,11 +42,11 @@ const UserSchema = new Schema(
 );
 
 UserSchema.post("save", async function (doc) {
-  const newCart = new cartModel({
-    user: doc._id,
-    items: [], // Пустая корзина на момент регистрации
-  });
-  await newCart.save();
+  const cartExists = await cartModel.exists({ user: doc._id });
+  if (!cartExists) {
+    const newCart = new cartModel({ user: doc._id, items: [] });
+    await newCart.save();
+  }
 });
 
 module.exports = model("User", UserSchema);
