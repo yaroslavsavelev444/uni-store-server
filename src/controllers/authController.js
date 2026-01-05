@@ -413,7 +413,7 @@ const verify2faCode = async (req, res, next) => {
       req.useragent.isDesktop || req.useragent.browser !== "unknown";
 
     if (isBrowser) {
-      const isProd = process.env.NODE_ENV === "prod";
+      const isProd = process.env.NODE_ENV === "production";
 
       res.cookie("refreshToken", userData.refreshToken, {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней

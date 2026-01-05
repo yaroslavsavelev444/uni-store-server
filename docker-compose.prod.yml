@@ -79,8 +79,7 @@ services:
       - "27017:27017"
     volumes:
       - mongo1_data:/data/db
-      - ./mongo/mongo1-keyfile:/data/keyfile:ro
-    command: mongod --replSet rs0 --bind_ip_all --keyFile /data/keyfile
+    command: mongod --replSet rs0 --bind_ip_all
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -89,9 +88,6 @@ services:
     networks:
       - backend
     restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
 
   mongo2:
     image: mongo:6.0
@@ -100,8 +96,7 @@ services:
       - "27018:27017"
     volumes:
       - mongo2_data:/data/db
-      - ./mongo/mongo1-keyfile:/data/keyfile:ro
-    command: mongod --replSet rs0 --bind_ip_all --keyFile /data/keyfile
+    command: mongod --replSet rs0 --bind_ip_all
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -110,9 +105,6 @@ services:
     networks:
       - backend
     restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
 
   mongo3:
     image: mongo:6.0
@@ -121,8 +113,7 @@ services:
       - "27019:27017"
     volumes:
       - mongo3_data:/data/db
-      - ./mongo/mongo1-keyfile:/data/keyfile:ro
-    command: mongod --replSet rs0 --bind_ip_all --keyFile /data/keyfile
+    command: mongod --replSet rs0 --bind_ip_all
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -131,9 +122,6 @@ services:
     networks:
       - backend
     restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
 
   rs-init:
     image: node:20-alpine
@@ -147,14 +135,10 @@ services:
         condition: service_healthy
     volumes:
       - ./init-replica.js:/app/init-replica.js
-      - ./mongo/mongo1-keyfile:/data/keyfile:ro
     working_dir: /app
-    command: sh -c "npm install mongodb && sleep 10 && node init-replica.js"
+    command: sh -c "npm install mongodb && node init-replica.js"
     networks:
       - backend
-    environment:
-      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
-      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
 
   admin-init:
     build:
