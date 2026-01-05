@@ -177,7 +177,8 @@ app.use(errorHandler);
         "http://192.168.1.203:3003",
         "http://192.168.1.203:19006",
         "exp://192.168.1.203:19000",
-        "https://npo-polet.store",       
+        "https://npo-polet.store",    
+        "https://npo-polet.ru",  
         "https://www.npo-polet.store",   
 
       ],
