@@ -432,31 +432,35 @@ static async validateFileExists(filePath) {
   }
 
 
-  static getFileUrl(filePath) {
-  // Если это уже полный URL, возвращаем как есть
-  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+static getFileUrl(filePath) {
+  // Уже полный URL — не трогаем
+  if (
+    typeof filePath !== 'string' ||
+    filePath.startsWith('http://') ||
+    filePath.startsWith('https://')
+  ) {
     return filePath;
   }
-  
-  // Если это не начинается с /uploads/, возвращаем как есть
+
+  // Не uploads — не трогаем
   if (!filePath.startsWith('/uploads/')) {
     return filePath;
   }
-  
-  // Получаем настройки сервера из env
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  const host = process.env.HOST || 'localhost';
-  const port = process.env.PORT || '3003';
-  
-  // Формируем URL
-  let fullUrl;
-  if (port === '80' || port === '443' || port === '') {
-    fullUrl = `${protocol}://${host}${filePath}`;
-  } else {
-    fullUrl = `${protocol}://${host}:${port}${filePath}`;
+
+  // PROD
+  if (process.env.NODE_ENV === 'production') {
+    const baseUrl = process.env.PUBLIC_BASE_URL;
+
+    if (!baseUrl) {
+      throw new Error('PUBLIC_BASE_URL is not defined in production');
+    }
+
+    return `${baseUrl}${filePath}`;
   }
-  
-  return fullUrl;
+
+  // DEV (как работало раньше)
+  const port = process.env.PORT || '3003';
+  return `http://localhost:${port}${filePath}`;
 }
 
 
