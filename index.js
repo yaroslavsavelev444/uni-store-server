@@ -36,10 +36,17 @@ app.use(cookieParser());
 
 // Подключаем CORS
 const allowedOrigins = [
-  "http://localhost:5173", 
-  "http://127.0.0.1:5173",
-  "http://localhost:3000",  // ДОБАВЬТЕ ЭТО
-  "http://127.0.0.1:3000"   // И ЭТО
+  "http://localhost:5173",
+        "http://localhost:3000",
+        "http://192.168.1.128:5173",
+        "http://192.168.1.128:3001",
+        "http://192.168.1.128:3003",
+        "http://192.168.1.203:3003",
+        "http://192.168.1.203:19006",
+        "exp://192.168.1.203:19000",
+        "https://npo-polet.store",    
+        "https://npo-polet.ru",  
+        "https://www.npo-polet.store",   
 ];
 
 const corsOptions = {
@@ -167,21 +174,7 @@ app.use(errorHandler);
     await connectDB();
 
     // Socket.io init
-    initSocket(server, {
-      corsOrigins: [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://192.168.1.128:5173",
-        "http://192.168.1.128:3001",
-        "http://192.168.1.128:3003",
-        "http://192.168.1.203:3003",
-        "http://192.168.1.203:19006",
-        "exp://192.168.1.203:19000",
-        "https://npo-polet.store",    
-        "https://npo-polet.ru",  
-        "https://www.npo-polet.store",   
-
-      ],
+    initSocket(server, { corsOrigins: allowedOrigins
     });
 
     cronInit.initialize();
