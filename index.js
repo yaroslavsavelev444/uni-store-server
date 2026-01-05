@@ -104,6 +104,8 @@ const contentBlockRoutes = require("./src/routes/contentBlockRoutes");
 const requestContextMiddleware = require("./src/middlewares/request-context-middleware");
 const auditRequestMiddleware = require("./src/middlewares/audit-request-middleware");
 const consentRoutes = require("./src/routes/consentRoutes");
+const sitemapRoutes = require("./src/routes/sitemapRoutes");
+
 const env = process.env.NODE_ENV;
 const config = auditConfig[env] || auditConfig.development;
 
@@ -128,6 +130,7 @@ app.use("/products", productsRoutes);
 app.use("/reviews", reviewsRoutes);
 app.use("/company", companyRoutes);
 app.use("/faq", faqRoutes);
+app.use("/sitemap", sitemapRoutes);
 app.use("/content-blocks", contentBlockRoutes);
 app.use("/users", usersRoutes);
 app.use("/delivery", deliveryRoutes);

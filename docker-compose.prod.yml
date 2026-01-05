@@ -13,16 +13,24 @@ services:
         condition: service_healthy
       mongo1:
         condition: service_healthy
+      admin-init:
+        condition: service_completed_successfully
     env_file:
       - .env
     networks:
       - backend
     command: ["npm", "run", "start"]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
       interval: 10s
       timeout: 5s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   worker:
     build:
@@ -34,13 +42,13 @@ services:
         condition: service_healthy
       mongo1:
         condition: service_healthy
+      admin-init:
+        condition: service_completed_successfully
     env_file: .env
-    environment:
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT}
     networks:
       - backend
     command: ["node", "src/queues/worker/processors.js"]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "pgrep", "-f", "processors.js"]
       interval: 15s
@@ -56,11 +64,13 @@ services:
       - redis_data:/data
     networks:
       - backend
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+    command: redis-server --appendonly yes
 
   mongo1:
     image: mongo:6.0
@@ -69,7 +79,8 @@ services:
       - "27017:27017"
     volumes:
       - mongo1_data:/data/db
-    command: mongod --replSet rs0 --bind_ip_all
+      - ./mongo/mongo1-keyfile:/data/keyfile:ro
+    command: mongod --replSet rs0 --bind_ip_all --keyFile /data/keyfile
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -77,6 +88,10 @@ services:
       retries: 5
     networks:
       - backend
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
 
   mongo2:
     image: mongo:6.0
@@ -85,7 +100,8 @@ services:
       - "27018:27017"
     volumes:
       - mongo2_data:/data/db
-    command: mongod --replSet rs0 --bind_ip_all
+      - ./mongo/mongo1-keyfile:/data/keyfile:ro
+    command: mongod --replSet rs0 --bind_ip_all --keyFile /data/keyfile
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -93,6 +109,10 @@ services:
       retries: 5
     networks:
       - backend
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
 
   mongo3:
     image: mongo:6.0
@@ -101,7 +121,8 @@ services:
       - "27019:27017"
     volumes:
       - mongo3_data:/data/db
-    command: mongod --replSet rs0 --bind_ip_all
+      - ./mongo/mongo1-keyfile:/data/keyfile:ro
+    command: mongod --replSet rs0 --bind_ip_all --keyFile /data/keyfile
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -109,6 +130,10 @@ services:
       retries: 5
     networks:
       - backend
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
 
   rs-init:
     image: node:20-alpine
@@ -122,10 +147,31 @@ services:
         condition: service_healthy
     volumes:
       - ./init-replica.js:/app/init-replica.js
+      - ./mongo/mongo1-keyfile:/data/keyfile:ro
     working_dir: /app
-    command: sh -c "npm install mongodb && node init-replica.js"
+    command: sh -c "npm install mongodb && sleep 10 && node init-replica.js"
     networks:
       - backend
+    environment:
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+
+  admin-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: polet-admin-init-prod
+    depends_on:
+      rs-init:
+        condition: service_completed_successfully
+    command: ["node", "src/scripts/createAdmin.js"]
+    restart: "on-failure"
+    env_file:
+      - .env
+    networks:
+      - backend
+    volumes:
+      - ./src/scripts:/app/src/scripts
 
 networks:
   backend:

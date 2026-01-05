@@ -10,7 +10,6 @@ class PurchaseCheckService {
    */
   static async hasUserPurchasedProduct(userId, productId) {
     if (!userId || !productId) {
-        console.log('SOSALLLL');
       return false;
     }
 
@@ -24,7 +23,6 @@ class PurchaseCheckService {
             OrderStatus.SHIPPED 
           ]
         },
-        'items.product': productId
       });
 
       return !!completedOrders;
@@ -42,7 +40,6 @@ class PurchaseCheckService {
    */
   static async hasUserPurchasedProductBySku(userId, sku) {
     if (!userId || !sku) {
-          console.log('SOSALLLL');
       return false;
     }
 

@@ -5,6 +5,7 @@ const { ProductModel, UserSearchModel } = require('../models/index.models');
 const CategoryModel = require('../models/category-model'); // ДОБАВЛЕНО
 const fileService = require('../utils/fileManager');
 const PurchaseCheckService = require('./purchaseCheckService');
+const ReviewsService = require('./reviewService');
 class ProductService {
   
   
@@ -16,6 +17,7 @@ class ProductService {
       maxPrice,
       inStock,
       search,
+      slug, // ← это slug категории
       sortBy = 'createdAt',
       sortOrder = 'desc',
       page = 1,
@@ -36,39 +38,79 @@ class ProductService {
       // По умолчанию показываем только доступные для покупки
       filter.status = { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] };
     }
+    console.log('filter after status:', JSON.stringify(filter, 2));
     
-    // 2. Фильтр по категории
+    // 2. Фильтр по категории (через ID категории)
     if (category) {
       if (!mongoose.Types.ObjectId.isValid(category)) {
         throw ApiError.BadRequest('Некорректный ID категории');
       }
       filter.category = category;
     }
+    console.log('filter after category:', JSON.stringify(filter, 2));
     
-    // 3. Фильтр по цене
+    // 3. Фильтр по slug категории - ПРАВИЛЬНОЕ ИСПРАВЛЕНИЕ
+    let categoryIdFromSlug = null;
+    if (slug) {
+      
+      try {
+        // Находим категорию по slug
+        const categoryDoc = await CategoryModel.findOne({ slug });
+        console.log('categoryDoc:', categoryDoc);
+        
+        if (!categoryDoc) {
+          // Если категория не найдена, возвращаем пустой результат
+          return {
+            products: [],
+            pagination: {
+              page: parseInt(page),
+              limit: parseInt(limit),
+              total: 0,
+              pages: 0,
+              hasNext: false,
+              hasPrev: false
+            }
+          };
+        }
+        
+        categoryIdFromSlug = categoryDoc._id;
+        filter.category = categoryIdFromSlug;
+        
+      } catch (error) {
+        console.error('Ошибка при поиске категории по slug:', error);
+        throw ApiError.DatabaseError('Ошибка при поиске категории');
+      }
+    }
+    console.log('filter after slug:', JSON.stringify(filter, 2));
+    
+    // 4. Фильтр по цене
     if (minPrice || maxPrice) {
       filter.priceForIndividual = {};
       if (minPrice) filter.priceForIndividual.$gte = parseFloat(minPrice);
       if (maxPrice) filter.priceForIndividual.$lte = parseFloat(maxPrice);
     }
+    console.log('filter after minPrice and maxPrice:', JSON.stringify(filter, 2));
     
-    // 4. Фильтр по наличию на складе
+    // 5. Фильтр по наличию на складе
     if (inStock === 'true' || inStock === true) {
       filter.$and = [
         { stockQuantity: { $gt: 0 } },
         { status: ProductStatus.AVAILABLE }
       ];
     }
+    console.log('filter after inStock:', JSON.stringify(filter, 2));
     
-    // 5. Поиск по тексту
+    // 6. Поиск по тексту
     if (search && search.trim().length > 0) {
       filter.$text = { $search: search.trim() };
     }
+    console.log('filter after search:', JSON.stringify(filter, 2));
     
-    // 6. Фильтр видимости
+    // 7. Фильтр видимости
     filter.isVisible = true;
+    console.log('filter after isVisible:', JSON.stringify(filter, 2));
     
-    // 7. ИСКЛЮЧЕНИЕ ID продуктов (НОВОЕ)
+    // 8. ИСКЛЮЧЕНИЕ ID продуктов (НОВОЕ)
     if (excludeIds && excludeIds.length > 0) {
       const validExcludeIds = excludeIds.filter(id => 
         mongoose.Types.ObjectId.isValid(id)
@@ -78,39 +120,38 @@ class ProductService {
         filter._id = { $nin: validExcludeIds };
       }
     }
+    console.log('filter after excludeIds:', JSON.stringify(filter, 2));
     
-     console.log('showOnMainPage', showOnMainPage);
-     
-    // 8. Дополнительные фильтры
-    if (showOnMainPage !== false) {
-      console.log('showOnMainPage !== false', showOnMainPage);
-      
-      filter.showOnMainPage = showOnMainPage;
+    // 9. Дополнительные фильтры
+    if (showOnMainPage) {
+      filter.showOnMainPage= true;
     }
-    
     if (manufacturer) {
       filter.manufacturer = { $regex: manufacturer, $options: 'i' };
     }
-    
     if (warrantyMonths) {
       filter.warrantyMonths = { $gte: warrantyMonths };
     }
+    console.log('filter after showOnMainPage and manufacturer and warrantyMonths:', JSON.stringify(filter, 2));
     
-    // 9. Сортировка
+    // 10. Сортировка
     const sortOptions = {};
     const sortField = this.getSortField(sortBy);
     sortOptions[sortField] = sortOrder === 'asc' ? 1 : -1;
+    console.log('sortOptions:', JSON.stringify(sortOptions, 2));
     
     // Для сортировки по популярности добавляем сортировку по названию как вторичную
     if (sortBy === 'popularity') {
       sortOptions.title = 1;
     }
+    console.log('sortOptions after sorting by popularity:', JSON.stringify(sortOptions, 2));
     
-    // 10. Пагинация
+    // 11. Пагинация
     const skip = (page - 1) * limit;
+    console.log('skip:', skip);
     
     try {
-      // 11. Используем стандартные запросы вместо агрегации для простоты
+      // 12. Используем стандартные запросы вместо агрегации для простоты
       let query = ProductModel.find(filter)
         .sort(sortOptions)
         .skip(skip)
@@ -140,45 +181,53 @@ class ProductService {
         ProductModel.countDocuments(filter)
       ]);
       
-      // 12. Рассчитываем финальные цены и добавляем виртуальные поля
-      const productsWithFinalPrice = products.map((product) => {
-        // Рассчитываем финальную цену
-        const finalPrice = this.calculateFinalPrice(product);
+      // 13. Рассчитываем финальные цены и добавляем виртуальные поля
+      const productsWithReviewsPromises = products.map(async (product) => {
+            // Рассчитываем финальную цену
+            const finalPrice = this.calculateFinalPrice(product);
+            
+            // Рассчитываем доступное количество
+            const availableQuantity = Math.max(
+                0, 
+                product.stockQuantity - (product.reservedQuantity || 0)
+            );
+            
+            // Получаем количество отзывов ДЛЯ ЭТОГО продукта
+            const reviewsCount = await ReviewsService.getProductReviewsCountStatic(product._id);
+            
+            // Проверяем наличие в наличии
+            const inStock = availableQuantity > 0 && 
+                           product.status === ProductStatus.AVAILABLE;
+            
+            return {
+                ...product,
+                finalPriceForIndividual: finalPrice,
+                availableQuantity,
+                inStock,
+                reviewsCount: reviewsCount  // ← добавляем количество отзывов
+            };
+        });
         
-        // Рассчитываем доступное количество
-        const availableQuantity = Math.max(
-          0, 
-          product.stockQuantity - (product.reservedQuantity || 0)
-        );
-        
-        // Проверяем наличие в наличии
-        const inStock = availableQuantity > 0 && 
-                       product.status === ProductStatus.AVAILABLE;
+        // Ждем выполнения ВСЕХ асинхронных операций
+        const productsWithFinalPrice = await Promise.all(productsWithReviewsPromises);
         
         return {
-          ...product,
-          finalPriceForIndividual: finalPrice,
-          availableQuantity,
-          inStock
+            products: productsWithFinalPrice,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit),
+                hasNext: page * limit < total,
+                hasPrev: page > 1
+            }
         };
-      });
-      
-      return {
-        products: productsWithFinalPrice,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / limit),
-          hasNext: page * limit < total,
-          hasPrev: page > 1
-        }
-      };
     } catch (error) {
-      console.error('Ошибка при получении продуктов:', error);
-      throw ApiError.DatabaseError('Ошибка при получении продуктов');
+        console.error('Ошибка при получении продуктов:', error);
+        throw ApiError.DatabaseError('Ошибка при получении продуктов');
     }
-  }
+}
+
 
   
 
@@ -334,8 +383,11 @@ class ProductService {
           product._id.toString()
         );
 
-      } else {
-        product.hasPurchased = 'SOSAL';
+        product.hasReviewed = await ReviewsService.checkIfUserHasReviewedStatic(
+          options.userId, 
+          product._id.toString()
+        );
+
       }
       
       return product;

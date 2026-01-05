@@ -10,12 +10,12 @@ class ReviewsController {
     try {
       const { productId } = req.params;
       const { status = "approved", sort = "-createdAt" } = req.query;
-
+      const userId = req.user.id;
       if (!productId) {
         throw ApiError.BadRequest("Отсутствует productId");
       }
 
-      const reviews = await this.reviewsService.getProductReviews(productId, {
+      const reviews = await this.reviewsService.getProductReviews(productId, userId,  {
         status,
         sort,
       });
@@ -114,7 +114,6 @@ class ReviewsController {
   async getAllReviews(req, res, next) {
     try {
       const { status, productId, userId, sort = "-createdAt" } = req.query;
-
       const reviews = await this.reviewsService.getAllReviews({
         status,
         productId,

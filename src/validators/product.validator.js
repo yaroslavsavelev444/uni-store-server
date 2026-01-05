@@ -224,6 +224,7 @@ const productQuerySchema = Joi.object({
   minPrice: Joi.number().positive().max(1000000),
   maxPrice: Joi.number().positive().max(1000000).min(Joi.ref('minPrice')),
   inStock: Joi.boolean(),
+  slug: Joi.string().max(100),
   search: Joi.string().max(100),
   sortBy: Joi.string().valid('price', 'title', 'createdAt', 'updatedAt', 'popularity', 'stockQuantity'),
   sortOrder: Joi.string().valid('asc', 'desc').default('desc'),

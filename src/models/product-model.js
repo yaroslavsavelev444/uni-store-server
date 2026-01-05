@@ -230,7 +230,7 @@ const ProductSchema = new Schema(
     },
     manufacturer: { type: String, maxlength: 100 },
     warrantyMonths: { type: Number, min: 0, max: 120 },
-
+    rating: { type: Number, min: 0, max: 5, default: 0 },
     // Мета-информация
     metaTitle: { type: String, maxlength: 255 },
     metaDescription: { type: String, maxlength: 500 },

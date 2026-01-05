@@ -8,11 +8,13 @@ const reviewsController = new ReviewsController();
 
 router.get(
   "/products/:productId/reviews",
+  authMiddleware.optionalAuth("all", true),
   reviewsController.getProductReviews.bind(reviewsController)
 );
 
 router.get(
   "/products/:productId/reviews/stats",
+  authMiddleware.optionalAuth("all", true),
   reviewsController.getProductReviewsStats.bind(reviewsController)
 );
 
