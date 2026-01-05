@@ -414,17 +414,19 @@ const verify2faCode = async (req, res, next) => {
 
     if (isBrowser) {
       const isProd = process.env.NODE_ENV === "production";
+      const isHTTPS = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
 
       res.cookie("refreshToken", userData.refreshToken, {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
         httpOnly: true,
-        secure: false,
-        sameSite: "Lax",
+        secure: isProd || isHTTPS, // true для продакшена и HTTPS
+        sameSite: isProd ? "None" : "Lax", // "None" для продакшена с HTTPS
         path: "/",
       });
 
       return res.status(200).json({ userData, user: userData.user });
     }
+
 
     return res.status(200).json({ userData, user: userData.user });
   } catch (e) {
