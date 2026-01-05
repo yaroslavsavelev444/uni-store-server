@@ -8,8 +8,8 @@ const authMiddleware = require("../middlewares/auth-middleware");
 const topicController = new TopicController();
 
 // ==== Публичные маршруты ====
-router.get("/", authMiddleware(["all"]), topicController.getAll.bind(topicController));
-router.get("/:slug", authMiddleware(["all"]), topicController.getBySlug.bind(topicController));
+router.get("/", topicController.getAll.bind(topicController));
+router.get("/:slug", topicController.getBySlug.bind(topicController));
 
 // ==== Административные маршруты ====
 router.post("/", authMiddleware(["admin"]), multerSlugMiddleware, topicController.create.bind(topicController));
