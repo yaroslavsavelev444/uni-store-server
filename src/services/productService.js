@@ -6,6 +6,7 @@ const CategoryModel = require('../models/category-model'); // ДОБАВЛЕНО
 const fileService = require('../utils/fileManager');
 const PurchaseCheckService = require('./purchaseCheckService');
 const ReviewsService = require('./reviewService');
+const FileManager = require('../utils/fileManager');
 class ProductService {
   
   
@@ -183,51 +184,97 @@ class ProductService {
       
       // 13. Рассчитываем финальные цены и добавляем виртуальные поля
       const productsWithReviewsPromises = products.map(async (product) => {
-            // Рассчитываем финальную цену
-            const finalPrice = this.calculateFinalPrice(product);
-            
-            // Рассчитываем доступное количество
-            const availableQuantity = Math.max(
-                0, 
-                product.stockQuantity - (product.reservedQuantity || 0)
-            );
-            
-            // Получаем количество отзывов ДЛЯ ЭТОГО продукта
-            const reviewsCount = await ReviewsService.getProductReviewsCountStatic(product._id);
-            
-            // Проверяем наличие в наличии
-            const inStock = availableQuantity > 0 && 
-                           product.status === ProductStatus.AVAILABLE;
-            
-            return {
-                ...product,
-                finalPriceForIndividual: finalPrice,
-                availableQuantity,
-                inStock,
-                reviewsCount: reviewsCount  // ← добавляем количество отзывов
-            };
-        });
+        // Рассчитываем финальную цену
+        const finalPrice = this.calculateFinalPrice(product);
         
-        // Ждем выполнения ВСЕХ асинхронных операций
-        const productsWithFinalPrice = await Promise.all(productsWithReviewsPromises);
+        // Рассчитываем доступное количество
+        const availableQuantity = Math.max(
+          0, 
+          product.stockQuantity - (product.reservedQuantity || 0)
+        );
+        
+        // Получаем количество отзывов ДЛЯ ЭТОГО продукта
+        const reviewsCount = await ReviewsService.getProductReviewsCountStatic(product._id);
+        
+        // Проверяем наличие в наличии
+        const inStock = availableQuantity > 0 && 
+                       product.status === ProductStatus.AVAILABLE;
+        
+        // ОБРАБОТКА ИЗОБРАЖЕНИЙ - КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
+        let processedImages = [];
+        if (product.images && Array.isArray(product.images)) {
+          // Обрабатываем все изображения
+          processedImages = product.images.map(img => ({
+            ...img,
+            url: fileService.getFileUrl(img.url), // Преобразуем пути в полные URL
+            // Сохраняем оригинальный путь для внутреннего использования
+            _originalUrl: img.url
+          }));
+        }
+        
+        // Обрабатываем основное изображение (если есть)
+        let processedMainImage = product.mainImage;
+        if (product.mainImage) {
+          processedMainImage = fileService.getFileUrl(product.mainImage);
+        }
+        
+        // Обрабатываем инструкцию (если есть)
+        let processedInstructionFile = product.instructionFile;
+        if (product.instructionFile && product.instructionFile.url) {
+          processedInstructionFile = {
+            ...product.instructionFile,
+            url: fileService.getFileUrl(product.instructionFile.url),
+            _originalUrl: product.instructionFile.url
+          };
+        }
+        
+        // Обрабатываем изображение категории (если категория популирована)
+        let processedCategory = product.category;
+        if (product.category && typeof product.category === 'object' && product.category.image) {
+          processedCategory = {
+            ...product.category,
+            image: {
+              ...product.category.image,
+              url: fileService.getFileUrl(product.category.image.url),
+              _originalUrl: product.category.image.url
+            }
+          };
+        }
         
         return {
-            products: productsWithFinalPrice,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                pages: Math.ceil(total / limit),
-                hasNext: page * limit < total,
-                hasPrev: page > 1
-            }
+          ...product,
+          finalPriceForIndividual: finalPrice,
+          availableQuantity,
+          inStock,
+          reviewsCount: reviewsCount, // ← добавляем количество отзывов
+          
+          // Подменяем обработанные изображения и файлы
+          images: processedImages,
+          mainImage: processedMainImage,
+          instructionFile: processedInstructionFile,
+          ...(processedCategory !== product.category && { category: processedCategory })
         };
+      });
+      
+      // Ждем выполнения ВСЕХ асинхронных операций
+      const productsWithFinalPrice = await Promise.all(productsWithReviewsPromises);
+      
+      return {
+        products: productsWithFinalPrice,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit),
+          hasNext: page * limit < total,
+          hasPrev: page > 1
+        }
+      };
     } catch (error) {
-        console.error('Ошибка при получении продуктов:', error);
-        throw ApiError.DatabaseError('Ошибка при получении продуктов');
+      console.error('Ошибка при получении продуктов:', error);
+      throw ApiError.DatabaseError('Ошибка при получении продуктов');
     }
-}
-
+  }
 
   
 
@@ -345,57 +392,63 @@ class ProductService {
   
 
   async getProductBySku(sku, options = {}) {
-    try {
-      let query = ProductModel.findOne({ sku });
-      
-      if (options.populate === 'category' || options.populate === 'all') {
-        query = query.populate('category', 'name slug description _id');
-      }
-      
-      if (options.populate === 'relatedProducts' || options.populate === 'all') {
-        query = query.populate('relatedProducts', 
-          'title sku priceForIndividual mainImage status _id');
-      }
-      
-      const product = await query.lean({ virtuals: true });
-      
-      if (!product) {
-        throw ApiError.NotFound('Продукт не найден');
-      }
-      
-      // Проверка видимости для не-админов
-      if (!options.isAdmin && !product.isVisible) {
-        throw ApiError.NotFound('Продукт не доступен');
-      }
-      
-      // Проверка существования категории
-      if (product.category && !product.category._id) {
-        throw ApiError.NotFound('Категория продукта не найдена');
-      }
-      
-      // Рассчитываем финальную цену
-      product.finalPriceForIndividual = this.calculateFinalPrice(product);
-      
-      // Добавляем флаг покупки, если передан userId
-      if (options.userId) {
-        product.hasPurchased = await PurchaseCheckService.hasUserPurchasedProduct(
-          options.userId, 
-          product._id.toString()
-        );
+  try {
+    let query = ProductModel.findOne({ sku });
 
-        product.hasReviewed = await ReviewsService.checkIfUserHasReviewedStatic(
-          options.userId, 
-          product._id.toString()
-        );
-
-      }
-      
-      return product;
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError('Ошибка при получении продукта');
+    if (options.populate === 'category' || options.populate === 'all') {
+      query = query.populate('category', 'name slug description _id');
     }
+
+    if (options.populate === 'relatedProducts' || options.populate === 'all') {
+      query = query.populate(
+        'relatedProducts',
+        'title sku priceForIndividual mainImage status _id'
+      );
+    }
+
+    const product = await query.lean({ virtuals: true });
+
+    if (!product) {
+      throw ApiError.NotFound('Продукт не найден');
+    }
+
+    if (!options.isAdmin && !product.isVisible) {
+      throw ApiError.NotFound('Продукт не доступен');
+    }
+
+    if (product.category && !product.category._id) {
+      throw ApiError.NotFound('Категория продукта не найдена');
+    }
+
+    product.finalPriceForIndividual = this.calculateFinalPrice(product);
+
+    if (Array.isArray(product.images)) {
+      product.images = product.images.map(img => ({
+        ...img,
+        url: FileManager.getFileUrl(img.url),
+      }));
+    }
+
+    if (options.userId) {
+      product.hasPurchased =
+        await PurchaseCheckService.hasUserPurchasedProduct(
+          options.userId,
+          product._id.toString()
+        );
+
+      product.hasReviewed =
+        await ReviewsService.checkIfUserHasReviewedStatic(
+          options.userId,
+          product._id.toString()
+        );
+    }
+
+    return product;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw ApiError.DatabaseError('Ошибка при получении продукта');
   }
+}
 
   async createProduct(productData, userId) {
     try {

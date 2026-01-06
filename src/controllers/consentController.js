@@ -60,8 +60,10 @@ class ConsentController {
   async addVersion(req, res, next) {
     try {
       const { slug } = req.params;
-      const { content, changeDescription } = req.body;
-
+      const { content } = req.body;
+      const changeDescription = req.body.changeDescription || content.changeDescription;
+      console.log('Недостаточно данных для создания версии' , content, changeDescription );
+      
       if(!content || !changeDescription) {
         return next(ApiError.BadRequest("Недостаточно данных для создания версии."));
       }
@@ -154,21 +156,23 @@ class ConsentController {
 
   // Редактирование черновика
   async updateVersion(req, res, next) {
-    try {
-      const { slug, versionId } = req.params;
-      const { content, changeDescription } = req.body;
-      
-      if(!content || !changeDescription) {
-        return next(ApiError.BadRequest("Недостаточно данных для обновления версии."));
-      }
-      
-      const consent = await consentService.updateDraftVersion(
-        slug,
-        versionId,
-        content,
-        req.user.id,
-        changeDescription
-      );
+  try {
+    const { slug, versionId } = req.params;
+    const { content, changeDescription, isRequired } = req.body; // Добавить isRequired
+    
+    if(!content || !changeDescription) {
+      return next(ApiError.BadRequest("Недостаточно данных для обновления версии."));
+    }
+    
+    const consent = await consentService.updateDraftVersion(
+      slug,
+      versionId,
+      content,
+      req.user.id,
+      changeDescription,
+      isRequired // Передать в сервис
+    );
+
       
       // Логирование
       await auditLogger.logAdminEvent(

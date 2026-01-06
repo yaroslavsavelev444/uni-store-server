@@ -133,34 +133,40 @@ class ConsentService {
   }
 
   // Редактирование черновика версии
-  async updateDraftVersion(slug, versionId, content, authorId, changeDescription) {
-    try {
-      const consent = await ConsentModel.findOne({ slug });
-      if (!consent) throw ApiError.BadRequest("Соглашение не найдено");
+  async updateDraftVersion(slug, versionId, content, authorId, changeDescription, isRequired) {
+  try {
+    const consent = await ConsentModel.findOne({ slug });
+    if (!consent) throw ApiError.BadRequest("Соглашение не найдено");
 
-      const version = consent.versions.id(versionId);
-      if (!version) throw ApiError.BadRequest("Версия не найдена");
+    const version = consent.versions.id(versionId);
+    if (!version) throw ApiError.BadRequest("Версия не найдена");
 
-      if (version.status !== "draft") {
-        throw ApiError.BadRequest("Можно редактировать только черновики");
-      }
-
-      version.content = content;
-      version.changes.push({
-        author: authorId,
-        description: changeDescription || "Редактирование черновика",
-      });
-
-      const updatedConsent = await consent.save();
-      
-      // Инвалидируем кеш этого соглашения
-      await this.invalidateCache(slug);
-      
-      return updatedConsent;
-    } catch (error) {
-      throw ApiError.InternalServerError(error.message);
+    if (version.status !== "draft") {
+      throw ApiError.BadRequest("Можно редактировать только черновики");
     }
+
+    // Обновить флаг isRequired соглашения если передан
+    if (isRequired !== undefined) {
+      consent.isRequired = isRequired;
+    }
+
+    version.content = content;
+    version.changes.push({
+      author: authorId,
+      description: changeDescription || "Редактирование черновика",
+    });
+
+    const updatedConsent = await consent.save();
+    
+    // Инвалидируем кеш этого соглашения
+    await this.invalidateCache(slug);
+    
+    return updatedConsent;
+  } catch (error) {
+    throw ApiError.InternalServerError(error.message);
   }
+}
+
 
   // Удаление версии (только черновик)
   async deleteVersion(slug, versionId) {

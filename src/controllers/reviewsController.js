@@ -10,7 +10,7 @@ class ReviewsController {
     try {
       const { productId } = req.params;
       const { status = "approved", sort = "-createdAt" } = req.query;
-      const userId = req.user.id;
+      const userId = req?.user ? req.user.id : null;
       if (!productId) {
         throw ApiError.BadRequest("Отсутствует productId");
       }

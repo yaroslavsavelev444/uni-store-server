@@ -84,7 +84,8 @@ const createProductSchema = Joi.object({
     .message('Некорректный формат основного изображения')
     .optional()
     .allow('', null), // ДОБАВИТЬ: allow null
-    
+  
+  showOnMainPage: Joi.boolean().default(false),
   images: Joi.array()
     .items(imageSchema)
     .max(20)
@@ -173,18 +174,6 @@ const createProductSchema = Joi.object({
     .min(Joi.ref('minOrderQuantity'))
     .max(10000)
     .optional(),
-  
-  discount: Joi.object({
-    isActive: Joi.boolean().default(false),
-    percentage: Joi.number().min(0).max(100).optional().allow(null),
-    amount: Joi.number().min(0).max(Joi.ref('priceForIndividual')).optional().allow(null),
-    validFrom: Joi.date().iso().optional(),
-    validUntil: Joi.date().iso().greater(Joi.ref('validFrom')).optional(),
-    minQuantity: Joi.number().integer().min(1).optional().default(1)
-  })
-  .optional()
-  .allow(null),
-
 
   
   isVisible: Joi.boolean()

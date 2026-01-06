@@ -101,7 +101,7 @@ const productController = {
       const userId = req.user.id;
       
       console.log("[UPDATE_PRODUCT] updateData", JSON.stringify(updateData));
-      
+
       // Обрабатываем изображения и инструкцию через FileManager
       const processedData = await processProductFiles(updateData);
       

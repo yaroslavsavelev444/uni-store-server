@@ -83,7 +83,7 @@ router.put(
   '/:id',
   authMiddleware(['admin']), // ДОБАВИТЬ
   validateObjectId('id'),
-  // validateProduct(updateProductSchema), // ДОБАВИТЬ: валидация данных
+  validateProduct(updateProductSchema), // ДОБАВИТЬ: валидация данных
   productController.updateProduct
 );
 
