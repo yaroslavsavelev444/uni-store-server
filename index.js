@@ -1,8 +1,8 @@
-
 const events = require("events");
 events.EventEmitter.defaultMaxListeners = 20;
 
 require("dotenv").config();
+
 const express = require("express");
 const helmet = require("helmet");
 const useragent = require("express-useragent");
@@ -11,51 +11,58 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const http = require("http");
 const path = require("path");
+
 const cronInit = require("./src/cron/index");
 const { initSocket } = require("./src/socket/socketServer");
-// const corsOptions = require("./src/cors/cors");
 const errorHandler = require("./src/error/error");
 const logger = require("./src/logger/logger");
 const { connectDB } = require("./src/config/mongo");
 
+const auditConfig = require("./config/audit-config");
+
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3010;
-const HOST = "0.0.0.0"; // критично для Expo/мобилок
+const HOST = "0.0.0.0";
 
-// Middleware безопасности
-app.use(
-  helmet({
-    crossOriginResourcePolicy: false,
-  })
-);
+/* =========================
+   ENV (ОБЯЗАТЕЛЬНО РАНО)
+========================= */
 
-app.use(express.json({ limit: "100mb" }));
-app.use(bodyParser.urlencoded({ extended: true, limit: "100mb" }));
-app.use(cookieParser());
+const NODE_ENV = process.env.NODE_ENV || "development";
+const isProd = NODE_ENV === "production";
 
-// Подключаем CORS
-const allowedOrigins = [
-  "http://localhost:5173",
-        "http://localhost:3000",
-        "http://192.168.1.128:5173",
-        "http://192.168.1.128:3001",
-        "http://192.168.1.128:3003",
-        "http://192.168.1.203:3003",
-        "http://192.168.1.203:19006",
-        "exp://192.168.1.203:19000",
-        "https://npo-polet.store",    
-        "https://npo-polet.ru",  
-        "https://www.npo-polet.store",   
+const auditEnvConfig =
+  auditConfig[NODE_ENV] || auditConfig.development;
+
+/* =========================
+   CORS
+========================= */
+
+const allowedOriginsProd = [
+  "https://npo-polet.store",
+  "https://npo-polet.ru",
+  "https://www.npo-polet.store",
 ];
 
+const allowedOriginsDev = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+const allowedOrigins = isProd
+  ? allowedOriginsProd
+  : allowedOriginsDev;
+
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // curl/postman
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error("Not allowed by CORS"));
+  origin(origin, callback) {
+    if (!origin) return callback(null, true); // curl / postman / mobile
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked: ${origin}`));
   },
-  credentials: true, // обязательно для cookie
+  credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",
@@ -68,23 +75,52 @@ const corsOptions = {
     "X-Timestamp",
   ],
 };
-app.use(cors(corsOptions));
 
+/* =========================
+   MIDDLEWARE
+========================= */
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
+
+app.use(cors(corsOptions));
+app.use(express.json({ limit: "100mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "100mb" }));
+app.use(cookieParser());
 app.use(useragent.express());
 
-// Логирование запросов
+/* =========================
+   LOGGING
+========================= */
+
 app.use((req, res, next) => {
-  logger.info(`Запрос: ${req.method} ${req.url} | IP: ${req.ip}`);
+  logger.info(`${req.method} ${req.url} | IP: ${req.ip}`);
   next();
 });
 
-// --- Artificial delay middleware (for testing skeletons) ---
-// app.use(async (req, res, next) => {
-//   const delayMs = 2000; // 4 секунды задержки для всех запросов
-//   await new Promise((resolve) => setTimeout(resolve, delayMs));
-//   next();
-// });
-// ---ROUTES---
+/* =========================
+   CONTEXT + AUDIT
+========================= */
+
+const requestContextMiddleware = require("./src/middlewares/request-context-middleware");
+const auditRequestMiddleware = require("./src/middlewares/audit-request-middleware");
+
+app.use(requestContextMiddleware);
+app.use(auditRequestMiddleware(auditEnvConfig));
+
+/* =========================
+   STATIC
+========================= */
+
+app.use("/uploads", express.static(path.join(__dirname, "src/uploads")));
+
+/* =========================
+   ROUTES
+========================= */
+
 const authRoutes = require("./src/routes/authRoutes");
 const productsRoutes = require("./src/routes/productsRoutes");
 const contactsRoutes = require("./src/routes/contactsRoutes");
@@ -99,7 +135,6 @@ const ordersRoutes = require("./src/routes/ordersRoutes");
 const bullBoardRouter = require("./src/queues/bullBoard");
 const healthcheckRoutes = require("./src/routes/healthcheckRoutes");
 const authMiddleware = require("./src/middlewares/auth-middleware");
-const auditConfig = require("./config/audit-config");
 const feedbackRoutes = require("./src/routes/feedbackRoutes");
 const fileRoutes = require("./src/routes/filesRoutes");
 const faqRoutes = require("./src/routes/faqRoutes");
@@ -108,21 +143,8 @@ const wishlistRoutes = require("./src/routes/wishlistRoutes");
 const companyRoutes = require("./src/routes/companyRoutes");
 const deliveryRoutes = require("./src/routes/deliveryRoutes");
 const contentBlockRoutes = require("./src/routes/contentBlockRoutes");
-const requestContextMiddleware = require("./src/middlewares/request-context-middleware");
-const auditRequestMiddleware = require("./src/middlewares/audit-request-middleware");
 const consentRoutes = require("./src/routes/consentRoutes");
 const sitemapRoutes = require("./src/routes/sitemapRoutes");
-
-const env = process.env.NODE_ENV;
-const config = auditConfig[env] || auditConfig.development;
-
-// Добавляем контекст запроса (должен быть первым)
-app.use(requestContextMiddleware);
-
-// Добавляем аудит middleware (должен быть после контекста, но до основных роутов)
-app.use(auditRequestMiddleware(config));
-
-app.use("/uploads", express.static(path.join(__dirname, "src/uploads")));
 
 app.use("/auth", authRoutes);
 app.use("/health", healthcheckRoutes);
@@ -148,18 +170,14 @@ app.use("/wishlist", authMiddleware(["all"]), wishlistRoutes);
 app.use("/admin/queues", bullBoardRouter);
 app.use("/admin", authMiddleware(["admin"]), adminRoutes);
 
+/* =========================
+   PING / TEST
+========================= */
+
 app.all("/ping", (req, res) => {
-  // Быстрый ответ без обращения к БД
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Content-Type", "text/plain; charset=utf-8");
-
-  // HEAD-запрос → только заголовки без тела
-  if (req.method === "HEAD") {
-    return res.status(200).end();
-  }
-
-  // GET-запрос → можно вернуть доп. информацию
-  return res.status(200).send(`pong ${Date.now()}`);
+  if (req.method === "HEAD") return res.status(200).end();
+  res.send(`pong ${Date.now()}`);
 });
 
 app.get("/api/test", (req, res) => {
@@ -168,19 +186,24 @@ app.get("/api/test", (req, res) => {
 
 app.use(errorHandler);
 
-// --- DB + Socket ---
+/* =========================
+   DB + SOCKET + SERVER
+========================= */
+
 (async () => {
   try {
     await connectDB();
 
-    // Socket.io init
-    initSocket(server, { corsOrigins: allowedOrigins
+    initSocket(server, {
+      corsOrigins: allowedOrigins,
     });
 
     cronInit.initialize();
 
     server.listen(PORT, HOST, () => {
-      logger.info(`🚀 Server running on http://${HOST}:${PORT}`);
+      logger.info(
+        `🚀 Server (${NODE_ENV}) running on http://${HOST}:${PORT}`
+      );
     });
   } catch (err) {
     logger.error(`Fatal startup error: ${err.message}`);

@@ -9,8 +9,8 @@ const register = async (req, res, next) => {
   try {
     const userData = req.body;
     const ip = getIp(req);
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    
+    const userAgent = req.headers["user-agent"] || "unknown";
+
     if (!userData) {
       throw ApiError.BadRequest("Пользователь не передан");
     }
@@ -19,59 +19,54 @@ const register = async (req, res, next) => {
       !userData.email ||
       !userData.password ||
       !userData.name ||
-      !userData.phone ||
       !userData.acceptedConsents
     ) {
       throw ApiError.BadRequest("Переданы не все данные");
     }
 
-    console.log("userData", userData);
+    const { user } = await authService.register(userData);
 
-    const { userId } = await authService.register(userData);
+    let faResult = null;
 
-    let phoneResult = null;
+    if (user.userId) {
+      faResult = await create2FACodeAndNotify(user.userId);
 
-    if (userId) {
-      phoneResult = await authService.generatePhoneCode(userId);
-      
-      // Логирование успешной регистрации
+      // Логирование успешной регистрации с 2FA
       await auditLogger.logUserEvent(
-        userId,
+        user.userId,
         userData.email,
-        'USER_REGISTRATION',
-        'CREATE_ACCOUNT',
+        "USER_REGISTRATION",
+        "CREATE_ACCOUNT_2FA",
         {
           ip,
           userAgent,
-          phone: userData.phone,
           name: userData.name,
           acceptedConsents: userData.acceptedConsents,
-          registrationMethod: 'email'
+          verificationMethod: "email_2fa",
         }
       );
     }
 
     return res.status(200).json({
-      phoneSend: true,
-      userId,
-      phone: phoneResult?.phone,
-      generatePhoneCode: true,
+      success: true,
+      trigger2FACode: faResult,
+      userData: { userId: user.userId, email: user.email },
     });
   } catch (error) {
     // Логирование ошибки регистрации
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      'unknown',
-      req.body?.email || 'unknown@email',
-      'USER_REGISTRATION',
-      'CREATE_ACCOUNT_FAILED',
+      "unknown",
+      req.body?.email || "unknown@email",
+      "USER_REGISTRATION",
+      "CREATE_ACCOUNT_FAILED",
       {
         ip,
         error: error.message,
-        reason: error instanceof ApiError ? error.message : 'System error'
+        reason: error instanceof ApiError ? error.message : "System error",
       }
     );
-    
+
     logger.error(`[REGISTER] ${error.message}`);
     next(error);
   }
@@ -81,49 +76,50 @@ const login = async (req, res, next) => {
   try {
     const userData = req.body;
     const ip = getIp(req);
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    
+    const userAgent = req.headers["user-agent"] || "unknown";
+
     console.log(`[LOGIN] userData`, userData);
     if (!userData.email || !userData.password) {
       throw ApiError.BadRequest("Email и пароль обязательны");
     }
 
     const result = await authService.login(userData);
-    
+
     // Логирование успешного входа
     if (result.userId) {
       await auditLogger.logUserEvent(
         result.userId,
         userData.email,
-        'USER_AUTHENTICATION',
-        'LOGIN_SUCCESS',
+        "USER_AUTHENTICATION",
+        "LOGIN_SUCCESS",
         {
           ip,
           userAgent,
-          role: userData.role || 'user',
-          method: 'email_password',
-          deviceType: req.deviceType || 'unknown'
+          role: userData.role || "user",
+          method: "email_password",
+          deviceType: req.deviceType || "unknown",
         }
       );
     }
-    
+
     return res.status(200).json(result);
   } catch (error) {
     // Логирование неудачной попытки входа
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      'unknown',
-      req.body?.email || 'unknown@email',
-      'USER_AUTHENTICATION',
-      'LOGIN_FAILED',
+      "unknown",
+      req.body?.email || "unknown@email",
+      "USER_AUTHENTICATION",
+      "LOGIN_FAILED",
       {
         ip,
-        userAgent: req.headers['user-agent'] || 'unknown',
+        userAgent: req.headers["user-agent"] || "unknown",
         error: error.message,
-        reason: error instanceof ApiError ? error.message : 'Invalid credentials'
+        reason:
+          error instanceof ApiError ? error.message : "Invalid credentials",
       }
     );
-    
+
     logger.error(`[LOGIN] ${error.message}`);
     next(error);
   }
@@ -135,26 +131,26 @@ const logout = async (req, res, next) => {
     const userData = req.user;
     const ip = getIp(req);
 
-    if(!refreshToken || !userData) {
+    if (!refreshToken || !userData) {
       throw ApiError.BadRequest("не все данные");
     }
     const result = await authService.logout(refreshToken, userData);
-    
+
     // Логирование выхода
     if (userData?.id) {
       await auditLogger.logUserEvent(
         userData.id,
         userData.email,
-        'USER_AUTHENTICATION',
-        'LOGOUT',
+        "USER_AUTHENTICATION",
+        "LOGOUT",
         {
           ip,
           sessionEnded: true,
-          logoutType: 'manual'
+          logoutType: "manual",
         }
       );
     }
-    
+
     res.clearCookie("refreshToken");
     return res.status(200).json(result);
   } catch (error) {
@@ -176,7 +172,7 @@ const refresh = async (req, res, next) => {
     }
 
     const ip = getIp(req);
-    const userAgent = req.headers['user-agent'] || 'unknown';
+    const userAgent = req.headers["user-agent"] || "unknown";
 
     const userData = await authService.refreshService(
       refreshToken,
@@ -188,14 +184,14 @@ const refresh = async (req, res, next) => {
     if (userData?.userId) {
       await auditLogger.logUserEvent(
         userData.userId,
-        userData.email || 'unknown@email',
-        'USER_AUTHENTICATION',
-        'TOKEN_REFRESH',
+        userData.email || "unknown@email",
+        "USER_AUTHENTICATION",
+        "TOKEN_REFRESH",
         {
           ip,
           userAgent,
-          deviceType: req.deviceType || 'unknown',
-          tokenRefreshed: true
+          deviceType: req.deviceType || "unknown",
+          tokenRefreshed: true,
         }
       );
     }
@@ -216,78 +212,17 @@ const refresh = async (req, res, next) => {
     // Логирование ошибки обновления токена
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      'unknown',
-      'unknown@email',
-      'USER_AUTHENTICATION',
-      'TOKEN_REFRESH_FAILED',
+      "unknown",
+      "unknown@email",
+      "USER_AUTHENTICATION",
+      "TOKEN_REFRESH_FAILED",
       {
         ip,
         error: e.message,
-        reason: 'Invalid or expired refresh token'
+        reason: "Invalid or expired refresh token",
       }
     );
-    
-    next(e);
-  }
-};
 
-const verifyPhoneCode = async (req, res, next) => {
-  try {
-    const { userId, code } = req.body;
-    const ip = getIp(req);
-
-    if (!userId || !code) {
-      throw ApiError.BadRequest("Отсутствует userId или inputCode");
-    }
-
-    const result = await authService.verifyPhoneCode(userId, code);
-
-    if (result.trigger2FACode) {
-      await create2FACodeAndNotify(userId);
-      
-      // Логирование успешной верификации телефона
-      await auditLogger.logUserEvent(
-        userId,
-        result.email || 'unknown@email',
-        'USER_VERIFICATION',
-        'PHONE_VERIFIED',
-        {
-          ip,
-          verificationType: 'phone_code',
-          triggered2FA: true
-        }
-      );
-    } else {
-      // Логирование верификации без 2FA
-      await auditLogger.logUserEvent(
-        userId,
-        result.email || 'unknown@email',
-        'USER_VERIFICATION',
-        'PHONE_VERIFIED',
-        {
-          ip,
-          verificationType: 'phone_code',
-          triggered2FA: false
-        }
-      );
-    }
-    
-    return res.status(200).json(result);
-  } catch (e) {
-    // Логирование ошибки верификации телефона
-    const ip = getIp(req);
-    await auditLogger.logUserEvent(
-      req.body?.userId || 'unknown',
-      'unknown@email',
-      'USER_VERIFICATION',
-      'PHONE_VERIFY_FAILED',
-      {
-        ip,
-        error: e.message,
-        codeAttempt: req.body?.code ? 'yes' : 'no'
-      }
-    );
-    
     next(e);
   }
 };
@@ -298,76 +233,60 @@ const updateUser = async (req, res, next) => {
     const files = req.uploadedFiles;
     const userId = req.user.id;
     const ip = getIp(req);
-    
+
     console.log("[UPDATE_USER] req.body", req.body);
-    
+
     // Получаем старые данные пользователя для сравнения
     const oldData = await authService.getUserProfile(userId);
-    
+
     const result = await authService.updateUser(userId, userData, files);
-    
+
     // Определяем изменения для логирования
     const changes = [];
-    
+
     if (oldData) {
       // Сравниваем имя
       if (oldData.name !== userData.name) {
         changes.push({
-          field: 'name',
+          field: "name",
           old: oldData.name,
-          new: userData.name
-        });
-      }
-      
-      // Сравниваем телефон
-      if (oldData.phone !== userData.phone) {
-        changes.push({
-          field: 'phone',
-          old: oldData.phone,
-          new: userData.phone
-        });
-      }
-      
-      // Проверяем аватар
-      const hasNewAvatar = files && files.avatar && files.avatar.length > 0;
-      if (hasNewAvatar) {
-        changes.push({
-          field: 'avatar',
-          old: oldData.avatar ? 'has_avatar' : 'no_avatar',
-          new: 'updated'
+          new: userData.name,
         });
       }
     }
-    
+
     // Логирование обновления профиля
     await auditLogger.logUserEvent(
       userId,
       req.user.email,
-      'USER_PROFILE',
-      'UPDATE_PROFILE',
+      "USER_PROFILE",
+      "UPDATE_PROFILE",
       {
         ip,
-        changes: changes.length > 0 ? changes : [{ field: 'updated', old: null, new: 'profile_data' }],
-        filesCount: files ? Object.keys(files).length : 0
+        changes:
+          changes.length > 0
+            ? changes
+            : [{ field: "updated", old: null, new: "profile_data" }],
+        filesCount: files ? Object.keys(files).length : 0,
       }
     );
-    
+
     return res.status(200).json(result);
   } catch (e) {
     // Логирование ошибки обновления профиля
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      req.user?.id || 'unknown',
-      req.user?.email || 'unknown@email',
-      'USER_PROFILE',
-      'UPDATE_PROFILE_FAILED',
+      req.user?.id || "unknown",
+      req.user?.email || "unknown@email",
+      "USER_PROFILE",
+      "UPDATE_PROFILE_FAILED",
       {
         ip,
         error: e.message,
-        fieldsUpdated: Object.keys(req.body || {}).join(', ')
+        fieldsUpdated: Object.keys(req.body || {}).join(", "),
       }
     );
-    
+
     next(e);
   }
 };
@@ -400,15 +319,15 @@ const verify2faCode = async (req, res, next) => {
     // Логирование успешной 2FA верификации
     await auditLogger.logUserEvent(
       userId,
-      userData.email || 'unknown@email',
-      'USER_VERIFICATION',
-      '2FA_VERIFIED',
+      userData.email || "unknown@email",
+      "USER_VERIFICATION",
+      "2FA_VERIFIED",
       {
         ip,
         deviceType,
         deviceId,
-        verificationMethod: 'email_code',
-        newSession: true
+        verificationMethod: "email_code",
+        newSession: true,
       }
     );
 
@@ -417,7 +336,9 @@ const verify2faCode = async (req, res, next) => {
 
     if (isBrowser) {
       const isProd = process.env.NODE_ENV === "production";
-      const isHTTPS = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
+      const isHTTPS =
+        req.protocol === "https" ||
+        req.headers["x-forwarded-proto"] === "https";
 
       res.cookie("refreshToken", userData.refreshToken, {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
@@ -430,56 +351,24 @@ const verify2faCode = async (req, res, next) => {
       return res.status(200).json({ userData, user: userData.user });
     }
 
-
     return res.status(200).json({ userData, user: userData.user });
   } catch (e) {
     // Логирование ошибки 2FA верификации
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      req.body?.userId || 'unknown',
-      'unknown@email',
-      'USER_VERIFICATION',
-      '2FA_VERIFY_FAILED',
+      req.body?.userId || "unknown",
+      "unknown@email",
+      "USER_VERIFICATION",
+      "2FA_VERIFY_FAILED",
       {
         ip,
-        deviceId: req.body?.deviceId || 'unknown',
+        deviceId: req.body?.deviceId || "unknown",
         error: e.message,
-        codeAttempt: req.body?.code ? 'yes' : 'no'
+        codeAttempt: req.body?.code ? "yes" : "no",
       }
     );
-    
+
     next(e);
-  }
-};
-
-const resendVerifyPhoneCode = async (req, res, next) => {
-  try {
-    const { userId } = req.body;
-    const ip = getIp(req);
-
-    if (!userId) {
-      throw ApiError.BadRequest("Недостаточно данных");
-    }
-
-    const result = await authService.generatePhoneCode(userId);
-    
-    // Логирование повторной отправки кода телефона
-    await auditLogger.logUserEvent(
-      userId,
-      result.email || 'unknown@email',
-      'USER_VERIFICATION',
-      'RESEND_PHONE_CODE',
-      {
-        ip,
-        phone: result.phone,
-        resendCount: 1
-      }
-    );
-
-    return res.status(200).json(result);
-  } catch (error) {
-    logger.error(`[RESEND_VERIFY_PHONE_CODE] ${error.message}`);
-    next(error);
   }
 };
 
@@ -493,16 +382,16 @@ const resendFaCode = async (req, res, next) => {
     }
 
     const result = await create2FACodeAndNotify(userId);
-    
+
     // Логирование повторной отправки 2FA кода
     await auditLogger.logUserEvent(
       userId,
-      result.email || 'unknown@email',
-      'USER_VERIFICATION',
-      'RESEND_2FA_CODE',
+      result.email || "unknown@email",
+      "USER_VERIFICATION",
+      "RESEND_2FA_CODE",
       {
         ip,
-        resendCount: 1
+        resendCount: 1,
       }
     );
 
@@ -517,26 +406,26 @@ const getSessions = async (req, res, next) => {
   try {
     const userData = req.user;
     const ip = getIp(req);
-    
+
     if (!userData) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
-    
+
     const result = await authService.getSessions(userData.id);
-    
+
     // Логирование просмотра сессий
     await auditLogger.logUserEvent(
       userData.id,
       userData.email,
-      'USER_SESSIONS',
-      'VIEW_SESSIONS',
+      "USER_SESSIONS",
+      "VIEW_SESSIONS",
       {
         ip,
         sessionCount: result.sessions?.length || 0,
-        activeSessions: result.activeSessions || 0
+        activeSessions: result.activeSessions || 0,
       }
     );
-    
+
     return res.status(200).json(result);
   } catch (error) {
     logger.error(`[GET_SESSIONS] ${error.message}`);
@@ -549,30 +438,30 @@ const revokeSession = async (req, res, next) => {
     const userData = req.user;
     const { sessionId } = req.body;
 
-    console.log('req.body', req.body);
-    
+    console.log("req.body", req.body);
+
     const ip = getIp(req);
 
     if (!sessionId) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
-    
+
     const result = await authService.revokeSession(userData.id, sessionId);
-    
+
     // Логирование отзыва сессии
     await auditLogger.logUserEvent(
       userData.id,
       userData.email,
-      'USER_SESSIONS',
-      'REVOKE_SESSION',
+      "USER_SESSIONS",
+      "REVOKE_SESSION",
       {
         ip,
         sessionId,
-        revokedBy: 'user',
-        remainingSessions: result.remainingSessions || 0
+        revokedBy: "user",
+        remainingSessions: result.remainingSessions || 0,
       }
     );
-    
+
     return res.status(201).json(result);
   } catch (error) {
     logger.error(`[REVOKE_SESSION] ${error.message}`);
@@ -585,47 +474,47 @@ const changePassword = async (req, res, next) => {
     const userData = req.user;
     const { oldPassword, newPassword } = req.body;
     const ip = getIp(req);
-    
+
     if (!oldPassword || !newPassword) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
-    
+
     const result = await authService.changePassword(
       userData.id,
       oldPassword,
       newPassword
     );
-    
+
     // Логирование смены пароля
     await auditLogger.logUserEvent(
       userData.id,
       userData.email,
-      'USER_SECURITY',
-      'CHANGE_PASSWORD',
+      "USER_SECURITY",
+      "CHANGE_PASSWORD",
       {
         ip,
         passwordChanged: true,
-        changedBy: 'user',
-        requiresReauth: true
+        changedBy: "user",
+        requiresReauth: true,
       }
     );
-    
+
     return res.status(200).json(result);
   } catch (error) {
     // Логирование ошибки смены пароля
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      req.user?.id || 'unknown',
-      req.user?.email || 'unknown@email',
-      'USER_SECURITY',
-      'CHANGE_PASSWORD_FAILED',
+      req.user?.id || "unknown",
+      req.user?.email || "unknown@email",
+      "USER_SECURITY",
+      "CHANGE_PASSWORD_FAILED",
       {
         ip,
         error: error.message,
-        reason: 'Invalid old password or weak new password'
+        reason: "Invalid old password or weak new password",
       }
     );
-    
+
     logger.error(`[CHANGE_PASSWORD] ${error.message}`);
     next(error);
   }
@@ -660,13 +549,13 @@ const check = async (req, res, next) => {
     if (userData?.userId) {
       await auditLogger.logUserEvent(
         userData.userId,
-        userData.email || 'unknown@email',
-        'USER_AUTHENTICATION',
-        'TOKEN_CHECK',
+        userData.email || "unknown@email",
+        "USER_AUTHENTICATION",
+        "TOKEN_CHECK",
         {
           ip,
           tokenValid: true,
-          deviceType: req.deviceType || 'unknown'
+          deviceType: req.deviceType || "unknown",
         }
       );
     }
@@ -690,17 +579,17 @@ const check = async (req, res, next) => {
     // Логирование ошибки проверки токена
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      'unknown',
-      'unknown@email',
-      'USER_AUTHENTICATION',
-      'TOKEN_CHECK_FAILED',
+      "unknown",
+      "unknown@email",
+      "USER_AUTHENTICATION",
+      "TOKEN_CHECK_FAILED",
       {
         ip,
         error: e.message,
-        reason: 'Invalid or expired tokens'
+        reason: "Invalid or expired tokens",
       }
     );
-    
+
     next(e);
   }
 };
@@ -709,42 +598,42 @@ const initiatePasswordReset = async (req, res, next) => {
   try {
     const { email } = req.body;
     const ip = getIp(req);
-    
+
     if (!email) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
-    
+
     await authService.initiatePasswordReset(email);
-    
+
     // Логирование инициации сброса пароля
     await auditLogger.logUserEvent(
-      'unknown',
+      "unknown",
       email,
-      'USER_SECURITY',
-      'PASSWORD_RESET_INITIATED',
+      "USER_SECURITY",
+      "PASSWORD_RESET_INITIATED",
       {
         ip,
-        resetMethod: 'email',
-        emailSent: true
+        resetMethod: "email",
+        emailSent: true,
       }
     );
-    
+
     return res.status(200).json({ ok: true });
   } catch (error) {
     // Логирование ошибки инициации сброса пароля
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      'unknown',
-      req.body?.email || 'unknown@email',
-      'USER_SECURITY',
-      'PASSWORD_RESET_INITIATE_FAILED',
+      "unknown",
+      req.body?.email || "unknown@email",
+      "USER_SECURITY",
+      "PASSWORD_RESET_INITIATE_FAILED",
       {
         ip,
         error: error.message,
-        emailExists: error.message.includes('not found') ? 'no' : 'unknown'
+        emailExists: error.message.includes("not found") ? "no" : "unknown",
       }
     );
-    
+
     next(error);
   }
 };
@@ -753,47 +642,47 @@ const completePasswordReset = async (req, res, next) => {
   try {
     const { email, resetToken, newPassword } = req.body;
     const ip = getIp(req);
-    
+
     if (!email || !resetToken || !newPassword) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
-    
+
     const result = await authService.completePasswordReset(
       email,
       resetToken,
       newPassword
     );
-    
+
     // Логирование успешного сброса пароля
     await auditLogger.logUserEvent(
-      result.userId || 'unknown',
+      result.userId || "unknown",
       email,
-      'USER_SECURITY',
-      'PASSWORD_RESET_COMPLETED',
+      "USER_SECURITY",
+      "PASSWORD_RESET_COMPLETED",
       {
         ip,
-        resetMethod: 'email_token',
+        resetMethod: "email_token",
         passwordChanged: true,
-        requiresReauth: true
+        requiresReauth: true,
       }
     );
-    
+
     return res.status(200).json(result);
   } catch (error) {
     // Логирование ошибки сброса пароля
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      'unknown',
-      req.body?.email || 'unknown@email',
-      'USER_SECURITY',
-      'PASSWORD_RESET_FAILED',
+      "unknown",
+      req.body?.email || "unknown@email",
+      "USER_SECURITY",
+      "PASSWORD_RESET_FAILED",
       {
         ip,
         error: error.message,
-        reason: 'Invalid token or weak password'
+        reason: "Invalid token or weak password",
       }
     );
-    
+
     next(error);
   }
 };
@@ -802,42 +691,42 @@ const verifyPasswordResetCode = async (req, res, next) => {
   try {
     const { email, code } = req.body;
     const ip = getIp(req);
-    
+
     if (!email || !code) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
-    
+
     const result = await authService.verifyPasswordResetCode(email, code);
-    
+
     // Логирование успешной верификации кода сброса
     await auditLogger.logUserEvent(
-      result.userId || 'unknown',
+      result.userId || "unknown",
       email,
-      'USER_SECURITY',
-      'PASSWORD_RESET_CODE_VERIFIED',
+      "USER_SECURITY",
+      "PASSWORD_RESET_CODE_VERIFIED",
       {
         ip,
         codeValid: true,
-        resetTokenIssued: !!result.resetToken
+        resetTokenIssued: !!result.resetToken,
       }
     );
-    
+
     return res.status(200).json(result);
   } catch (error) {
     // Логирование ошибки верификации кода сброса
     const ip = getIp(req);
     await auditLogger.logUserEvent(
-      'unknown',
-      req.body?.email || 'unknown@email',
-      'USER_SECURITY',
-      'PASSWORD_RESET_CODE_INVALID',
+      "unknown",
+      req.body?.email || "unknown@email",
+      "USER_SECURITY",
+      "PASSWORD_RESET_CODE_INVALID",
       {
         ip,
         error: error.message,
-        codeAttempt: req.body?.code ? 'yes' : 'no'
+        codeAttempt: req.body?.code ? "yes" : "no",
       }
     );
-    
+
     next(error);
   }
 };
@@ -846,26 +735,26 @@ const resendResetCode = async (req, res, next) => {
   try {
     const { email } = req.body;
     const ip = getIp(req);
-    
+
     if (!email) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
-    
+
     const result = await authService.resendResetCode(email);
-    
+
     // Логирование повторной отправки кода сброса
     await auditLogger.logUserEvent(
-      'unknown',
+      "unknown",
       email,
-      'USER_SECURITY',
-      'PASSWORD_RESET_CODE_RESENT',
+      "USER_SECURITY",
+      "PASSWORD_RESET_CODE_RESENT",
       {
         ip,
         resendCount: 1,
-        emailResent: true
+        emailResent: true,
       }
     );
-    
+
     return res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -877,21 +766,21 @@ const updateOnlineStatus = async (req, res, next) => {
     const { status } = req.body;
     const userId = req.user.id;
     const ip = getIp(req);
-    
+
     const result = await authService.updateOnlineStatusService(userId, status);
-    
+
     // Логирование изменения онлайн статуса
     await auditLogger.logUserEvent(
       userId,
       req.user.email,
-      'USER_STATUS',
-      'UPDATE_ONLINE_STATUS',
+      "USER_STATUS",
+      "UPDATE_ONLINE_STATUS",
       {
         ip,
         newStatus: status,
       }
     );
-    
+
     return res.json(result);
   } catch (e) {
     next(e);
@@ -902,8 +791,6 @@ module.exports = {
   register,
   login,
   logout,
-  resendVerifyPhoneCode,
-  verifyPhoneCode,
   verify2faCode,
   resendFaCode,
   refresh,

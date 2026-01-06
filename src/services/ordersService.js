@@ -641,7 +641,7 @@ class OrderService {
 
       const [orders, total] = await Promise.all([
         OrderModel.find(query)
-          .populate("user", "name email phone")
+          .populate("user", "name email")
           .populate("items.product", "title sku category")
           .populate("companyInfo.companyId", "name")
           .populate("statusHistory.changedBy", "name email")
@@ -686,7 +686,7 @@ class OrderService {
       }
 
       const order = await OrderModel.findById(orderId)
-        .populate("user", "name email phone address")
+        .populate("user", "name email address")
         .populate("items.product")
         .populate("companyInfo.companyId")
         .populate("statusHistory.changedBy", "name email role")

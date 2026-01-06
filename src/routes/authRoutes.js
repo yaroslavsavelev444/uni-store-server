@@ -55,14 +55,6 @@ const faLimiter = createRedisRateLimiter({
 
 router.post("/verify2faCode", ipLimiter, faLimiter, authController.verify2faCode);
 
-const phoneCodeLimiter = createRedisRateLimiter({
-  keyPrefix: "verify:fa:phone",
-  windowSec: 60,
-  getMax: () => 5,
-});
-
-router.post("/verifyPhoneCode", ipLimiter, phoneCodeLimiter, authController.verifyPhoneCode);
-
 // RESEND CODES
 const resend2FaLimiter = createRedisRateLimiter({
   keyPrefix: "verify:fa:resend:email",
@@ -70,13 +62,6 @@ const resend2FaLimiter = createRedisRateLimiter({
   getMax: () => 3,
 });
 
-const resendPhoneCodeLimiter = createRedisRateLimiter({
-  keyPrefix: "verify:fa:resend:phone",
-  windowSec: 60,
-  getMax: () => 3,
-});
-
-router.post("/resendVerifyPhoneCode", ipLimiter, resendPhoneCodeLimiter, authController.resendVerifyPhoneCode);
 router.post("/resend2faCode", ipLimiter, resend2FaLimiter, authController.resendFaCode);
 
 // SESSIONS

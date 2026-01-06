@@ -175,7 +175,6 @@ const createSessionAfter2FA = async (userDto, freshUser, deviceType, ip, device)
       os: device?.os || null,
       osVersion: device?.osVersion || null,
       ip: ip || null,
-      fcmToken: freshUser?.tokens?.fcmToken ?? null,
     };
 
     const session = await createOrUpdateSession(sessionPayload);
@@ -184,7 +183,6 @@ const createSessionAfter2FA = async (userDto, freshUser, deviceType, ip, device)
       ...tokens,
       user: userDto,
       sendNotification: true,
-      fcmToken: sessionPayload.fcmToken,
       email: freshUser.email,
     };
   } catch (error) {
@@ -208,7 +206,6 @@ async function createOrUpdateSession({
   os = null,
   osVersion = null,
   ip = null,
-  fcmToken = null,
 }) {
   // Формируем фильтр: при наличии deviceId — фильтруем по нему, иначе по комбинации полей
   const filter = deviceId
@@ -226,7 +223,6 @@ async function createOrUpdateSession({
       ip,
       lastUsedAt: new Date(),
       revoked: false,
-      fcmToken: fcmToken ?? null,
     },
     $setOnInsert: {
       createdAt: new Date(),

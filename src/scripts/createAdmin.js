@@ -22,17 +22,14 @@ async function createAdmin() {
   if (admin) {
     admin.role = 'admin';
     admin.password = hashed;
-    admin.phoneVerified = true;
     await admin.save();
     console.log('Admin updated:', admin._id.toString());
   } else {
     admin = new UserModel({
       name: 'Admin',
       email: adminEmail.toLowerCase(),
-      phone: process.env.ADMIN_PHONE || '00000000000',
       password: hashed,
       role: 'admin',
-      phoneVerified: true,
     });
     await admin.save();
     console.log('Admin created:', admin._id.toString());

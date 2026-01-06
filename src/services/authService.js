@@ -1,9 +1,4 @@
 const ApiError = require("../exceptions/api-error");
-const {
-  generate2FACode,
-  hashCode,
-  isCodeMatch,
-} = require("../utils/generators");
 const logger = require("../logger/logger");
 const {
   UserModel,
@@ -17,7 +12,6 @@ const {
   verify2FACode,
   verify2FACodeOnly,
 } = require("./2faService");
-const mongoose = require("mongoose");
 const UserDTO = require("../dtos/user.dto");
 const {
   validateRefreshToken,
@@ -105,12 +99,9 @@ const register = async (userData) => {
       throw ApiError.BadRequest("Ошибка валидации: " + details);
     }
 
-    const { name, email, phone, password } =
-      value;
+    const { name, email, password } = value;
 
-    const existingUser = await UserModel.findOne({
-      $or: [{ email }, { phone }],
-    });
+    const existingUser = await UserModel.findOne({ email }).exec();
 
     if (existingUser) {
       if (existingUser.email === email) {
@@ -124,27 +115,22 @@ const register = async (userData) => {
 
     let user;
 
-      const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-      user = new UserModel({
-        name,
-        email,
-        phone,
-        role: "user",
-        password: hashedPassword,
-      });
+    user = new UserModel({
+      name,
+      email,
+      role: "user",
+      password: hashedPassword,
+    });
 
-      const userSecurity = new UserSecurityModel({ userId: user._id });
+    const userSecurity = new UserSecurityModel({ userId: user._id });
 
-      await Promise.all([user.save(), userSecurity.save()]);
+    await Promise.all([user.save(), userSecurity.save()]);
 
     return {
-      phoneSend: true,
-      userId: user._id,
-      phone: user.phone,
-      generatePhoneCode: true,
-      role: user.role, // чтобы клиент сразу знал, что юрист
+      user: { userId: user._id, email: user.email, role: user.role },
     };
   } catch (error) {
     logger.error(`[REGISTER] ${error.message}`);
@@ -153,68 +139,6 @@ const register = async (userData) => {
     }
     throw ApiError.InternalServerError(
       "Произошла ошибка при регистрации",
-      error
-    );
-  }
-};
-
-const generatePhoneCode = async (userId) => {
-  try {
-    const user = await UserModel.findById(userId);
-
-    if (!user) {
-      throw ApiError.BadRequest("Пользователь не найден");
-    }
-
-    if (!user.phone) {
-      throw ApiError.BadRequest("Номер телефона не указан");
-    }
-
-    // Проверяем, не подтвержден ли уже телефон
-    if (user.phoneVerified) {
-      throw ApiError.BadRequest("Телефон уже подтвержден");
-    }
-
-    const code = generate2FACode();
-    const hashedCode = hashCode(code);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    // Используем upsert для создания документа, если он не существует
-    await UserSecurityModel.findOneAndUpdate(
-      { userId },
-      {
-        $set: {
-          phoneCodeHash: hashedCode,
-          phoneCodeExpiresAt: expiresAt,
-          phoneCodeAttempts: 0,
-        },
-      },
-      { upsert: true, new: true } // Создаем документ, если не существует
-    );
-
-    logger.info(`Generated phone code for user ${userId}: ${code}`);
-
-    // Сохраняем код в Redis для отладки
-    await redisClient.setex(
-      `phone:code:${userId}`,
-      300, // 5 минут
-      JSON.stringify({ code, phone: user.phone })
-    );
-
-    //TODO отправляем в смс сервис
-    return {
-      success: true,
-      message: "Код отправлен",
-      userId: user._id,
-      phone: user.phone,
-    };
-  } catch (error) {
-    logger.error(`[GENERATE_PHONE_CODE] ${error.message}`);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw ApiError.InternalServerError(
-      "Произошла ошибка при генерации кода",
       error
     );
   }
@@ -267,110 +191,6 @@ const verify2FAAndNotify = async (
   }
 };
 
-const verifyPhoneCode = async (userId, inputCode) => {
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    throw ApiError.BadRequest("Некорректный ID пользователя");
-  }
-
-  try {
-    const [user, userSecurity] = await Promise.all([
-      UserModel.findById(userId),
-      UserSecurityModel.findOne({ userId }),
-    ]);
-
-    if (!user || !userSecurity) {
-      logger.info("User or UserSecurity not found");
-      throw ApiError.BadRequest("Данные юзера не найдены");
-    }
-
-    if (!userSecurity.phoneCodeHash || !userSecurity.phoneCodeExpiresAt) {
-      logger.info("Phone code not requested");
-      throw ApiError.BadRequest("Код не запрашивался");
-    }
-
-    if (user.phoneVerified) {
-      logger.info("Phone already verified");
-      return {
-        success: true,
-        trigger2FACode: false,
-        userData: { userId: user._id, email: user.email },
-      };
-    }
-
-    const now = new Date();
-
-    if (userSecurity.phoneCodeExpiresAt < now) {
-      await UserSecurityModel.updateOne(
-        { userId },
-        {
-          $unset: {
-            phoneCodeHash: "",
-            phoneCodeExpiresAt: "",
-          },
-        }
-      );
-      logger.info("Phone code expired");
-      throw ApiError.BadRequest("Код истёк");
-    }
-
-    if (userSecurity.phoneCodeAttempts >= 10) {
-      logger.info("Too many attempts");
-      throw ApiError.TooManyRequests("Слишком много попыток");
-    }
-
-    const isValid = isCodeMatch(inputCode, userSecurity.phoneCodeHash);
-
-    if (!isValid) {
-      await UserSecurityModel.updateOne(
-        { userId },
-        {
-          $inc: {
-            phoneCodeAttempts: 1,
-          },
-        }
-      );
-      logger.info("Invalid code");
-      throw ApiError.BadRequest("Неверный код");
-    }
-
-    // Код валиден — обнуляем попытки и подтверждаем телефон
-    await Promise.all([
-      UserSecurityModel.updateOne(
-        { userId },
-        {
-          $set: {
-            phoneCodeAttempts: 0,
-          },
-          $unset: {
-            phoneCodeHash: "",
-            phoneCodeExpiresAt: "",
-          },
-        }
-      ),
-      UserModel.updateOne(
-        { _id: userId },
-        {
-          $set: {
-            phoneVerified: true,
-          },
-        }
-      ),
-    ]);
-
-    await redisClient.del(`verify:fa:phone:${user.email}`);
-
-    return {
-      success: true,
-      trigger2FACode: true,
-      userData: { userId: user._id, email: user.email },
-    };
-  } catch (e) {
-    logger.error("Ошибка верификации phone code:", e);
-    if (e instanceof ApiError) throw e;
-    throw ApiError.InternalServerError("Не удалось верифицировать код");
-  }
-};
-
 const refreshService = async (refreshToken, deviceType, ip) => {
   if (!refreshToken) {
     throw ApiError.UnauthorizedError("Refresh token не предоставлен");
@@ -381,12 +201,14 @@ const refreshService = async (refreshToken, deviceType, ip) => {
     const isRevoked = await SessionService.isSessionRevoked(refreshToken);
     if (isRevoked) {
       logger.warn("Refresh attempt with revoked token", { ip });
-      throw ApiError.UnauthorizedError("Сессия была отозвана. Пожалуйста, войдите снова.");
+      throw ApiError.UnauthorizedError(
+        "Сессия была отозвана. Пожалуйста, войдите снова."
+      );
     }
 
     // 2. Ищем сессию в базе данных
-    const existingSession = await UserSessionModel.findOne({ 
-      refreshToken: refreshToken 
+    const existingSession = await UserSessionModel.findOne({
+      refreshToken: refreshToken,
     });
 
     if (!existingSession) {
@@ -397,7 +219,7 @@ const refreshService = async (refreshToken, deviceType, ip) => {
     if (existingSession.revoked) {
       logger.warn("Refresh attempt with revoked session", {
         userId: existingSession.userId,
-        ip
+        ip,
       });
       throw ApiError.UnauthorizedError("Сессия была отозвана");
     }
@@ -405,9 +227,9 @@ const refreshService = async (refreshToken, deviceType, ip) => {
     // 3. Валидируем refresh token
     const userData = validateRefreshToken(refreshToken); // ДОБАВИЛ AWAIT!
     if (!userData) {
-      logger.warn("Invalid refresh token provided", { 
+      logger.warn("Invalid refresh token provided", {
         userId: existingSession.userId,
-        ip 
+        ip,
       });
       throw ApiError.UnauthorizedError("Недействительный токен");
     }
@@ -415,13 +237,12 @@ const refreshService = async (refreshToken, deviceType, ip) => {
     // 4. Проверяем существование пользователя
     const user = await UserModel.findById(userData.id);
     if (!user) {
-      logger.warn("User not found during refresh", { 
+      logger.warn("User not found during refresh", {
         userId: userData.id,
-        ip 
+        ip,
       });
       throw ApiError.UnauthorizedError("Пользователь не найден");
     }
-
 
     // 6. Генерация новых токенов
     const userObj = { ...user.toObject() };
@@ -430,27 +251,27 @@ const refreshService = async (refreshToken, deviceType, ip) => {
 
     // 7. Обновляем сессию в базе данных АТОМАРНО
     const updatedSession = await UserSessionModel.findOneAndUpdate(
-      { 
+      {
         _id: existingSession._id,
-        refreshToken: refreshToken // Защита от race condition
+        refreshToken: refreshToken, // Защита от race condition
       },
-      { 
-        $set: { 
+      {
+        $set: {
           refreshToken: tokens.refreshToken,
           lastUsedAt: new Date(),
-          ip: ip
-        } 
+          ip: ip,
+        },
       },
-      { 
-        new: true, 
-        runValidators: true 
+      {
+        new: true,
+        runValidators: true,
       }
     );
 
     if (!updatedSession) {
       logger.error("Session update failed - possible race condition", {
         sessionId: existingSession._id,
-        userId: user.id
+        userId: user.id,
       });
       throw ApiError.InternalServerError("Ошибка обновления сессии");
     }
@@ -462,26 +283,25 @@ const refreshService = async (refreshToken, deviceType, ip) => {
     logger.info("Tokens refreshed successfully", {
       userId: user.id,
       sessionId: existingSession._id,
-      ip
+      ip,
     });
 
-    return { 
-      ...tokens, 
-      user: userDto 
+    return {
+      ...tokens,
+      user: userDto,
     };
-
   } catch (error) {
     logger.error("Error in refreshService:", {
       error: error.message,
       stack: error.stack,
-      ip
+      ip,
     });
-    
+
     // Если это наша кастомная ошибка - пробрасываем как есть
     if (error instanceof ApiError) {
       throw error;
     }
-    
+
     // Для неизвестных ошибок - общая ошибка сервера
     throw ApiError.InternalServerError("Не удалось обновить токены");
   }
@@ -779,10 +599,8 @@ module.exports = {
   login,
   logout,
   register,
-  generatePhoneCode,
   verify2FAAndNotify,
   refreshService,
-  verifyPhoneCode,
   getSessions,
   updateUser,
   changePassword,

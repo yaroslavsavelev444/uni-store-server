@@ -25,22 +25,6 @@ const registerSchema = Joi.object({
     .custom((value) => sanitizeString(value))
     .required(),
 
-  phone: Joi.string()
-  .custom((value, helpers) => {
-    // Оставляем только цифры
-    const digits = value.replace(/\D/g, "");
-
-    // Проверяем, что ровно 11 цифр и начинается с 7
-    if (digits.length !== 11 || !digits.startsWith("7")) {
-      return helpers.error("any.invalid");
-    }
-
-    return digits;
-  })
-  .messages({
-    "any.invalid": "Некорректный номер телефона"
-  })
-  .required(),
   password: Joi.string()
     .custom((value, helpers) => {
       if (!validator.isStrongPassword(value, { minSymbols: 0 })) {

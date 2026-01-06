@@ -3,7 +3,6 @@ const cartModel = require("./cart-model");
 
 const UserSchema = new Schema(
   {
-    phone: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: {
@@ -12,7 +11,6 @@ const UserSchema = new Schema(
       required: true,
     },
     name: { type: String, required: true },
-    phoneVerified: { type: Boolean, default: false },
     activations: {
       emailVerified: { type: Boolean, default: false },
       emailToken: { type: String, select: false },
