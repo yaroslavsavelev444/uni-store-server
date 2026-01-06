@@ -1,1 +1,0 @@
-{"level":"INFO","time":"2026-01-05T09:17:38.637Z","pid":20155,"hostname":"ff9bc7466ec8","event":"ADMIN_REQUEST","adminId":"69450fb001e690d49676ca44","adminEmail":"yarik.savelev.00.001@mail.ru","adminRole":"admin","action":"READ","auditType":"ADMIN_ACTION","timestamp":"2026-01-05T09:17:38.637Z","justification":"GET /admin/reviews - 304 (11ms)"}
