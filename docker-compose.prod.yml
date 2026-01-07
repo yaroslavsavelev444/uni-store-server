@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+
   app:
     build:
       context: .
@@ -19,6 +20,9 @@ services:
       - .env
     networks:
       - backend
+    volumes:
+      - /var/polet/uploads:/app/uploads
+      - /var/polet/logs:/app/logs
     command: ["npm", "run", "start"]
     restart: unless-stopped
     healthcheck:
@@ -26,6 +30,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+      
     logging:
       driver: "json-file"
       options:
@@ -47,6 +52,9 @@ services:
     env_file: .env
     networks:
       - backend
+    volumes:
+      - /var/polet/uploads:/app/uploads
+      - /var/polet/logs:/app/logs
     command: ["node", "src/queues/worker/processors.js"]
     restart: unless-stopped
     healthcheck:

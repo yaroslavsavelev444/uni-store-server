@@ -8,7 +8,10 @@ const { multistream } = require('pino');
 class AuditLogger {
   constructor() {
     // Используем абсолютный путь в контейнере
-    this.logDir = '/app/src/logs';
+    this.logDir =
+  process.env.NODE_ENV === 'production'
+    ? '/app/logs'
+    : path.resolve(process.cwd(), 'logs');
     console.log('🔧 Инициализация логгера в:', this.logDir);
     
     // Проверяем и создаем структуру

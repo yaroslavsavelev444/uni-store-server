@@ -54,7 +54,8 @@ const multerMiddleware = ({
   useTemp = true,
 }) => {
   // Жёстко ограничим загрузку только в /uploads
-  const baseUploadsDir = path.join(__dirname, '..', 'uploads');
+  // const baseUploadsDir = path.join(__dirname, '..', 'uploads');
+  const baseUploadsDir = path.join(process.cwd(), 'uploads');
   const targetDir = path.join(baseUploadsDir, uploadDir);
   const actualUploadDir = useTemp ? path.join(targetDir, 'temp') : targetDir;
 
