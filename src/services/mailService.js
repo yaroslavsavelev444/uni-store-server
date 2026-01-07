@@ -107,7 +107,7 @@ const sendNotification = async ({ email, type, data }) => {
       subject = "📝 Заказ готов к выдаче";
       html = renderTemplate("orderPickupReady", {
         ...data,
-        formattedDate: formattedDate(data.createdAt), // TODO инвалид дата и сырые значения кое где 
+        formattedDate: formattedDate(data.createdAt), // TODO инвалид дата и сырые значения кое где
       });
       break;
     }
@@ -148,11 +148,20 @@ const sendNotification = async ({ email, type, data }) => {
       });
       break;
     }
-    
+
     case "newContact": {
       subject = "📩 Новая заявка на консультацию";
       html = renderTemplate("newContact", {
         ...data.contactData,
+      });
+      break;
+    }
+
+    case "twofaCode": {
+      subject = "🔑 Код 2FA";
+      html = renderTemplate("twofaCode", {
+        code: data.code,
+        expiresInMinutes: data.expiresInMinutes,
       });
       break;
     }

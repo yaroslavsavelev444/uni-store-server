@@ -181,10 +181,10 @@ const refresh = async (req, res, next) => {
     );
 
     // Логирование обновления токена
-    if (userData?.userId) {
+    if (userData?.user.id) {
       await auditLogger.logUserEvent(
-        userData.userId,
-        userData.email || "unknown@email",
+        userData?.user.id,
+        userData.user.email || "unknown@email",
         "USER_AUTHENTICATION",
         "TOKEN_REFRESH",
         {
@@ -198,11 +198,16 @@ const refresh = async (req, res, next) => {
 
     // Если это браузер — ставим cookie (для web)
     if (!req.headers["refresh-token"]) {
+      const isProd = process.env.NODE_ENV === "production";
+      const isHTTPS =
+        req.protocol === "https" ||
+        req.headers["x-forwarded-proto"] === "https";
+
       res.cookie("refreshToken", userData.refreshToken, {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
         httpOnly: true,
-        secure: false,
-        sameSite: "Lax",
+        secure: isProd || isHTTPS, // true для продакшена и HTTPS
+        sameSite: isProd ? "None" : "Lax", // "None" для продакшена с HTTPS
         path: "/",
       });
     }
@@ -226,6 +231,7 @@ const refresh = async (req, res, next) => {
     next(e);
   }
 };
+
 
 const updateUser = async (req, res, next) => {
   try {
@@ -546,10 +552,10 @@ const check = async (req, res, next) => {
     );
 
     // Логирование проверки токена
-    if (userData?.userId) {
+    if (userData?.user.id) {
       await auditLogger.logUserEvent(
-        userData.userId,
-        userData.email || "unknown@email",
+        userData?.user.id,
+        userData.user.email || "unknown@email",
         "USER_AUTHENTICATION",
         "TOKEN_CHECK",
         {
@@ -565,11 +571,16 @@ const check = async (req, res, next) => {
       userData.refreshToken !== refreshToken &&
       !req.headers["refresh-token"]
     ) {
+      const isProd = process.env.NODE_ENV === "production";
+      const isHTTPS =
+        req.protocol === "https" ||
+        req.headers["x-forwarded-proto"] === "https";
+
       res.cookie("refreshToken", userData.refreshToken, {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
         httpOnly: true,
-        secure: false,
-        sameSite: "Lax",
+        secure: isProd || isHTTPS, // true для продакшена и HTTPS
+        sameSite: isProd ? "None" : "Lax", // "None" для продакшена с HTTPS
         path: "/",
       });
     }
@@ -593,6 +604,7 @@ const check = async (req, res, next) => {
     next(e);
   }
 };
+
 
 const initiatePasswordReset = async (req, res, next) => {
   try {
