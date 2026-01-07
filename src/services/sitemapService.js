@@ -28,9 +28,9 @@ exports.getXml = async () => {
 
   // 2️⃣ Генерируем sitemap
   const [products, categories, topics] = await Promise.all([
-    ProductModel.find({ status: ProductStatus.AVAILABLE }).select(
-      "slug updatedAt"
-    ),
+    ProductModel.find({ status: ProductStatus.AVAILABLE })
+      .select("slug updatedAt category")
+      .populate("category", "slug"), // Получаем slug категории
     CategoryModel.find({ isActive: true }).select("slug updatedAt"),
     TopicModelCommon.find({}).select("slug updatedAt"),
   ]);
@@ -40,15 +40,31 @@ exports.getXml = async () => {
   urls.push(buildUrl("/", "daily", 1.0));
 
   categories.forEach((c) => {
+    // Изменено: /categories/{slug} вместо /catalog/{slug}
     urls.push(
-      buildUrl(`/catalog/${c.slug}`, "weekly", 0.8, c.updatedAt)
+      buildUrl(`/categories/${c.slug}`, "weekly", 0.8, c.updatedAt)
     );
   });
 
   products.forEach((p) => {
-    urls.push(
-      buildUrl(`/product/${p.slug}`, "weekly", 0.7, p.updatedAt)
-    );
+    // Проверяем, есть ли категория у продукта
+    if (p.category && p.category.slug) {
+      // Изменено: /categories/{category-slug}/products/{product-slug}
+      urls.push(
+        buildUrl(
+          `/categories/${p.category.slug}/products/${p.slug}`,
+          "weekly",
+          0.7,
+          p.updatedAt
+        )
+      );
+    } else {
+      // Fallback на старый формат если категория не найдена
+      console.warn(`Product ${p.slug} has no category, using fallback URL`);
+      urls.push(
+        buildUrl(`/product/${p.slug}`, "weekly", 0.7, p.updatedAt)
+      );
+    }
   });
 
   topics.forEach((t) => {
