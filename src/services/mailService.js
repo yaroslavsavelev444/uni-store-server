@@ -7,16 +7,15 @@ require("dotenv").config();
 // Транспортер
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT, 10),
-    secure: true,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_USER_PASSWORD,
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-  });
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT, 10),
+  secure: false,  // Для 587 — STARTTLS, не SSL
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_USER_PASSWORD },
+  tls: { rejectUnauthorized: false },  // Если проблемы с cert
+  connectionTimeout: 60000,  // Увеличьте таймаут для теста
+  debug: true,  // Добавьте для логов
+  logger: true
+});
 };
 
 // Универсальная отправка письма
