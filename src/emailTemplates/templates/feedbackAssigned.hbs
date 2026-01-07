@@ -1,0 +1,58 @@
+{{#extend "baseLayout" title="Новый фидбек назначен"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #f5f5f5; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+        
+        <h2 style="color: #28a745; font-size: 22px; margin-bottom: 15px;">📌 Вам назначен фидбек</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Привет {{userName}}, вам был назначен фидбек "{{title}}" для работы.
+        </p>
+
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
+          <tr>
+            <td><strong>Фидбек:</strong></td>
+            <td>{{title}}</td>
+          </tr>
+          <tr>
+            <td><strong>Тип:</strong></td>
+            <td>{{type}}</td>
+          </tr>
+          <tr>
+            <td><strong>Приоритет:</strong></td>
+            <td>{{priority}}</td>
+          </tr>
+          <tr>
+            <td><strong>Краткое описание:</strong></td>
+            <td>{{description}}</td>
+          </tr>
+          <tr>
+            <td><strong>Дата создания:</strong></td>
+            <td>{{createdAt}}</td>
+          </tr>
+        </table>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://yourdomain.com/user/feedback/{{feedbackId}}" target="_blank" style="
+            display: inline-block;
+            background: linear-gradient(90deg, #28a745, #71c86f);
+            color: #ffffff !important;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+          ">
+            Перейти к фидбеку
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Это автоматическое уведомление. Не отвечайте на него напрямую.
+        </p>
+
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

@@ -1,0 +1,50 @@
+{{#extend "baseLayout" title="Обновление статуса фидбека"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #f9f9f9; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+        
+        <h2 style="color: #007bff; font-size: 22px; margin-bottom: 15px;">📢 Статус вашего фидбека изменён</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 25px;">
+          Привет {{userName}}, статус вашего фидбека "{{title}}" был обновлён.
+        </p>
+
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
+          <tr>
+            <td><strong>Старый статус:</strong></td>
+            <td>{{oldStatus}}</td>
+          </tr>
+          <tr>
+            <td><strong>Новый статус:</strong></td>
+            <td>{{newStatus}}</td>
+          </tr>
+          <tr>
+            <td><strong>Дата обновления:</strong></td>
+            <td>{{updatedAt}}</td>
+          </tr>
+        </table>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://yourdomain.com/user/feedback/{{feedbackId}}" target="_blank" style="
+            display: inline-block;
+            background: linear-gradient(90deg, #007bff, #00c6ff);
+            color: #ffffff !important;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+          ">
+            Просмотреть фидбек
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Это автоматическое уведомление. Не отвечайте на него напрямую.
+        </p>
+
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

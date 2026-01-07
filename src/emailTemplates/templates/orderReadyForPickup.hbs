@@ -1,34 +1,32 @@
-{{#extend "baseLayout" title="Заказ отменен"}}
+{{#extend "baseLayout" title="Заказ готов к выдаче"}}
   {{#content "body"}}
     <tr>
-      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #fff0f0; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #fff7e6; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
         
-        <h2 style="color: #e60000; font-size: 22px; margin-bottom: 15px;">❌ Ваш заказ отменен</h2>
+        <h2 style="color: #ff9900; font-size: 22px; margin-bottom: 15px;">🏬 Ваш заказ готов к выдаче</h2>
         <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
-          Заказ No{{orderNumber}} был отменен администратором.
+          Заказ No{{orderNumber}} ожидает вас в пункте выдачи.
         </p>
 
         <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
           <tr>
-            <td><strong>Причина отмены:</strong></td>
-            <td>{{reason}}</td>
+            <td><strong>Номер заказа:</strong></td>
+            <td>{{orderNumber}}</td>
           </tr>
-          {{#if refundAmount}}
           <tr>
-            <td><strong>Сумма возврата:</strong></td>
-            <td>{{refundAmount}} {{orderData.pricing.currency}}</td>
+            <td><strong>Пункт выдачи:</strong></td>
+            <td>{{pickupPoint.name}}, {{pickupPoint.address}}</td>
           </tr>
-          {{/if}}
           <tr>
-            <td><strong>Дата отмены:</strong></td>
-            <td>{{orderData.cancellation.cancelledAt}}</td>
+            <td><strong>Часы работы:</strong></td>
+            <td>{{pickupPoint.hours}}</td>
           </tr>
         </table>
 
         <div style="text-align: center; margin-bottom: 30px;">
           <a href="https://yourdomain.com/orders/{{orderNumber}}" target="_blank" style="
             display: inline-block;
-            background-color: #e60000;
+            background-color: #ff9900;
             color: #ffffff !important;
             padding: 14px 32px;
             border-radius: 50px;
@@ -43,7 +41,7 @@
         </div>
 
         <p style="font-size: 14px; color: #888; text-align: center;">
-          Если у вас есть вопросы, свяжитесь с поддержкой.
+          Пожалуйста, заберите заказ в указанное время работы пункта выдачи.
         </p>
 
       </td>

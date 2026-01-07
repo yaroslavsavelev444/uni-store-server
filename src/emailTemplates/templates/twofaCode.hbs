@@ -1,0 +1,48 @@
+{{#extend "baseLayout" title="Код подтверждения 2FA"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #1a1a1a; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2); text-align: center;">
+        <h2 style="color: #ff8c42; font-size: 22px; margin-bottom: 20px;">🔑 Ваш код подтверждения</h2>
+        <p style="font-size: 16px; color: #ccc; margin-bottom: 20px;">
+          Для входа в систему используйте следующий код. Он действителен {{expiresInMinutes}} минут.
+        </p>
+
+        <div style="
+          display: inline-block;
+          background-color: #2a2a2a;
+          color: #ff8c42;
+          font-size: 28px;
+          font-weight: bold;
+          padding: 20px 40px;
+          border-radius: 12px;
+          letter-spacing: 4px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+          margin-bottom: 30px;
+        ">
+          {{code}}
+        </div>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://yourdomain.com/login" target="_blank" style="
+            display: inline-block;
+            background: linear-gradient(90deg, #ff6a00, #ff8c42);
+            color: #ffffff !important;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+          ">
+            Войти в аккаунт
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Это автоматическое уведомление. Не отвечайте на него напрямую.
+        </p>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

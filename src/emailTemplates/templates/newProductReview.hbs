@@ -1,0 +1,66 @@
+{{#extend "baseLayout" title="Новый отзыв на товар"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #f9f9f9; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        
+        <h2 style="color: #1a73e8; font-size: 22px; margin-bottom: 15px;">📝 Новый отзыв на товар</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Пользователь оставил новый отзыв на товар <strong>{{productTitle}}</strong>.
+        </p>
+
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
+          <tr>
+            <td><strong>Имя пользователя:</strong></td>
+            <td>{{userName}}</td>
+          </tr>
+          <tr>
+            <td><strong>Оценка:</strong></td>
+            <td>{{rating}} / 5</td>
+          </tr>
+          <tr>
+            <td><strong>Заголовок:</strong></td>
+            <td>{{title}}</td>
+          </tr>
+          <tr>
+            <td><strong>Комментарий:</strong></td>
+            <td>{{comment}}</td>
+          </tr>
+          {{#if pros}}
+          <tr>
+            <td><strong>Достоинства:</strong></td>
+            <td>{{#each pros}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</td>
+          </tr>
+          {{/if}}
+          {{#if cons}}
+          <tr>
+            <td><strong>Недостатки:</strong></td>
+            <td>{{#each cons}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</td>
+          </tr>
+          {{/if}}
+        </table>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://yourdomain.com/admin/reviews/{{reviewId}}" target="_blank" style="
+            display: inline-block;
+            background-color: #1a73e8;
+            color: #ffffff !important;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+          ">
+            Просмотреть отзыв
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Отзыв требует модерации перед публикацией.
+        </p>
+
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

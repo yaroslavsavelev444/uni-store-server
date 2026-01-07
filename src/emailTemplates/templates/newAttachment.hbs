@@ -1,0 +1,54 @@
+{{#extend "baseLayout" title="Новое вложение в заказе"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #f0f7ff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        
+        <h2 style="color: #0073e6; font-size: 22px; margin-bottom: 15px;">📎 Новый файл в вашем заказе</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Менеджер прикрепил новый файл к вашему заказу No{{orderNumber}}.
+        </p>
+
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
+          <tr>
+            <td><strong>Название файла:</strong></td>
+            <td>{{attachment.name}}</td>
+          </tr>
+          <tr>
+            <td><strong>Размер:</strong></td>
+            <td>{{attachment.size}} байт</td>
+          </tr>
+          <tr>
+            <td><strong>Тип файла:</strong></td>
+            <td>{{attachment.mimeType}}</td>
+          </tr>
+          <tr>
+            <td><strong>Дата загрузки:</strong></td>
+            <td>{{attachment.uploadedAt}}</td>
+          </tr>
+        </table>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://yourdomain.com/orders/{{orderNumber}}" target="_blank" style="
+            display: inline-block;
+            background-color: #0073e6;
+            color: #ffffff !important;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+          ">
+            Просмотреть заказ
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Файл доступен в деталях вашего заказа.
+        </p>
+
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

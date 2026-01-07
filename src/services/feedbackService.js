@@ -716,15 +716,15 @@ async submitFeedback(data) {
       
       for (const admin of admins) {
         await sendEmailNotification(admin.email, 'newFeedback', {
-          feedbackId: feedback._id,
-          title: feedback.title,
-          type: feedback.type,
-          userName: feedback.userName || 'Анонимный пользователь',
-          userEmail: feedback.userEmail || 'Не указан',
-          priority: feedback.priority,
-          createdAt: feedback.createdAt,
-          description: feedback.description.substring(0, 200) + '...'
-        });
+  feedbackId: feedback._id,
+  title: feedback.title,
+  type: feedback.type,
+  userName: feedback.userName || 'Анонимный пользователь',
+  userEmail: feedback.userEmail || 'Не указан',
+  priority: feedback.priority,
+  createdAt: feedback.createdAt,
+  description: feedback.description.substring(0, 200) + '...'
+});
       }
       
       logger.info("Уведомления администраторам отправлены", {

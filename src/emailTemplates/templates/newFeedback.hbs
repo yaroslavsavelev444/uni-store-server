@@ -1,0 +1,62 @@
+{{#extend "baseLayout" title="Новый фидбек"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #1a1a1a; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+        
+        <h2 style="color: #ff8c42; font-size: 22px; margin-bottom: 15px;">📬 Новый фидбек</h2>
+        <p style="color: #ccc; font-size: 16px; margin-bottom: 25px;">
+          Поступил новый фидбек от пользователя. Ниже указаны основные данные.
+        </p>
+
+        <table style="width: 100%; font-size: 15px; color: #e0e0e0; margin-bottom: 25px;">
+          <tr>
+            <td><strong>Название:</strong></td>
+            <td>{{title}}</td>
+          </tr>
+          <tr>
+            <td><strong>Тип:</strong></td>
+            <td>{{type}}</td>
+          </tr>
+          <tr>
+            <td><strong>Пользователь:</strong></td>
+            <td>{{userName}} ({{userEmail}})</td>
+          </tr>
+          <tr>
+            <td><strong>Приоритет:</strong></td>
+            <td>{{priority}}</td>
+          </tr>
+          <tr>
+            <td><strong>Дата создания:</strong></td>
+            <td>{{createdAt}}</td>
+          </tr>
+          <tr>
+            <td><strong>Описание:</strong></td>
+            <td>{{description}}</td>
+          </tr>
+        </table>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://yourdomain.com/admin/feedback/{{feedbackId}}" target="_blank" style="
+            display: inline-block;
+            background: linear-gradient(90deg, #ff6a00, #ff8c42);
+            color: #ffffff !important;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+          ">
+            Просмотреть фидбек
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Это автоматическое уведомление. Не отвечайте на него напрямую.
+        </p>
+
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

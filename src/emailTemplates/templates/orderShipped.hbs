@@ -1,0 +1,54 @@
+{{#extend "baseLayout" title="Заказ отправлен"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #e6f7ff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        
+        <h2 style="color: #00aaff; font-size: 22px; margin-bottom: 15px;">🚚 Ваш заказ отправлен</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Ваш заказ No{{orderNumber}} уже в пути. Ниже указаны детали доставки.
+        </p>
+
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
+          <tr>
+            <td><strong>Номер заказа:</strong></td>
+            <td>{{orderNumber}}</td>
+          </tr>
+          <tr>
+            <td><strong>Трек-номер:</strong></td>
+            <td>{{trackingNumber}}</td>
+          </tr>
+          <tr>
+            <td><strong>Служба доставки:</strong></td>
+            <td>{{carrier}}</td>
+          </tr>
+          <tr>
+            <td><strong>Ожидаемая дата доставки:</strong></td>
+            <td>{{estimatedDelivery}}</td>
+          </tr>
+        </table>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+          <a href="https://yourdomain.com/orders/{{orderNumber}}" target="_blank" style="
+            display: inline-block;
+            background-color: #00aaff;
+            color: #ffffff !important;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+          ">
+            Просмотреть заказ
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Отслеживайте ваш заказ с помощью трек-номера выше.
+        </p>
+
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}
