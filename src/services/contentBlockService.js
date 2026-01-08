@@ -1,6 +1,9 @@
 const ApiError = require('../exceptions/api-error');
 const {ContentBlockModel} = require('../models/index.models');
-const FileManager = require('../utils/fileManager');
+const fileService = require('../utils/fileManager');
+const mongoose = require('mongoose');
+const path = require('path');
+const fs = require('fs').promises;
 const redisClient = require('../redis/redis.client');
 const logger = require('../logger/logger');
 const xss = require('xss');
@@ -137,14 +140,38 @@ class ContentBlockService {
   }
 
   // Создание блока
-  async create(data, tempImagePath = null) {
+  async create(contentBlockData, userId) {
     try {
-      // Если есть путь к изображению, обрабатываем его
-      if (tempImagePath) {
-        await this.processImage(tempImagePath, data);
+      // Обрабатываем изображение
+      if (contentBlockData.imageUrl) {
+        // Извлекаем путь из URL если это полный URL
+        let imageUrl = contentBlockData.imageUrl;
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+          const url = new URL(imageUrl);
+          imageUrl = url.pathname; // Извлекаем только путь
+          
+          // Декодируем URL-encoded символы
+          imageUrl = decodeURIComponent(imageUrl);
+          contentBlockData.imageUrl = imageUrl;
+          logger.debug(`[ContentBlockService] Извлечен и декодирован путь из URL: ${imageUrl}`);
+        }
+        
+        // Если путь из temp, перемещаем
+        if (imageUrl.includes('/temp/')) {
+          const newPath = await this.moveImageFromTemp(imageUrl);
+          contentBlockData.imageUrl = newPath;
+        } else {
+          // Если уже постоянный путь, проверяем существование
+          await fileService.validateFileExists(imageUrl);
+        }
       }
 
-      const newBlock = await ContentBlockModel.create(data);
+      // Создаем блок
+      const newBlock = await ContentBlockModel.create({
+        ...contentBlockData,
+        createdBy: userId,
+        updatedBy: userId
+      });
       
       // Инвалидируем кеш
       await this.invalidateCache(
@@ -153,7 +180,7 @@ class ContentBlockService {
         'contentBlocks:tag:*'
       );
 
-      return newBlock;
+      return newBlock.toObject();
     } catch (err) {
       logger.error(`[ContentBlockService] Error creating block: ${err.message}`);
       throw err;
@@ -161,30 +188,67 @@ class ContentBlockService {
   }
 
   // Обновление блока
-  async update(id, data, tempImagePath = null) {
+  async update(id, updateData, userId) {
     try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw ApiError.BadRequest('Некорректный формат ID блока');
+      }
+      
       const existingBlock = await ContentBlockModel.findById(id);
       if (!existingBlock) {
         throw ApiError.BadRequest('Блок не найден');
       }
 
-      // Если есть новое изображение, обрабатываем его
-      if (tempImagePath) {
-        // Удаляем старое изображение если оно есть
-        if (existingBlock.imageUrl) {
-          await this.deleteOldImage(existingBlock.imageUrl);
+      // Обрабатываем изображение
+      if (updateData.imageUrl !== undefined) {
+        // Если передано null или пустая строка - удаляем изображение
+        if (updateData.imageUrl === null || updateData.imageUrl === '') {
+          if (existingBlock.imageUrl) {
+            await this.deleteOldImage(existingBlock.imageUrl);
+          }
+          updateData.imageUrl = null;
+        } 
+        // Если передан URL
+        else if (updateData.imageUrl) {
+          // Извлекаем путь из URL если это полный URL
+          let imageUrl = updateData.imageUrl;
+          if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            const url = new URL(imageUrl);
+            imageUrl = url.pathname; // Извлекаем только путь
+            
+            // Декодируем URL-encoded символы
+            imageUrl = decodeURIComponent(imageUrl);
+            updateData.imageUrl = imageUrl;
+            logger.debug(`[ContentBlockService] Извлечен и декодирован путь из URL: ${imageUrl}`);
+          }
+          
+          if (imageUrl.includes('/temp/')) {
+            const newPath = await this.moveImageFromTemp(imageUrl);
+            
+            // Удаляем старое изображение
+            if (existingBlock.imageUrl) {
+              await this.deleteOldImage(existingBlock.imageUrl);
+            }
+            
+            updateData.imageUrl = newPath;
+          } else {
+            // Если уже постоянный путь, проверяем существование
+            await fileService.validateFileExists(imageUrl);
+            
+            // Если путь изменился, удаляем старое изображение
+            if (existingBlock.imageUrl && existingBlock.imageUrl !== imageUrl) {
+              await this.deleteOldImage(existingBlock.imageUrl);
+            }
+          }
         }
-        
-        // Обрабатываем новое изображение
-        await this.processImage(tempImagePath, data);
       }
 
       // Обновляем блок
-      const updatedBlock = await ContentBlockModel.findByIdAndUpdate(
-        id,
-        data,
-        { new: true, runValidators: true }
-      );
+      Object.assign(existingBlock, updateData);
+      existingBlock.updatedBy = userId;
+      existingBlock.updatedAt = Date.now();
+      
+      await existingBlock.save();
 
       // Инвалидируем кеш
       await this.invalidateCache(
@@ -194,7 +258,7 @@ class ContentBlockService {
         'contentBlocks:tag:*'
       );
 
-      return updatedBlock;
+      return existingBlock.toObject();
     } catch (err) {
       logger.error(`[ContentBlockService] Error updating block ${id}: ${err.message}`);
       throw err;
@@ -236,7 +300,7 @@ class ContentBlockService {
   async toggleActive(id, isActive) {
     const updated = await ContentBlockModel.findByIdAndUpdate(
       id,
-      { isActive },
+      { isActive, updatedAt: Date.now() },
       { new: true }
     );
 
@@ -255,52 +319,90 @@ class ContentBlockService {
     return updated;
   }
 
-  // Обработка изображения
-  async processImage(tempImagePath, data) {
-    try {
-      // Валидируем файл
-      const isValid = await FileManager.validateFileExists(tempImagePath);
-      if (!isValid) {
-        throw new Error('Изображение не найдено во временной папке');
-      }
-
-      // Генерируем уникальное имя для файла
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 10);
-      const fileName = `content-${timestamp}-${randomString}${this.getFileExtension(tempImagePath)}`;
+  // Перемещение изображения из временной папки
+  async moveImageFromTemp(tempPath) {
+    logger.debug(`[ContentBlockService] moveImageFromTemp вызван с путем: ${tempPath}`);
+    
+    // Извлекаем путь из URL если это полный URL
+    let cleanPath = tempPath;
+    if (tempPath.startsWith('http://') || tempPath.startsWith('https://')) {
+      const url = new URL(tempPath);
+      cleanPath = url.pathname; // Извлекаем только путь
       
-      // Путь для постоянного хранения
-      const permanentPath = `/uploads/content-blocks/${fileName}`;
-      
-      // Перемещаем файл
-      const movedPath = await FileManager.moveFile(tempImagePath, permanentPath);
-      
-      // Сохраняем путь в данных
-      data.imageUrl = movedPath;
-
-    } catch (err) {
-      logger.error(`[ContentBlockService] Error processing image: ${err.message}`);
-      throw ApiError.BadRequest(`Ошибка обработки изображения: ${err.message}`);
+      // Декодируем URL-encoded символы (например, %20 -> пробел)
+      cleanPath = decodeURIComponent(cleanPath);
+      logger.debug(`[ContentBlockService] Извлечен и декодирован путь из URL: ${cleanPath}`);
     }
+    
+    // Проверяем, что путь ведет в temp
+    if (!cleanPath.includes('/temp/')) {
+      logger.debug(`[ContentBlockService] Путь не из temp, возвращаем как есть: ${cleanPath}`);
+      return cleanPath; // Если уже не из temp, возвращаем как есть
+    }
+    
+    // Проверяем существование файла
+    await fileService.validateFileExists(cleanPath);
+    
+    // Генерируем новый путь
+    const filename = path.basename(cleanPath);
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 10);
+    const newWebPath = `/uploads/content-blocks/${timestamp}_${randomString}_${filename}`;
+    
+    // Получаем абсолютные пути файловой системы
+    const sourceAbsolute = fileService.getAbsolutePath(cleanPath);
+    const targetAbsolute = fileService.getAbsolutePath(newWebPath);
+    
+    // Создаем папку назначения если нет
+    const targetDir = path.dirname(targetAbsolute);
+    await fs.mkdir(targetDir, { recursive: true });
+    
+    logger.debug(`[ContentBlockService] Перемещение файла:`);
+    logger.debug(`  Из (абсолютный): ${sourceAbsolute}`);
+    logger.debug(`  В (абсолютный):  ${targetAbsolute}`);
+    logger.debug(`  В (веб-путь):    ${newWebPath}`);
+    
+    // Проверяем, что исходный файл существует
+    try {
+      await fs.access(sourceAbsolute);
+      logger.debug(`[ContentBlockService] Исходный файл существует: ${sourceAbsolute}`);
+    } catch (error) {
+      logger.error(`[ContentBlockService] Исходный файл не найден: ${sourceAbsolute}`, error);
+      throw ApiError.BadRequest(`Исходный файл не найден: ${tempPath}`);
+    }
+    
+    // Перемещаем файл
+    try {
+      await fs.rename(sourceAbsolute, targetAbsolute);
+      logger.debug(`[ContentBlockService] Файл успешно перемещен`);
+    } catch (error) {
+      logger.error(`[ContentBlockService] Ошибка при перемещении файла:`, error);
+      
+      // Альтернатива: копировать и удалить оригинал
+      try {
+        await fs.copyFile(sourceAbsolute, targetAbsolute);
+        await fs.unlink(sourceAbsolute);
+        logger.debug(`[ContentBlockService] Файл скопирован и оригинал удален`);
+      } catch (copyError) {
+        logger.error(`[ContentBlockService] Ошибка при копировании файла:`, copyError);
+        throw ApiError.InternalError(`Ошибка при перемещении файла: ${copyError.message}`);
+      }
+    }
+    
+    return newWebPath;
   }
 
   // Удаление старого изображения
   async deleteOldImage(imageUrl) {
     try {
       if (imageUrl && imageUrl.startsWith('/uploads/content-blocks/')) {
-        await FileManager.deleteFile(imageUrl);
+        await fileService.deleteFile(imageUrl);
         logger.debug(`[ContentBlockService] Old image deleted: ${imageUrl}`);
       }
     } catch (err) {
       logger.warn(`[ContentBlockService] Error deleting old image ${imageUrl}: ${err.message}`);
       // Не прерываем выполнение если не удалось удалить файл
     }
-  }
-
-  // Получение расширения файла
-  getFileExtension(filePath) {
-    const match = filePath.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i);
-    return match ? match[0] : '.jpg';
   }
 
   // Получение статистики
@@ -326,6 +428,43 @@ class ContentBlockService {
       };
     } catch (err) {
       logger.error(`[ContentBlockService] Error getting stats: ${err.message}`);
+      throw err;
+    }
+  }
+
+  // Вспомогательный метод для массового обновления позиций
+  async updatePositions(positionUpdates) {
+    try {
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+        for (const update of positionUpdates) {
+          await ContentBlockModel.findByIdAndUpdate(
+            update.id,
+            { position: update.position, updatedAt: Date.now() },
+            { session }
+          );
+        }
+
+        await session.commitTransaction();
+        
+        // Инвалидируем кеш
+        await this.invalidateCache(
+          'contentBlocks:all',
+          'contentBlocks:active',
+          'contentBlocks:tag:*'
+        );
+        
+        return true;
+      } catch (err) {
+        await session.abortTransaction();
+        throw err;
+      } finally {
+        session.endSession();
+      }
+    } catch (err) {
+      logger.error(`[ContentBlockService] Error updating positions: ${err.message}`);
       throw err;
     }
   }

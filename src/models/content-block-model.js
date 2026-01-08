@@ -85,6 +85,19 @@ const contentBlockSchema = new mongoose.Schema({
     default: {}
   },
   
+  // Кто создал и обновил
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  
   // Время создания и обновления
   createdAt: {
     type: Date,
@@ -130,6 +143,8 @@ contentBlockSchema.index({ position: 1, createdAt: -1 });
 contentBlockSchema.index({ isActive: 1 });
 contentBlockSchema.index({ tags: 1 });
 contentBlockSchema.index({ createdAt: -1 });
+contentBlockSchema.index({ createdBy: 1 });
+contentBlockSchema.index({ updatedBy: 1 });
 
 // Статический метод для поиска активных блоков
 contentBlockSchema.statics.findActive = function() {
@@ -145,7 +160,6 @@ contentBlockSchema.virtual('hasButton').get(function() {
 contentBlockSchema.methods.toSafeObject = function() {
   const obj = this.toObject();
   delete obj.__v;
-  delete obj.updatedAt;
   return obj;
 };
 

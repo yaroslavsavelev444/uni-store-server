@@ -134,10 +134,6 @@ class CategoryService {
     return category;
   }
   
-  // Создать категорию
-  // Создать категорию
-// Создать категорию
-// Создать категорию
 async createCategory(categoryData, userId) {
   // Проверяем уникальность slug
   if (categoryData.slug) {
@@ -257,8 +253,7 @@ async updateCategory(id, updateData, userId) {
 }
   
   // Переместить изображение из временной папки
-// Переместить изображение из временной папки
-// Переместить изображение из временной папки
+
 async moveImageFromTemp(tempPath) {
   console.log(`[CategoryService] moveImageFromTemp вызван с путем: ${tempPath}`);
   
