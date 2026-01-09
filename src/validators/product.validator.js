@@ -6,22 +6,42 @@ const imageSchema = Joi.object({
   url: Joi.string()
     .required()
     .uri()
-    .pattern(/^(\/uploads\/products\/images\/|https?:\/\/)/) // ИЗМЕНЕНО: более гибкий паттерн
+    .pattern(/^(\/uploads\/products\/images\/|https?:\/\/)/)
     .message('Некорректный формат изображения'),
   alt: Joi.string().max(255).optional().allow('', null).default(''),
   order: Joi.number().integer().min(0).optional().default(0)
 });
 
+// Схема для инструкции-файла
 const instructionFileSchema = Joi.object({
+  type: Joi.string().valid('file').required(),
   url: Joi.string()
     .required()
     .uri()
-    .pattern(/^(\/uploads\/products\/instructions\/|https?:\/\/)/) // ИЗМЕНЕНО
-    .message('Некорректный формат инструкции'),
+    .pattern(/^(\/uploads\/products\/instructions\/|https?:\/\/)/)
+    .message('Некорректный формат файла инструкции'),
   originalName: Joi.string().max(255).required(),
-  size: Joi.number().integer().positive().max(50 * 1024 * 1024).required()
-}).optional().allow(null); // ДОБАВИТЬ: allow null
+  size: Joi.number().integer().positive().max(50 * 1024 * 1024).required(),
+  alt: Joi.string().max(255).optional().allow('', null),
+  mimetype: Joi.string().optional()
+});
 
+// Схема для инструкции-ссылки
+const instructionLinkSchema = Joi.object({
+  type: Joi.string().valid('link').required(),
+  url: Joi.string()
+    .required()
+    .uri()
+    .message('Некорректный формат ссылки'),
+  title: Joi.string().max(255).optional().allow('', null).default('Инструкция')
+});
+
+// Общая схема для инструкции (либо файл, либо ссылка)
+const instructionSchema = Joi.alternatives()
+  .try(instructionFileSchema, instructionLinkSchema)
+  .optional()
+  .allow(null)
+  .default(null);
 
 const createProductSchema = Joi.object({
   sku: Joi.string()
@@ -48,7 +68,7 @@ const createProductSchema = Joi.object({
     .required()
     .positive()
     .precision(2)
-    .max(1000000), // ДОБАВЛЕНО: максимальная цена
+    .max(1000000),
   
   priceForLegalEntity: Joi.number()
     .positive()
@@ -67,7 +87,7 @@ const createProductSchema = Joi.object({
     .required()
     .integer()
     .min(0)
-    .max(100000), // ДОБАВЛЕНО: максимальное количество
+    .max(100000),
   
   status: Joi.string()
     .valid(...Object.values(ProductStatus))
@@ -83,25 +103,17 @@ const createProductSchema = Joi.object({
     .pattern(/^(\/uploads\/products\/images\/|https?:\/\/)/)
     .message('Некорректный формат основного изображения')
     .optional()
-    .allow('', null), // ДОБАВИТЬ: allow null
+    .allow('', null),
   
   showOnMainPage: Joi.boolean().default(false),
+  
   images: Joi.array()
     .items(imageSchema)
     .max(20)
     .optional()
-    .default([]), // ДОБАВИТЬ: default пустой массив
+    .default([]),
     
-  instructionFile: Joi.alternatives()
-    .try(
-      instructionFileSchema,
-      Joi.string().allow('', null),
-      Joi.object().allow(null)
-    )
-    .optional()
-    .default(null), // ДОБАВИТЬ: default null
-    
-
+  instruction: instructionSchema,
   
   specifications: Joi.array()
     .items(Joi.object({
@@ -111,18 +123,18 @@ const createProductSchema = Joi.object({
       group: Joi.string().max(50).optional(),
       isVisible: Joi.boolean().default(true)
     }))
-    .max(50) // ДОБАВЛЕНО: лимит характеристик
+    .max(50)
     .optional()
-        .default([]), // ДОБАВИТЬ
+    .default([]),
 
   customAttributes: Joi.object()
-    .pattern(/^[a-zA-Z0-9_]+$/, Joi.any()) // ДОБАВЛЕНО: валидация ключей
-    .max(20) // ДОБАВЛЕНО: лимит кастомных атрибутов
+    .pattern(/^[a-zA-Z0-9_]+$/, Joi.any())
+    .max(20)
     .optional(),
   
   relatedProducts: Joi.array()
     .items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
-    .unique() // ДОБАВЛЕНО: уникальные ID
+    .unique()
     .max(20)
     .optional(),
   
@@ -140,7 +152,7 @@ const createProductSchema = Joi.object({
   
   weight: Joi.number()
     .positive()
-    .max(100000) // в граммах
+    .max(100000)
     .optional(),
   
   dimensions: Joi.object({
@@ -150,12 +162,11 @@ const createProductSchema = Joi.object({
   })
   .optional(),
   
- manufacturer: Joi.string()
+  manufacturer: Joi.string()
     .max(100)
     .optional()
     .allow('')
     .default(''),
-
   
   warrantyMonths: Joi.number()
     .integer()
@@ -174,13 +185,9 @@ const createProductSchema = Joi.object({
     .min(Joi.ref('minOrderQuantity'))
     .max(10000)
     .optional(),
-
   
   isVisible: Joi.boolean()
     .default(true),
-  
-  showOnMainPage: Joi.boolean()
-    .default(false),
   
   metaTitle: Joi.string()
     .max(255)
@@ -197,15 +204,13 @@ const createProductSchema = Joi.object({
     .max(20)
     .optional()
 })
-.with('maxOrderQuantity', 'minOrderQuantity') // ДОБАВЛЕНО: зависимость полей
+.with('maxOrderQuantity', 'minOrderQuantity')
 .with('priceForLegalEntity', 'isLegalEntityPriceEnabled');
 
 const updateProductSchema = createProductSchema.fork(
-  // Сделать все поля опциональными
   Object.keys(createProductSchema.describe().keys),
   (schema) => schema.optional()
-).min(1); // Но минимум одно поле должно быть
-
+).min(1);
 
 const productQuerySchema = Joi.object({
   category: Joi.string().pattern(/^[0-9a-fA-F]{24}$/),
@@ -225,10 +230,8 @@ const productQuerySchema = Joi.object({
     Joi.string().pattern(/^[0-9a-fA-F]{24}$/),
     Joi.array().items(Joi.string().pattern(/^[0-9a-fA-F]{24}$/))
   ),
-  
-
 })
-.with('maxPrice', 'minPrice'); // ДОБАВЛЕНО: валидация диапазона цен
+.with('maxPrice', 'minPrice');
 
 const productSearchSchema = Joi.object({
   q: Joi.string().min(1).max(100).required(),
@@ -245,7 +248,7 @@ const updateStatusSchema = Joi.object({
 
 const updateStockSchema = Joi.object({
   quantity: Joi.number().integer().required(),
-  operation: Joi.string().valid('set', 'add', 'subtract').default('set'), // ИЗМЕНЕНО: добавлен 'set'
+  operation: Joi.string().valid('set', 'add', 'subtract').default('set'),
   reason: Joi.string().max(500).optional()
 });
 

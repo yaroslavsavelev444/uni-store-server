@@ -451,170 +451,201 @@ class ProductService {
 }
 
   async createProduct(productData, userId) {
-    try {
-      // Проверка уникальности SKU
-      const existingProduct = await ProductModel.findOne({ sku: productData.sku });
+  try {
+    // Проверка уникальности SKU
+    const existingProduct = await ProductModel.findOne({ sku: productData.sku });
+    if (existingProduct) {
+      throw ApiError.BadRequest('Продукт с таким SKU уже существует');
+    }
+    
+    // Проверка существования категории
+    const categoryExists = await CategoryModel.findById(productData.category);
+    if (!categoryExists) {
+      throw ApiError.BadRequest('Указанная категория не существует');
+    }
+    
+    // Проверка связанных продуктов
+    await this.validateRelatedProducts(productData);
+    
+    // Обрабатываем изображения для сохранения в БД
+    const processedImages = await this.processImagesForDb(productData.images);
+    
+    // Обрабатываем инструкцию
+    const processedInstruction = await this.processInstructionForDb(productData.instruction);
+    
+    const product = new ProductModel({
+      ...productData,
+      images: processedImages,
+      instruction: processedInstruction,
+      createdBy: userId,
+      updatedBy: userId
+    });
+    
+    await product.save();
+    
+    return this.formatProductForResponse(product);
+  } catch (error) {
+    // Откат: удаляем загруженные файлы если что-то пошло не так
+    await this.rollbackProductFiles(productData);
+    
+    if (error instanceof ApiError) throw error;
+    throw ApiError.DatabaseError('Ошибка при создании продукта');
+  }
+}
+
+  
+  async updateProduct(id, updateData, userId) {
+  console.log('updateProduct called with id:', id, 'and updateData:', updateData);
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw ApiError.BadRequest('Некорректный формат ID продукта');
+  }
+  
+  try {
+    const product = await ProductModel.findById(id);
+    if (!product) {
+      throw ApiError.NotFound('Продукт не найден');
+    }
+    
+    console.log('found product:', product);
+    
+    // Проверка SKU на уникальность
+    if (updateData.sku && updateData.sku !== product.sku) {
+      const existingProduct = await ProductModel.findOne({ 
+        sku: updateData.sku,
+        _id: { $ne: id }
+      });
       if (existingProduct) {
         throw ApiError.BadRequest('Продукт с таким SKU уже существует');
       }
-      
-      // Проверка существования категории
-      const categoryExists = await CategoryModel.findById(productData.category);
+    }
+    
+    // Проверка категории
+    if (updateData.category) {
+      const categoryExists = await CategoryModel.findById(updateData.category);
       if (!categoryExists) {
         throw ApiError.BadRequest('Указанная категория не существует');
       }
-      
-      // Проверка связанных продуктов
-      await this.validateRelatedProducts(productData);
-      
-      // Обрабатываем изображения для сохранения в БД
-      const processedImages = await this.processImagesForDb(productData.images);
-      
-      const product = new ProductModel({
-        ...productData,
-        images: processedImages,
-        createdBy: userId,
-        updatedBy: userId
-      });
-      
-      await product.save();
-      
-      return this.formatProductForResponse(product);
-    } catch (error) {
-      // Откат: удаляем загруженные файлы если что-то пошло не так
-      await this.rollbackProductFiles(productData);
-      
-      if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError('Ошибка при создании продукта');
+    }
+    
+    // Проверка связанных продуктов
+    await this.validateRelatedProducts(updateData, id);
+    
+    // Сохраняем старые данные файлов для отката
+    const oldImages = [...product.images];
+    const oldMainImage = product.mainImage;
+    const oldInstruction = product.instruction;
+    
+    // Обрабатываем изображения
+    if (updateData.images !== undefined) {
+      if (updateData.images === null) {
+        // Удаляем все изображения
+        product.images = [];
+      } else if (Array.isArray(updateData.images)) {
+        // Обрабатываем новые изображения
+        const processedImages = await this.processImagesForDb(
+          updateData.images, 
+          oldImages
+        );
+        product.images = processedImages;
+      }
+    }
+    
+    // Обрабатываем основное изображение
+    if (updateData.mainImage !== undefined) {
+      if (updateData.mainImage === null) {
+        product.mainImage = null;
+      } else if (updateData.mainImage.url) {
+        // Проверяем что файл существует
+        await fileService.validateFileExists(updateData.mainImage.url);
+        product.mainImage = updateData.mainImage;
+      }
+    }
+    
+    // Обрабатываем инструкцию
+    if (updateData.instruction !== undefined) {
+      if (updateData.instruction === null) {
+        product.instruction = null;
+      } else {
+        const processedInstruction = await this.processInstructionForDb(
+          updateData.instruction,
+          oldInstruction
+        );
+        product.instruction = processedInstruction;
+      }
+    }
+    
+    // Обновление остальных полей
+    Object.keys(updateData).forEach(key => {
+      if (!['images', 'mainImage', 'instruction'].includes(key)) {
+        product[key] = updateData[key];
+      }
+    });
+    
+    product.updatedBy = userId;
+    product.updatedAt = new Date();
+    
+    await product.save();
+    
+    // Удаляем старые файлы которые больше не нужны
+    await this.cleanupUnusedFiles(
+      oldImages, 
+      product.images, 
+      oldMainImage, 
+      product.mainImage,
+      oldInstruction,
+      product.instruction
+    );
+    
+    return this.formatProductForResponse(product);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw ApiError.DatabaseError('Ошибка при обновлении продукта');
+  }
+}
+
+// Добавить новый метод для обработки инструкции
+async processInstructionForDb(instructionData, oldInstruction = null) {
+  if (!instructionData) return null;
+  
+  // Если инструкция помечена на удаление
+  if (instructionData._shouldDelete) {
+    // Возвращаем null для удаления инструкции
+    return null;
+  }
+  
+  const processedInstruction = { ...instructionData };
+  
+  // Для инструкции-файла
+  if (instructionData.type === 'file') {
+    // Проверяем что файл существует
+    if (instructionData.url && !instructionData.url.startsWith('http')) {
+      await fileService.validateFileExists(instructionData.url);
+    }
+    
+    // Сохраняем дополнительные метаданные
+    if (!processedInstruction.alt) {
+      processedInstruction.alt = instructionData.originalName || 'Инструкция';
     }
   }
   
-  async updateProduct(id, updateData, userId) {
-    console.log('updateProduct called with id:', id, 'and updateData:', updateData);
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw ApiError.BadRequest('Некорректный формат ID продукта');
+  // Для инструкции-ссылки
+  if (instructionData.type === 'link') {
+    // Проверяем URL
+    try {
+      new URL(instructionData.url);
+    } catch (error) {
+      throw ApiError.BadRequest('Некорректный URL инструкции');
     }
     
-    try {
-      const product = await ProductModel.findById(id);
-      if (!product) {
-        throw ApiError.NotFound('Продукт не найден');
-      }
-      
-      console.log('found product:', product);
-      
-      // Проверка SKU на уникальность
-      if (updateData.sku && updateData.sku !== product.sku) {
-        const existingProduct = await ProductModel.findOne({ 
-          sku: updateData.sku,
-          _id: { $ne: id }
-        });
-        if (existingProduct) {
-          throw ApiError.BadRequest('Продукт с таким SKU уже существует');
-        }
-      }
-      
-      console.log('validated sku');
-      
-      // Проверка категории
-      if (updateData.category) {
-        const categoryExists = await CategoryModel.findById(updateData.category);
-        if (!categoryExists) {
-          throw ApiError.BadRequest('Указанная категория не существует');
-        }
-      }
-      
-      console.log('validated category');
-      
-      // Проверка связанных продуктов
-      await this.validateRelatedProducts(updateData, id);
-      
-      console.log('validated related products');
-      
-      // Сохраняем старые данные файлов для отката
-      const oldImages = [...product.images];
-      const oldMainImage = product.mainImage;
-      const oldInstruction = product.instructionFile;
-      
-      console.log('old images:', oldImages);
-      console.log('old main image:', oldMainImage);
-      console.log('old instruction:', oldInstruction);
-      
-      // Обрабатываем изображения
-      if (updateData.images !== undefined) {
-        if (updateData.images === null) {
-          // Удаляем все изображения
-          product.images = [];
-        } else if (Array.isArray(updateData.images)) {
-          // Обрабатываем новые изображения
-          const processedImages = await this.processImagesForDb(
-            updateData.images, 
-            oldImages
-          );
-          product.images = processedImages;
-        }
-      }
-      
-      console.log('new images:', product.images);
-      
-      // Обрабатываем основное изображение
-      if (updateData.mainImage !== undefined) {
-        if (updateData.mainImage === null) {
-          product.mainImage = null;
-        } else if (updateData.mainImage.url) {
-          // Проверяем что файл существует
-          await fileService.validateFileExists(updateData.mainImage.url);
-          product.mainImage = updateData.mainImage;
-        }
-      }
-      
-      console.log('new main image:', product.mainImage);
-      
-      // Обрабатываем инструкцию
-      if (updateData.instructionFile !== undefined) {
-        if (updateData.instructionFile === null) {
-          product.instructionFile = null;
-        } else if (updateData.instructionFile.url) {
-          // Проверяем что файл существует
-          await fileService.validateFileExists(updateData.instructionFile.url);
-          product.instructionFile = updateData.instructionFile;
-        }
-      }
-      
-      console.log('new instruction:', product.instructionFile);
-      
-      // Обновление остальных полей
-      Object.keys(updateData).forEach(key => {
-        if (!['images', 'mainImage', 'instructionFile'].includes(key)) {
-          product[key] = updateData[key];
-        }
-      });
-      
-      product.updatedBy = userId;
-      product.updatedAt = new Date();
-      
-      await product.save();
-      
-      console.log('product saved');
-      
-      // Удаляем старые файлы которые больше не нужны
-      await this.cleanupUnusedFiles(
-        oldImages, 
-        product.images, 
-        oldMainImage, 
-        product.mainImage,
-        oldInstruction,
-        product.instructionFile
-      );
-      
-      console.log('unused files cleaned up');
-      
-      return this.formatProductForResponse(product);
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError('Ошибка при обновлении продукта');
+    // Устанавливаем заголовок по умолчанию
+    if (!processedInstruction.title) {
+      processedInstruction.title = 'Инструкция';
     }
   }
+  
+  return processedInstruction;
+}
+
   
   /**
    * Обработка изображений для сохранения в БД

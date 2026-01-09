@@ -164,18 +164,69 @@ const ProductSchema = new Schema(
         order: { type: Number, default: 0, min: 0 }
       }
     ],
-    instructionFile: {
-      url: {
+    
+    // Инструкция (может быть файлом или ссылкой)
+    instruction: {
+      type: {
         type: String,
-        validate: {
-          validator: function(v) {
-            return !v || /^(\/uploads\/products\/instructions\/|https?:\/\/)/.test(v);
-          },
-          message: 'Некорректный формат инструкции'
+        enum: ['file', 'link'],
+        required: function() {
+          return this.instruction !== null && this.instruction !== undefined;
         }
       },
-      originalName: String,
-      size: { type: Number, min: 0 }
+      url: {
+        type: String,
+        required: function() {
+          return this.instruction !== null && this.instruction !== undefined;
+        },
+        validate: {
+          validator: function(v) {
+            if (!this.instruction || !this.instruction.type) return true;
+            
+            if (this.instruction.type === 'file') {
+              return /^(\/uploads\/products\/instructions\/|https?:\/\/)/.test(v);
+            } else if (this.instruction.type === 'link') {
+              try {
+                new URL(v);
+                return true;
+              } catch {
+                return false;
+              }
+            }
+            return true;
+          },
+          message: function(props) {
+            const instructionType = this.instruction?.type;
+            if (instructionType === 'file') {
+              return 'Некорректный формат файла инструкции';
+            } else if (instructionType === 'link') {
+              return 'Некорректный формат ссылки';
+            }
+            return 'Некорректный формат инструкции';
+          }
+        }
+      },
+      originalName: {
+        type: String,
+        required: function() {
+          return this.instruction && this.instruction.type === 'file';
+        },
+        maxlength: 255
+      },
+      size: {
+        type: Number,
+        min: 0,
+        max: 50 * 1024 * 1024, // 50MB
+        required: function() {
+          return this.instruction && this.instruction.type === 'file';
+        }
+      },
+      title: {
+        type: String,
+        maxlength: 255
+      },
+      alt: { type: String, maxlength: 255 },
+      mimetype: { type: String }
     },
 
     // Технические характеристики
@@ -221,7 +272,7 @@ const ProductSchema = new Schema(
     weight: { 
       type: Number, 
       min: [0, 'Вес не может быть отрицательным'],
-      max: [100000, 'Вес не может превышать 100000 грамм']
+      max: [100000, 'Вез не может превышать 100000 грамм']
     },
     dimensions: {
       length: { type: Number, min: 0, max: 10000 },
@@ -231,6 +282,7 @@ const ProductSchema = new Schema(
     manufacturer: { type: String, maxlength: 100 },
     warrantyMonths: { type: Number, min: 0, max: 120 },
     rating: { type: Number, min: 0, max: 5, default: 0 },
+    
     // Мета-информация
     metaTitle: { type: String, maxlength: 255 },
     metaDescription: { type: String, maxlength: 500 },
