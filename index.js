@@ -64,6 +64,8 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    exposedHeaders: ['Refresh-Token'], // Добавьте эту строку
+
   allowedHeaders: [
     "Content-Type",
     "Authorization",

@@ -369,14 +369,36 @@ const verify2faCode = async (req, res, next) => {
         path: "/",
       });
 
-      // Для дополнительной совместимости возвращаем refreshToken в ответе
-      // Клиент может использовать его как fallback для Safari
-      userData.refreshToken = userData.refreshToken;
+      // ВАЖНО: Для Safari ВСЕГДА возвращаем refreshToken в ответе
+      // Проверяем user-agent на Safari
+            const userAgent = req.headers['user-agent'] || '';
+      const isSafari = (userAgent.includes('Safari') && !userAgent.includes('Chrome')) || 
+                      userAgent.includes('iPhone') || 
+                      userAgent.includes('iPad');
       
-      return res.status(200).json({ userData, user: userData.user });
+      if (isSafari) {
+        console.log('Safari detected, returning refresh token in response');
+        // ВАЖНОЕ ИЗМЕНЕНИЕ: Возвращаем refresh token на верхнем уровне
+        return res.status(200).json({ 
+          userData, 
+          user: userData.user,
+          refreshToken: userData.refreshToken, // ← ДОБАВЬТЕ ЭТУ СТРОКУ!
+          _debug: {
+            browser: req.useragent.browser,
+            isSafari,
+            platform: req.useragent.platform
+          }
+        });
+      }
+
+      return res.status(200).json({ 
+        userData, 
+        user: userData.user
+      });
     }
 
     return res.status(200).json({ userData, user: userData.user });
+
   } catch (e) {
     // Логирование ошибки 2FA верификации
     const ip = getIp(req);
@@ -396,7 +418,6 @@ const verify2faCode = async (req, res, next) => {
     next(e);
   }
 };
-
 const resendFaCode = async (req, res, next) => {
   try {
     const { userId } = req.body;
