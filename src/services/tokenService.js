@@ -155,10 +155,10 @@ const verifyPasswordResetToken = async (token) => {
 
 
 function getRefreshTokenFromRequest(req) {
-  // 1. Пробуем получить из cookie (для веб-клиентов)
+  // 1. Пробуем получить из cookie (для веб-клиентов, кроме Safari)
   let refreshToken = req.cookies?.refreshToken;
   
-  // 2. Пробуем получить из заголовков (для мобильных клиентов)
+  // 2. Пробуем получить из заголовков (для Safari и мобильных клиентов)
   if (!refreshToken && req.headers['refresh-token']) {
     refreshToken = req.headers['refresh-token'];
   }
@@ -168,11 +168,23 @@ function getRefreshTokenFromRequest(req) {
     refreshToken = req.body.refreshToken;
   }
 
+  // Логируем источник токена для отладки
+  if (refreshToken) {
+    const source = req.cookies?.refreshToken ? 'cookie' : 
+                  req.headers['refresh-token'] ? 'header' : 
+                  req.body?.refreshToken ? 'body' : 'unknown';
+    
+    logger.debug(`Refresh token obtained from ${source}`, {
+      path: req.path,
+      tokenPreview: refreshToken.substring(0, 10) + '...'
+    });
+  }
+
   return refreshToken;
 }
 
 /**
- * Проверяет refresh token на отзыв
+ * Проверяет refresh token на отзыв с поддержкой Safari fallback
  */
 async function validateRefreshTokenFromRequest(req, userData) {
   try {
@@ -182,9 +194,37 @@ async function validateRefreshTokenFromRequest(req, userData) {
       logger.warn("Refresh token not provided for protected route", {
         userId: userData.id,
         ip: req.ip,
-        path: req.path
+        path: req.path,
+        userAgent: req.headers['user-agent']
       });
       throw ApiError.UnauthorizedError("Требуется повторная авторизация");
+    }
+
+    // Дополнительная проверка: валидируем сам refresh token
+    // (чтобы убедиться, что он принадлежит этому пользователю)
+    try {
+      const refreshTokenData = await tokenService.validateRefreshToken(refreshToken);
+      
+      if (!refreshTokenData || refreshTokenData.id !== userData.id) {
+        logger.warn("Refresh token doesn't match user", {
+          userId: userData.id,
+          expectedUserId: refreshTokenData?.id,
+          ip: req.ip,
+          path: req.path
+        });
+        throw ApiError.UnauthorizedError("Невалидная сессия");
+      }
+    } catch (validationError) {
+      // Если это ошибка валидации (не ApiError), преобразуем
+      if (!(validationError instanceof ApiError)) {
+        logger.warn("Refresh token validation failed", {
+          userId: userData.id,
+          error: validationError.message,
+          ip: req.ip
+        });
+        throw ApiError.UnauthorizedError("Сессия устарела");
+      }
+      throw validationError;
     }
 
     // Проверяем, не отозван ли refresh token
@@ -194,14 +234,16 @@ async function validateRefreshTokenFromRequest(req, userData) {
         userId: userData.id,
         ip: req.ip,
         path: req.path,
-        refreshToken: refreshToken.substring(0, 10) + '...'
+        refreshToken: refreshToken.substring(0, 10) + '...',
+        userAgent: req.headers['user-agent']
       });
       throw ApiError.UnauthorizedError("Сессия была отозвана. Пожалуйста, войдите снова.");
     }
 
     logger.debug("Refresh token validation successful", {
       userId: userData.id,
-      path: req.path
+      path: req.path,
+      tokenSource: req.cookies?.refreshToken ? 'cookie' : 'header'
     });
   } catch (error) {
     // Если ошибка не связана с отзывом токена, пробрасываем дальше
@@ -213,9 +255,17 @@ async function validateRefreshTokenFromRequest(req, userData) {
     logger.error("Error during refresh token validation", {
       userId: userData.id,
       error: error.message,
-      path: req.path
+      path: req.path,
+      stack: error.stack
     });
-
+    
+    // В продакшене можно решить, блокировать ли доступ при ошибках валидации
+    // В зависимости от требований безопасности:
+    // 1. Если безопасность критична - бросаем ошибку
+    // 2. Если доступ важнее - пропускаем с предупреждением
+    
+    // По умолчанию бросаем ошибку для безопасности
+    throw ApiError.UnauthorizedError("Ошибка проверки сессии");
   }
 }
 

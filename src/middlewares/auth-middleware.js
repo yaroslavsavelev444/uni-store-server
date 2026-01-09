@@ -87,7 +87,32 @@ module.exports = function (options = {}) {
 
       // 🔐 ВСЕГДА ПРОВЕРЯЕМ REFRESH TOKEN НА ОТЗЫВ (только если пользователь найден)
       try {
-        await tokenService.validateRefreshTokenFromRequest(req, userData);
+        // Получаем refresh token из cookies или заголовков (fallback для Safari)
+        let refreshToken = req.cookies?.refreshToken;
+        
+        // Fallback для Safari: если нет в cookies, проверяем заголовок
+        if (!refreshToken && req.headers["refresh-token"]) {
+          refreshToken = req.headers["refresh-token"];
+          logger.debug("Используем refresh token из заголовка (Safari fallback)");
+        }
+
+        if (!refreshToken) {
+          throw new Error("Refresh token не найден");
+        }
+
+        // Проверяем, что refresh token принадлежит этому пользователю
+        const refreshTokenData = await tokenService.validateRefreshToken(refreshToken);
+        
+        if (!refreshTokenData || refreshTokenData.id !== userData.id) {
+          throw new Error("Невалидный refresh token");
+        }
+
+        // Проверяем, не отозван ли токен
+        const isRevoked = await SessionService.isSessionRevoked(refreshToken);
+        if (isRevoked) {
+          throw new Error("Refresh token отозван");
+        }
+
       } catch (refreshTokenError) {
         if (optional) {
           req.user = null;
@@ -145,8 +170,14 @@ module.exports = function (options = {}) {
 module.exports.refreshMiddleware = function () {
   return async function (req, res, next) {
     try {
-      // Для refresh endpoint мы проверяем только refresh token
-      const refreshToken = req.cookies?.refreshToken || req.headers['refresh-token'];
+      // Для refresh endpoint мы проверяем refresh token из cookies или заголовков (fallback для Safari)
+      let refreshToken = req.cookies?.refreshToken;
+      
+      // Fallback для Safari
+      if (!refreshToken && req.headers['refresh-token']) {
+        refreshToken = req.headers['refresh-token'];
+        logger.debug("Refresh: используем token из заголовка (Safari fallback)");
+      }
       
       if (!refreshToken) {
         logger.warn("Refresh token not provided for refresh endpoint");
@@ -176,6 +207,7 @@ module.exports.refreshMiddleware = function () {
     }
   };
 };
+
 /**
  * Вспомогательная функция для быстрого создания миддлвары с определенными ролями
  * (сохраняем обратную совместимость со старым кодом)

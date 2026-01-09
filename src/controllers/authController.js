@@ -163,6 +163,7 @@ const refresh = async (req, res, next) => {
   try {
     let refreshToken = req.cookies?.refreshToken;
 
+    // Fallback для Safari: проверяем заголовок если нет в cookies
     if (!refreshToken && req.headers["refresh-token"]) {
       refreshToken = req.headers["refresh-token"];
     }
@@ -173,6 +174,9 @@ const refresh = async (req, res, next) => {
 
     const ip = getIp(req);
     const userAgent = req.headers["user-agent"] || "unknown";
+    
+    // Определяем источник токена для логирования
+    const tokenSource = req.cookies?.refreshToken ? "cookie" : "header";
 
     const userData = await authService.refreshService(
       refreshToken,
@@ -192,12 +196,17 @@ const refresh = async (req, res, next) => {
           userAgent,
           deviceType: req.deviceType || "unknown",
           tokenRefreshed: true,
+          tokenSource, // Добавляем источник токена в логи
         }
       );
     }
 
-    // Если это браузер — ставим cookie (для web)
-    if (!req.headers["refresh-token"]) {
+    // Определяем, нужно ли устанавливать cookie
+    // Если токен пришел из заголовка (Safari), НЕ устанавливаем cookie
+    // Если токен пришел из cookie (другие браузеры), обновляем cookie
+    const shouldSetCookie = tokenSource === "cookie" || !req.headers["refresh-token"];
+
+    if (shouldSetCookie) {
       const isProd = process.env.NODE_ENV === "production";
       const isHTTPS =
         req.protocol === "https" ||
@@ -210,6 +219,11 @@ const refresh = async (req, res, next) => {
         sameSite: isProd ? "None" : "Lax", // "None" для продакшена с HTTPS
         path: "/",
       });
+    }
+
+    // Для Safari (или когда токен пришел из заголовка) возвращаем refreshToken в ответе
+    if (tokenSource === "header") {
+      userData.refreshToken = userData.refreshToken;
     }
 
     return res.json(userData);
@@ -346,6 +360,7 @@ const verify2faCode = async (req, res, next) => {
         req.protocol === "https" ||
         req.headers["x-forwarded-proto"] === "https";
 
+      // Всегда пытаемся установить cookie
       res.cookie("refreshToken", userData.refreshToken, {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
         httpOnly: true,
@@ -354,6 +369,10 @@ const verify2faCode = async (req, res, next) => {
         path: "/",
       });
 
+      // Для дополнительной совместимости возвращаем refreshToken в ответе
+      // Клиент может использовать его как fallback для Safari
+      userData.refreshToken = userData.refreshToken;
+      
       return res.status(200).json({ userData, user: userData.user });
     }
 
@@ -529,11 +548,16 @@ const changePassword = async (req, res, next) => {
 const check = async (req, res, next) => {
   try {
     const accessToken = req.headers.authorization?.split(" ")[1];
-
+    
+    // Получаем refresh token из cookies или заголовков (fallback для Safari)
     let refreshToken = req.cookies?.refreshToken;
+    
+    // Fallback для Safari
     if (!refreshToken && req.headers["refresh-token"]) {
       refreshToken = req.headers["refresh-token"];
     }
+
+    // Также проверяем body для мобильных клиентов
     if (!refreshToken && req.body?.refreshToken) {
       refreshToken = req.body.refreshToken;
     }
@@ -562,14 +586,16 @@ const check = async (req, res, next) => {
           ip,
           tokenValid: true,
           deviceType: req.deviceType || "unknown",
+          tokenSource: req.cookies?.refreshToken ? "cookie" : req.headers["refresh-token"] ? "header" : "body",
         }
       );
     }
 
-    // Обновляем куку только если refreshToken изменился
+    // Обновляем куку только если refreshToken изменился И токен пришел из cookie
     if (
       userData.refreshToken !== refreshToken &&
-      !req.headers["refresh-token"]
+      !req.headers["refresh-token"] &&
+      req.cookies?.refreshToken
     ) {
       const isProd = process.env.NODE_ENV === "production";
       const isHTTPS =
