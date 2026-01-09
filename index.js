@@ -121,7 +121,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
    ROUTES
 ========================= */
 
-const authRoutes = require("./src/routes/authRoutes");
+const authRoutes = require("./src/routes/authRoutes"); //прмер
 const productsRoutes = require("./src/routes/productsRoutes");
 const contactsRoutes = require("./src/routes/contactsRoutes");
 const reviewsRoutes = require("./src/routes/reviewsRoutes");
