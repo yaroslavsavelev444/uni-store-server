@@ -55,6 +55,8 @@ class CategoryService {
   });
 
   
+  console.log('processedCategories', processedCategories);
+  
     // Добавляем количество продуктов
     if (withProductCount) {
       const categoriesWithCounts = await Promise.all(
@@ -144,39 +146,13 @@ async createCategory(categoryData, userId) {
   }
   
   // Обрабатываем изображение
-  let imageData = categoryData.image;
-  
-  // Если есть изображение
-  if (imageData) {
-    // Если это объект с URL
-    if (imageData && imageData.url) {
-      // Извлекаем путь из URL если это полный URL
-      let imageUrl = imageData.url;
-      if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-        const url = new URL(imageUrl);
-        imageUrl = url.pathname; // Извлекаем только путь
-        
-        // Декодируем URL-encoded символы
-        imageUrl = decodeURIComponent(imageUrl);
-        imageData.url = imageUrl;
-        console.log(`[CategoryService] Извлечен и декодирован путь из URL: ${imageUrl}`);
-      }
-      
-      // Если путь из temp, перемещаем
-      if (imageUrl.includes('/temp/')) {
-        const newPath = await this.moveImageFromTemp(imageUrl);
-        imageData.url = newPath;
-      } else {
-        // Если уже постоянный путь, проверяем существование
-        await fileService.validateFileExists(imageUrl);
-      }
-    }
+  if (categoryData.image?.url) {
+    categoryData.image.url = await this.processImage(categoryData.image.url);
   }
   
   // Создаем категорию
   const category = new CategoryModel({
     ...categoryData,
-    image: imageData,
     createdBy: userId,
     updatedBy: userId
   });
@@ -207,40 +183,23 @@ async updateCategory(id, updateData, userId) {
   
   // Обрабатываем изображение
   if (updateData.image !== undefined) {
-    // Если передано null - удаляем изображение
     if (updateData.image === null) {
-      if (existingCategory.image && existingCategory.image.url) {
+      if (existingCategory.image?.url) {
         await fileService.deleteFile(existingCategory.image.url);
       }
       updateData.image = null;
     } 
-    // Если передан объект с url
-    else if (updateData.image && updateData.image.url) {
-      // Извлекаем путь из URL если это полный URL
-      let imageUrl = updateData.image.url;
-      if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-        const url = new URL(imageUrl);
-        imageUrl = url.pathname; // Извлекаем только путь
-        
-        // Декодируем URL-encoded символы
-        imageUrl = decodeURIComponent(imageUrl);
-        updateData.image.url = imageUrl;
-        console.log(`[CategoryService] Извлечен и декодирован путь из URL: ${imageUrl}`);
+
+    
+    else if (updateData.image?.url) {
+      const newImageUrl = await this.processImage(updateData.image.url);
+      
+      // Удаляем старое изображение
+      if (existingCategory.image?.url) {
+        await fileService.deleteFile(existingCategory.image.url);
       }
       
-      if (imageUrl.includes('/temp/')) {
-        const newPath = await this.moveImageFromTemp(imageUrl);
-        
-        // Удаляем старое изображение
-        if (existingCategory.image && existingCategory.image.url) {
-          await fileService.deleteFile(existingCategory.image.url);
-        }
-        
-        updateData.image.url = newPath;
-      } else {
-        // Если уже постоянный путь, проверяем существование
-        await fileService.validateFileExists(imageUrl);
-      }
+      updateData.image.url = newImageUrl;
     }
   }
   
@@ -251,78 +210,33 @@ async updateCategory(id, updateData, userId) {
   await existingCategory.save();
   return existingCategory.toObject();
 }
-  
-  // Переместить изображение из временной папки
 
-async moveImageFromTemp(tempPath) {
-  console.log(`[CategoryService] moveImageFromTemp вызван с путем: ${tempPath}`);
-  
+// Вспомогательный метод для обработки изображения
+async processImage(imageUrl) {
   // Извлекаем путь из URL если это полный URL
-  let cleanPath = tempPath;
-  if (tempPath.startsWith('http://') || tempPath.startsWith('https://')) {
-    const url = new URL(tempPath);
-    cleanPath = url.pathname; // Извлекаем только путь
+  let filePath = imageUrl;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    const url = new URL(imageUrl);
+    filePath = url.pathname;
     
-    // Декодируем URL-encoded символы (например, %20 -> пробел)
-    cleanPath = decodeURIComponent(cleanPath);
-    console.log(`[CategoryService] Извлечен и декодирован путь из URL: ${cleanPath}`);
+    // Декодируем URL-encoded символы
+    filePath = decodeURIComponent(filePath);
   }
   
-  // Проверяем, что путь ведет в temp
-  if (!cleanPath.includes('/temp/')) {
-    console.log(`[CategoryService] Путь не из temp, возвращаем как есть: ${cleanPath}`);
-    return cleanPath; // Если уже не из temp, возвращаем как есть
-  }
-  
-  // Проверяем существование файла
-  await fileService.validateFileExists(cleanPath);
-  
-  // Генерируем новый путь
-  const filename = path.basename(cleanPath);
-  const timestamp = Date.now();
-  const newWebPath = `/uploads/categories/images/${timestamp}_${filename}`;
-  
-  // Получаем абсолютные пути файловой системы
-  const sourceAbsolute = fileService.getAbsolutePath(cleanPath);
-  const targetAbsolute = fileService.getAbsolutePath(newWebPath);
-  
-  // Создаем папку назначения если нет
-  const targetDir = path.dirname(targetAbsolute);
-  await fs.mkdir(targetDir, { recursive: true });
-  
-  console.log(`[CategoryService] Перемещение файла:`);
-  console.log(`  Из (абсолютный): ${sourceAbsolute}`);
-  console.log(`  В (абсолютный):  ${targetAbsolute}`);
-  console.log(`  В (веб-путь):    ${newWebPath}`);
-  
-  // Проверяем, что исходный файл существует
-  try {
-    await fs.access(sourceAbsolute);
-    console.log(`[CategoryService] Исходный файл существует: ${sourceAbsolute}`);
-  } catch (error) {
-    console.error(`[CategoryService] Исходный файл не найден: ${sourceAbsolute}`, error);
-    throw ApiError.BadRequest(`Исходный файл не найден: ${tempPath}`);
-  }
-  
-  // Перемещаем файл
-  try {
-    await fs.rename(sourceAbsolute, targetAbsolute);
-    console.log(`[CategoryService] Файл успешно перемещен`);
-  } catch (error) {
-    console.error(`[CategoryService] Ошибка при перемещении файла:`, error);
+  // Проверяем, является ли файл временным
+  if (filePath.includes('/temp/')) {
+    // Перемещаем файл в постоянную папку через fileService
+    const timestamp = Date.now();
+    const filename = path.basename(filePath);
+    const newWebPath = `/uploads/categories/images/${timestamp}_${filename}`;
     
-    // Альтернатива: копировать и удалить оригинал
-    try {
-      await fs.copyFile(sourceAbsolute, targetAbsolute);
-      await fs.unlink(sourceAbsolute);
-      console.log(`[CategoryService] Файл скопирован и оригинал удален`);
-    } catch (copyError) {
-      console.error(`[CategoryService] Ошибка при копировании файла:`, copyError);
-      throw ApiError.InternalError(`Ошибка при перемещении файла: ${copyError.message}`);
-    }
+    await fileService.moveFile(filePath, newWebPath);
+    return newWebPath;
   }
   
-  return newWebPath;
+  // Если файл уже в постоянной папке, просто проверяем его существование
+  await fileService.validateFileExists(filePath);
+  return filePath;
 }
   // Удалить категорию
   async deleteCategory(id) {

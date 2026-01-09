@@ -80,60 +80,61 @@ class FilesController {
     }
   }
 
-  /**
-   * Удаление файлов
-   */
+
   async deleteFiles(req, res) {
-    try {
-      const { files } = req.body;
-      
-      logger.info(`[DELETE_FILES] Запрос на удаление ${files?.length || 0} файлов`);
+  try {
+    const { files } = req.body;
+    
+    logger.info(`[DELETE_FILES] Запрос на удаление ${files?.length || 0} файлов`);
 
-      // Валидация входных данных
-      if (!files || !Array.isArray(files) || files.length === 0) {
-        logger.warn('[DELETE_FILES] Нет файлов для удаления');
-        return res.status(400).json({
-          success: false,
-          message: "Нет файлов для удаления"
-        });
-      }
-
-      // Проверяем, что все элементы - строки
-      if (files.some(file => typeof file !== 'string')) {
-        logger.warn('[DELETE_FILES] Некорректные данные файлов');
-        return res.status(400).json({
-          success: false,
-          message: "Некорректные данные файлов"
-        });
-      }
-
-      // Удаляем файлы
-      const results = await fileService.deleteFiles(files);
-
-      // Проверяем результат удаления
-      const successfulDeletes = results.filter(r => r.success).length;
-      const failedDeletes = results.filter(r => !r.success);
-
-      if (failedDeletes.length > 0) {
-        logger.warn(`[DELETE_FILES] Не удалось удалить ${failedDeletes.length} файлов`);
-      }
-
-      logger.info(`[DELETE_FILES] Удалено ${successfulDeletes} файлов`);
-
-      return res.status(200).json({ 
-        success: true,
-        message: `Удалено ${successfulDeletes} файлов`,
-        details: results
-      });
-
-    } catch (error) {
-      logger.error(`[DELETE_FILES] ${error.message}`, error);
-      return res.status(500).json({
+    console.log('files', files);
+    
+    // Валидация входных данных
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      logger.warn('[DELETE_FILES] Нет файлов для удаления');
+      return res.status(400).json({
         success: false,
-        message: "Внутренняя ошибка сервера при удалении файлов"
+        message: "Нет файлов для удаления"
       });
     }
+
+    // Проверяем, что все элементы - строки
+    if (files.some(file => typeof file !== 'string')) {
+      logger.warn('[DELETE_FILES] Некорректные данные файлов');
+      return res.status(400).json({
+        success: false,
+        message: "Некорректные данные файлов"
+      });
+    }
+
+    // Удаляем файлы используя новый метод
+    const results = await fileService.deleteFilesByUrls(files);
+
+    // Проверяем результат удаления
+    const successfulDeletes = results.filter(r => r.success).length;
+    const failedDeletes = results.filter(r => !r.success);
+
+    if (failedDeletes.length > 0) {
+      logger.warn(`[DELETE_FILES] Не удалось удалить ${failedDeletes.length} файлов`);
+    }
+
+    logger.info(`[DELETE_FILES] Удалено ${successfulDeletes} файлов`);
+
+    return res.status(200).json({ 
+      success: true,
+      message: `Удалено ${successfulDeletes} файлов`,
+      details: results
+    });
+
+  } catch (error) {
+    logger.error(`[DELETE_FILES] ${error.message}`, error);
+    return res.status(500).json({
+      success: false,
+      message: "Внутренняя ошибка сервера при удалении файлов"
+    });
   }
+}
+
 
   /**
    * Получение информации о файле

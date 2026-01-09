@@ -12,6 +12,8 @@ class ContentBlockController {
     try {
       const { includeInactive } = req.query;
       const items = await this.contentBlockService.getAll(includeInactive === 'true');
+      console.log('items', items);
+      
       res.status(200).json(items);
     } catch (err) {
       next(err);
@@ -56,7 +58,7 @@ class ContentBlockController {
   async create(req, res, next) {
     try {
       const data = req.body;
-      const tempImagePath = data.tempImagePath || null;
+      const tempImagePath = data.imageUrl || null;
 
       await auditLogger.logAdminEvent(
         req.user.id,
@@ -72,7 +74,7 @@ class ContentBlockController {
         `Начало создания контент-блока`
       );
 
-      const item = await this.contentBlockService.create(data, tempImagePath);
+      const item = await this.contentBlockService.create(data, req.user.id);
 
       await auditLogger.logAdminEvent(
         req.user.id,
@@ -146,7 +148,7 @@ class ContentBlockController {
         `Начало обновления контент-блока ${id}`
       );
 
-      const updated = await this.contentBlockService.update(id, data, tempImagePath);
+      const updated = await this.contentBlockService.update(id, data, req.user.id);
 
       // Логируем изменения
       const changes = [];

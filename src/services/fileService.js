@@ -1,9 +1,9 @@
-// services/fileService.js
 const fs = require("fs").promises;
 const path = require("path");
 const crypto = require("crypto");
 const logger = require("../logger/logger");
 const serverConfig = require("../config/serverConfig");
+const FileManager = require("../utils/fileManager"); // Добавляем импорт FileManager
 
 class FileService {
   constructor() {
@@ -110,13 +110,14 @@ class FileService {
   }
 
   /**
-   * Удаление файлов
+   * Удаление файлов по временным именам (старый метод для обратной совместимости)
    */
   async deleteFiles(tempNames) {
     const results = [];
 
     for (const tempName of tempNames) {
       try {
+        // Для временных файлов в папке temp
         const filePath = path.join(this.tempDir, tempName);
         
         // Проверяем существование файла
@@ -157,6 +158,118 @@ class FileService {
     }
 
     return results;
+  }
+
+  async deleteFilesByUrls(fileUrls) {
+  const results = [];
+  
+  for (const fileUrl of fileUrls) {
+    try {
+      logger.info(`[FILE_SERVICE] Удаление файла из массива: ${fileUrl}`);
+      console.log('[FILE_SERVICE] deleteFile вызван с параметром:');
+    console.log('  Значение:', fileUrls);
+    console.log('  Тип:', typeof fileUrls);
+    console.log('  Конструктор:', fileUrls?.constructor?.name);
+    
+    if (fileUrls) {
+      console.log('  String():', String(fileUrls));
+    }
+    
+    logger.info(`[FILE_SERVICE] Удаление файла: ${fileUrls}`);
+
+      // Используем FileManager для удаления
+      const success = await FileManager.deleteFile(fileUrl);
+      
+      // Если это был временный файл, очищаем метаданные
+      if (fileUrl.includes('/temp/')) {
+        const filename = path.basename(fileUrl);
+        await this.cleanupMetadata(filename);
+      }
+      
+      results.push({ 
+        success: true, 
+        fileUrl, 
+        message: 'Файл успешно удален' 
+      });
+      
+      logger.info(`[FILE_SERVICE] Файл удален: ${fileUrl}`);
+      
+    } catch (error) {
+      logger.error(`[FILE_SERVICE] Ошибка удаления файла ${fileUrl}:`, error);
+      results.push({ 
+        success: false, 
+        fileUrl, 
+        error: error.message 
+      });
+    }
+  }
+  
+  return results;
+}
+
+
+
+  /**
+   * Удаление файла по полному URL или пути (новый метод)
+   */
+  async deleteFile(filePathOrUrl) {
+    try {
+      logger.info(`[FILE_SERVICE] Удаление файла: ${filePathOrUrl}`);
+      
+      // Используем FileManager для удаления
+      const result = await FileManager.deleteFile(filePathOrUrl);
+      
+      // Если это был временный файл, очищаем метаданные
+      if (filePathOrUrl.includes('/temp/')) {
+        const filename = path.basename(filePathOrUrl);
+        await this.cleanupMetadata(filename);
+      }
+      
+      return result;
+    } catch (error) {
+      logger.error(`[FILE_SERVICE] Ошибка удаления файла ${filePathOrUrl}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Перемещение файла
+   */
+  async moveFile(sourcePath, targetPath) {
+    try {
+      logger.info(`[FILE_SERVICE] Перемещение файла: ${sourcePath} -> ${targetPath}`);
+      return await FileManager.moveFile(sourcePath, targetPath);
+    } catch (error) {
+      logger.error(`[FILE_SERVICE] Ошибка перемещения файла: ${error.message}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Проверка существования файла
+   */
+  async validateFileExists(filePath) {
+    try {
+      logger.debug(`[FILE_SERVICE] Проверка существования файла: ${filePath}`);
+      return await FileManager.validateFileExists(filePath);
+    } catch (error) {
+      logger.error(`[FILE_SERVICE] Ошибка проверки файла: ${error.message}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Получение абсолютного пути
+   */
+  getAbsolutePath(filePath) {
+    return FileManager.getAbsolutePath(filePath);
+  }
+
+  /**
+   * Получение URL файла
+   */
+  getFileUrl(filePath) {
+    return FileManager.getFileUrl(filePath);
   }
 
   /**

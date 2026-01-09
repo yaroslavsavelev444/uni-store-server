@@ -36,10 +36,8 @@ static async validateFileExists(filePath) {
       
       // Альтернативные пути для проверки
       const possiblePaths = [
-        absolutePath,
-        path.join(process.cwd(), 'src', filePath.substring(1)), // /app/src/uploads/temp/...
-        path.join(__dirname, '..', '..', filePath.substring(1)), // для Docker контейнера
-      ];
+  absolutePath,
+];
       
       console.log(`[FILE_MANAGER] Возможные пути:`, possiblePaths);
       
@@ -77,36 +75,79 @@ static async validateFileExists(filePath) {
     throw new Error(`Ошибка при проверке файла ${originalFilePath}: ${error.message}`);
   }
 }
+
   /**
-   * Удаляет файл
-   * @param {string} filePath - путь к файлу
-   * @returns {Promise<boolean>} - true если файл удален
-   */
-  static async deleteFile(filePath) {
-    try {
-      // Если путь относительный (начинается с /uploads)
-      if (filePath.startsWith('/uploads/')) {
-        // Преобразуем в абсолютный путь
-        const absolutePath = path.join(__dirname, '..', '..', filePath);
-        await fs.unlink(absolutePath);
-        console.log(`Файл удален: ${filePath}`);
-        return true;
+ * Удаляет файл по полному URL или пути
+ * @param {string} filePathOrUrl - полный URL или путь к файлу
+ * @returns {Promise<boolean>} - true если файл удален или не существует
+ */
+// utils/fileManager.js - обновим метод deleteFile
+
+static async deleteFile(filePathOrUrl) {
+  console.log(`[FILE_MANAGER] Удаление файла: ${filePathOrUrl}`);
+  
+  try {
+    let filePath = filePathOrUrl;
+    
+    // Проверяем что это строка
+    if (typeof filePath !== 'string') {
+      throw new Error(`Некорректный тип пути: ${typeof filePath}`);
+    }
+    
+    // Если это полный URL, извлекаем путь
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      try {
+        const url = new URL(filePath);
+        filePath = url.pathname;
+        
+        // Декодируем URL-encoded символы
+        filePath = decodeURIComponent(filePath);
+        console.log(`[FILE_MANAGER] Извлечен путь из URL: ${filePath}`);
+      } catch (urlError) {
+        throw new Error(`Некорректный URL: ${filePath}`);
       }
-      
-      // Если путь абсолютный
-      await fs.unlink(filePath);
-      console.log(`Файл удален: ${filePath}`);
-      return true;
+    }
+    
+    // Проверяем, что путь ведет в uploads (безопасность)
+    if (!filePath.startsWith('/uploads/')) {
+      throw new Error(`Недопустимый путь: ${filePath}. Разрешены только пути в папке /uploads/`);
+    }
+    
+    // Получаем абсолютный путь
+    const absolutePath = this.getAbsolutePath(filePath);
+    console.log(`[FILE_MANAGER] Абсолютный путь для удаления: ${absolutePath}`);
+    
+    // Проверяем существование файла
+    try {
+      await fs.access(absolutePath);
+      console.log(`[FILE_MANAGER] Файл найден для удаления: ${absolutePath}`);
     } catch (error) {
       if (error.code === 'ENOENT') {
-        console.warn(`Файл не найден при удалении: ${filePath}`);
-        return false;
+        console.warn(`[FILE_MANAGER] Файл не найден при удалении: ${filePath}`);
+        return true; // Файл уже не существует, считаем успешным
       }
-      console.error(`Ошибка при удалении файла ${filePath}:`, error);
       throw error;
     }
+    
+    // Удаляем файл
+    await fs.unlink(absolutePath);
+    console.log(`[FILE_MANAGER] Файл успешно удален: ${filePath}`);
+    
+    return true;
+  } catch (error) {
+    console.error(`[FILE_MANAGER] Ошибка при удалении файла ${filePathOrUrl}:`, error);
+    
+    // Если это наша ошибка безопасности, просто пробрасываем
+    if (error.message.includes('Недопустимый путь') || 
+        error.message.includes('Некорректный тип') ||
+        error.message.includes('Некорректный URL')) {
+      throw error;
+    }
+    
+    // Для других ошибок создаем более информативное сообщение
+    throw new Error(`Ошибка удаления файла: ${error.message}`);
   }
-
+}
   /**
    * Перемещает файл
    * @param {string} sourcePath - исходный путь
@@ -114,46 +155,52 @@ static async validateFileExists(filePath) {
    * @returns {Promise<string>} - новый путь к файлу
    */
   static async moveFile(sourcePath, targetPath) {
-    try {
-      let sourceAbsolute, targetAbsolute;
-      
-      // Обрабатываем исходный путь
-      if (sourcePath.startsWith('/uploads/')) {
-        sourceAbsolute = path.join(__dirname, '..', '..', sourcePath);
-      } else {
-        sourceAbsolute = sourcePath;
-      }
-      
-      // Обрабатываем целевой путь
-      if (targetPath.startsWith('/uploads/')) {
-        targetAbsolute = path.join(__dirname, '..', '..', targetPath);
-        
-        // Создаем директорию если нужно
-        const targetDir = path.dirname(targetAbsolute);
-        await fs.mkdir(targetDir, { recursive: true });
-      } else {
-        targetAbsolute = targetPath;
-        const targetDir = path.dirname(targetAbsolute);
-        await fs.mkdir(targetDir, { recursive: true });
-      }
-      
-      // Проверяем существование исходного файла
-      await fs.access(sourceAbsolute);
-      
-      // Перемещаем файл
-      await fs.rename(sourceAbsolute, targetAbsolute);
-      
-      console.log(`Файл перемещен: ${sourcePath} -> ${targetPath}`);
-      
-      // Возвращаем целевой путь (относительный или абсолютный, в зависимости от входных данных)
-      return targetPath;
-    } catch (error) {
-      if (error.code === 'ENOENT' && error.path === sourceAbsolute) {
-        throw new Error(`Исходный файл не найден: ${sourcePath}`);
-      }
-      throw new Error(`Ошибка при перемещении файла: ${error.message}`);
+  try {
+    // Извлекаем пути из URL если это полные URL
+    let source = sourcePath;
+    let target = targetPath;
+    
+    if (source.startsWith('http://') || source.startsWith('https://')) {
+      const url = new URL(source);
+      source = url.pathname;
+      source = decodeURIComponent(source);
     }
+    
+    if (target.startsWith('http://') || target.startsWith('https://')) {
+      const url = new URL(target);
+      target = url.pathname;
+      target = decodeURIComponent(target);
+    }
+    
+    // Проверяем безопасность путей
+    if (!source.startsWith('/uploads/') || !target.startsWith('/uploads/')) {
+      throw new Error('Недопустимые пути. Разрешены только пути в папке /uploads/');
+    }
+    
+    // Получаем абсолютные пути
+    const sourceAbsolute = this.getAbsolutePath(source);
+    const targetAbsolute = this.getAbsolutePath(target);
+    
+    // Создаем директорию назначения если нет
+    const targetDir = path.dirname(targetAbsolute);
+    await fs.mkdir(targetDir, { recursive: true });
+    
+    // Проверяем существование исходного файла
+    await fs.access(sourceAbsolute);
+    
+    // Перемещаем файл
+    await fs.rename(sourceAbsolute, targetAbsolute);
+    
+    console.log(`[FILE_MANAGER] Файл перемещен: ${source} -> ${target}`);
+    
+    return target;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new Error(`Исходный файл не найден: ${sourcePath}`);
+    }
+    throw new Error(`Ошибка при перемещении файла: ${error.message}`);
   }
+}
 
 
   /**
@@ -282,7 +329,7 @@ static async validateFileExists(filePath) {
         return [];
       }
 
-      const uploadsDir = path.join(__dirname, '..', 'uploads');
+      const uploadsDir = path.join(process.cwd(), 'uploads');
       const tempDir = path.join(uploadsDir, 'temp');
       const targetPath = path.join(uploadsDir, targetDir);
 
@@ -408,7 +455,7 @@ static async validateFileExists(filePath) {
         return;
       }
 
-      const uploadsDir = path.join(__dirname, '..', 'uploads');
+      const uploadsDir = path.join(process.cwd(), 'uploads');
       const tempDir = path.join(uploadsDir, 'temp');
 
       for (const tempFile of tempFiles) {
@@ -503,10 +550,8 @@ static getAbsolutePath(filePath) {
     
     // Основные возможные пути
     const possiblePaths = [
-      path.join(process.cwd(), relativePath),                     // /app/uploads/temp/...
-      path.join(process.cwd(), 'src', relativePath),              // /app/src/uploads/temp/...
-      path.join(__dirname, '..', '..', relativePath),             // из utils/fileManager.js
-    ];
+  path.join(process.cwd(), relativePath),
+];
     
     console.log(`[FILE_MANAGER] Проверяемые пути для ${filePath}:`, possiblePaths);
     
@@ -523,7 +568,7 @@ static getAbsolutePath(filePath) {
     }
     
     // Если ничего не найдено, возвращаем наиболее вероятный путь
-    const defaultPath = path.join(process.cwd(), 'src', relativePath);
+    const defaultPath = path.join(process.cwd(), relativePath);
     console.log(`[FILE_MANAGER] Используем путь по умолчанию: ${defaultPath}`);
     return defaultPath;
   }
