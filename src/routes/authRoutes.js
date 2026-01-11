@@ -30,7 +30,7 @@ router.post("/register", DeviceAuthManager.createAuthMiddleware(), authControlle
 router.post("/login", ipLimiter, emailLimiter,DeviceAuthManager.createAuthMiddleware(), authController.login);
 router.post("/logout", authMiddleware(['all']), authController.logout);
 router.get("/refresh", authMiddleware.refreshMiddleware(), authController.refresh);
-router.post("/check", authController.check);
+router.post("/check", authMiddleware(['all']), authController.check);
 
 // UPDATES
 router.post(

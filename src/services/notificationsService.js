@@ -25,6 +25,7 @@ const markNotificationAsReadService = async (ids) => {
 
   return { success: true };
 };
+
 const deleteNotificationsService = async (user) => {
   await NotificationModel.deleteMany({ userId: user.id });
   return { success: true };

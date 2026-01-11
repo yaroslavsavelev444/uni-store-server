@@ -1,4 +1,4 @@
-// validators/order.validator.js (обновленный)
+// validators/order.validator.js (с логированием)
 const Joi = require('joi');
 const mongoose = require('mongoose');
 const { OrderStatus, DeliveryMethod } = require('../models/order-model');
@@ -30,6 +30,18 @@ const savePreferencesSchema = Joi.object({
   saveCompany: Joi.boolean().default(false)
 });
 
+// Функция для логирования
+const logValidation = (data, step) => {
+  console.log(`\n=== ВАЛИДАЦИЯ ИНН (${step}) ===`);
+  console.log('Полученные данные:', JSON.stringify(data, null, 2));
+  console.log('Тип taxNumber:', typeof data.taxNumber);
+  console.log('Значение taxNumber:', data.taxNumber);
+  console.log('Длина taxNumber:', data.taxNumber ? data.taxNumber.length : 0);
+  console.log('Очищенный taxNumber:', data.taxNumber ? data.taxNumber.replace(/\s/g, '') : '');
+  console.log('Все newCompanyData:', data);
+  console.log('===========================\n');
+};
+
 // Схема для данных новой компании
 const newCompanySchema = Joi.object({
   companyName: Joi.string().required().min(3).max(200)
@@ -51,22 +63,112 @@ const newCompanySchema = Joi.object({
   taxNumber: Joi.string()
     .required()
     .custom((value, helpers) => {
-      // Убираем все пробелы для проверки
-      const cleaned = value.replace(/\s/g, '');
+      // Логируем входные данные
+      console.log(`\n=== ВАЛИДАЦИЯ ИНН (кастомная функция) ===`);
+      console.log('Входящее значение value:', value);
+      console.log('Тип value:', typeof value);
+      
+      // Убираем все пробелы и другие разделители для проверки
+      const cleaned = value ? value.toString().replace(/\s/g, '') : '';
+      console.log('Очищенный cleaned:', cleaned);
+      console.log('Длина cleaned:', cleaned.length);
+      console.log('Это только цифры?', /^\d+$/.test(cleaned));
       
       if (!/^\d+$/.test(cleaned)) {
+        console.log('❌ Ошибка: ИНН содержит не только цифры');
         return helpers.message('ИНН должен содержать только цифры');
       }
       
       if (cleaned.length !== 10 && cleaned.length !== 12) {
+        console.log(`❌ Ошибка: длина ${cleaned.length}, нужно 10 или 12`);
         return helpers.message('ИНН должен содержать 10 или 12 цифр');
       }
       
-      return value; // Возвращаем оригинальное значение с пробелами
+      // Проверка контрольной суммы для 10-значного ИНН
+      if (cleaned.length === 10) {
+        console.log('🔍 Проверка 10-значного ИНН');
+        const weights = [2, 4, 10, 3, 5, 9, 4, 6, 8];
+        let sum = 0;
+        
+        console.log('Цифры ИНН:', cleaned.split(''));
+        console.log('Веса:', weights);
+        
+        for (let i = 0; i < 9; i++) {
+          const digit = parseInt(cleaned[i]);
+          const weight = weights[i];
+          const product = digit * weight;
+          sum += product;
+          console.log(`[${i}] ${digit} * ${weight} = ${product} (сумма: ${sum})`);
+        }
+        
+        const controlNumber = (sum % 11) % 10;
+        console.log(`Сумма: ${sum}`);
+        console.log(`Сумма % 11: ${sum % 11}`);
+        console.log(`Ожидаемая контрольная цифра: ${controlNumber}`);
+        console.log(`Фактическая 10-я цифра: ${parseInt(cleaned[9])}`);
+        
+        if (parseInt(cleaned[9]) !== controlNumber) {
+          console.log(`❌ Ошибка: ${parseInt(cleaned[9])} !== ${controlNumber}`);
+          return helpers.message('Неверный ИНН (неверная контрольная сумма)');
+        } else {
+          console.log('✅ Контрольная сумма верна');
+        }
+      }
+      
+      // Проверка контрольной суммы для 12-значного ИНН
+      if (cleaned.length === 12) {
+        console.log('🔍 Проверка 12-значного ИНН');
+        const weights11 = [7, 2, 4, 10, 3, 5, 9, 4, 6, 8];
+        const weights12 = [3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8];
+        let sum11 = 0;
+        let sum12 = 0;
+        
+        console.log('Цифры ИНН:', cleaned.split(''));
+        
+        // Первая контрольная цифра (11-я в номере)
+        console.log('\nПервая контрольная цифра (11-я):');
+        for (let i = 0; i < 10; i++) {
+          const digit = parseInt(cleaned[i]);
+          const weight = weights11[i];
+          const product = digit * weight;
+          sum11 += product;
+          console.log(`[${i}] ${digit} * ${weight} = ${product} (сумма11: ${sum11})`);
+        }
+        
+        // Вторая контрольная цифра (12-я в номере)
+        console.log('\nВторая контрольная цифра (12-я):');
+        for (let i = 0; i < 11; i++) {
+          const digit = parseInt(cleaned[i]);
+          const weight = weights12[i];
+          const product = digit * weight;
+          sum12 += product;
+          console.log(`[${i}] ${digit} * ${weight} = ${product} (сумма12: ${sum12})`);
+        }
+        
+        const controlNumber11 = (sum11 % 11) % 10;
+        const controlNumber12 = (sum12 % 11) % 10;
+        
+        console.log(`\nСумма11: ${sum11}, %11: ${sum11 % 11}, контрольная11: ${controlNumber11}`);
+        console.log(`Сумма12: ${sum12}, %11: ${sum12 % 11}, контрольная12: ${controlNumber12}`);
+        console.log(`Фактическая 11-я цифра: ${parseInt(cleaned[10])}`);
+        console.log(`Фактическая 12-я цифра: ${parseInt(cleaned[11])}`);
+        
+        if (parseInt(cleaned[10]) !== controlNumber11 || 
+            parseInt(cleaned[11]) !== controlNumber12) {
+          console.log(`❌ Ошибка: ${parseInt(cleaned[10])} !== ${controlNumber11} или ${parseInt(cleaned[11])} !== ${controlNumber12}`);
+          return helpers.message('Неверный ИНН (неверная контрольная сумма)');
+        } else {
+          console.log('✅ Контрольные суммы верны');
+        }
+      }
+      
+      console.log('✅ ИНН прошел валидацию');
+      return value; // Возвращаем оригинальное значение
     }, 'Валидация ИНН')
     .messages({
       'any.required': 'Укажите ИНН',
     }),
+
   contactPerson: Joi.string().max(100)
     .messages({
       'string.max': 'Имя контактного лица слишком длинное'
@@ -181,6 +283,14 @@ const createOrderValidator = Joi.object({
   userAgent: Joi.string(),
   source: Joi.string().valid('web', 'mobile', 'api', 'admin')
 }).custom((value, helpers) => {
+  // Логируем все входящие данные
+  console.log('\n=== ВСЕ ВХОДЯЩИЕ ДАННЫЕ ЗАКАЗА ===');
+  console.log(JSON.stringify(value, null, 2));
+  
+  if (value.newCompanyData) {
+    logValidation(value.newCompanyData, 'custom validation');
+  }
+  
   // Кастомная валидация - не должно быть одновременно транспортной компании и пункта выдачи
   if (value.deliveryMethod === 'delivery' && value.pickupPointId) {
     return helpers.error('any.invalid', {
@@ -206,14 +316,21 @@ const createOrderValidator = Joi.object({
   'any.invalid': '{{#label}} - {{#message}}'
 });
 
-// Middleware для валидации
+// Middleware для валидации (с логированием)
 const validateCreateOrder = (req, res, next) => {
+  console.log('\n=== НАЧАЛО ВАЛИДАЦИИ ЗАКАЗА ===');
+  console.log('Тело запроса:', JSON.stringify(req.body, null, 2));
+  console.log('newCompanyData в теле:', req.body.newCompanyData);
+  
   const { error, value } = createOrderValidator.validate(req.body, {
     abortEarly: false,
     stripUnknown: true
   });
   
   if (error) {
+    console.log('\n=== ОШИБКИ ВАЛИДАЦИИ ===');
+    console.log('Ошибки:', JSON.stringify(error.details, null, 2));
+    
     const errors = error.details.map(detail => ({
       field: detail.path.join('.'),
       message: detail.message
@@ -225,6 +342,9 @@ const validateCreateOrder = (req, res, next) => {
       errors
     });
   }
+  
+  console.log('\n=== УСПЕШНАЯ ВАЛИДАЦИЯ ===');
+  console.log('Валидированные данные:', JSON.stringify(value, null, 2));
   
   // Определяем, является ли заказ от компании
   value.isCompany = !!(value.existingCompanyId || value.newCompanyData);
