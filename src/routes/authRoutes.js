@@ -29,8 +29,8 @@ const emailLimiter = createRedisRateLimiter({
 router.post("/register", DeviceAuthManager.createAuthMiddleware(), authController.register);
 router.post("/login", ipLimiter, emailLimiter,DeviceAuthManager.createAuthMiddleware(), authController.login);
 router.post("/logout", authMiddleware(['all']), authController.logout);
-router.get("/refresh", authController.refresh); 
-router.post("/check", authController.check);     
+router.get("/refresh", authMiddleware.refreshMiddleware(), authController.refresh);
+router.post("/check", authController.check);
 
 // UPDATES
 router.post(
