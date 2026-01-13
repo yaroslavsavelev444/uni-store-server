@@ -40,9 +40,9 @@ const auditEnvConfig =
 ========================= */
 
 const allowedOriginsProd = [
-  "https://npo-polet.store",
+  "https://api.npo-polet.ru",
   "https://npo-polet.ru",
-  "https://www.npo-polet.store",
+  "https://www.api.npo-polet.ru",
 ];
 
 const allowedOriginsDev = [

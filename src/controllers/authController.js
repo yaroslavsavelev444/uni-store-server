@@ -184,11 +184,9 @@ const logout = async (req, res, next) => {
 };
 const refresh = async (req, res, next) => {
   try {
-    // 1. Ищем refreshToken во ВСЕХ возможных местах
+    // Ищем refreshToken
     let refreshToken = req.cookies?.refreshToken || 
-                      req.headers["refresh-token"] || 
-                      req.headers["x-refresh-token"] ||
-                      req.body?.refreshToken;
+                      req.headers["refresh-token"];
 
     if (!refreshToken) {
       throw ApiError.BadRequest("refreshToken не передан");
@@ -215,39 +213,27 @@ const refresh = async (req, res, next) => {
           userAgent,
           deviceType: req.deviceType || "unknown",
           tokenRefreshed: true,
-          source: req.cookies?.refreshToken ? "cookie" : 
-                 req.headers["refresh-token"] ? "header" : 
-                 req.body?.refreshToken ? "body" : "unknown",
+          source: req.cookies?.refreshToken ? "cookie" : "header",
         }
       );
     }
 
-    const isBrowser = req.useragent?.isDesktop || req.useragent?.browser !== "unknown" || 
-                     (req.headers["user-agent"] && req.headers["user-agent"].includes("Mozilla"));
+    // Всегда обновляем cookie
+    const isProd = process.env.NODE_ENV === "production";
+    const isHTTPS = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https";
+    
+    res.cookie("refreshToken", userData.refreshToken, {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: isProd || isHTTPS,
+      sameSite: isProd ? "Strict" : "Lax",
+      domain: isProd ? ".npo-polet.ru" : undefined,
 
-    // 2. ВСЕГДА устанавливаем cookie для браузеров
-    if (isBrowser) {
-      const isProd = process.env.NODE_ENV === "production";
-      const isHTTPS = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https";
-      
-      res.cookie("refreshToken", userData.refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
-        httpOnly: true,
-        secure: isProd || isHTTPS,
-        sameSite: isProd ? "None" : "Lax", // "None" для кросс-домена
-        path: "/",
-      });
-    }
+      path: "/",
+    });
 
-    // 3. ВСЕГДА возвращаем refreshToken в теле ответа
     return res.json({
       ...userData,
-      refreshToken: userData.refreshToken, // ← ВСЕГДА дублируем в теле
-      _meta: {
-        cookieSet: isBrowser,
-        sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-        timestamp: new Date().toISOString(),
-      }
     });
 
   } catch (e) {
@@ -268,7 +254,6 @@ const refresh = async (req, res, next) => {
     next(e);
   }
 };
-
 const updateUser = async (req, res, next) => {
   try {
     const userData = req.body;
@@ -373,34 +358,23 @@ const verify2faCode = async (req, res, next) => {
       }
     );
 
-    const isBrowser = req.useragent.isDesktop || req.useragent.browser !== "unknown";
+    // Всегда устанавливаем HTTP-only cookie (теперь один домен)
+    const isProd = process.env.NODE_ENV === "production";
+    const isHTTPS = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https";
+    
+    res.cookie("refreshToken", userData.refreshToken, {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
+      httpOnly: true,
+      secure: isProd || isHTTPS,
+      sameSite: isProd ? "Strict" : "Lax", // Теперь можно Strict/Lax
+      domain: isProd ? ".npo-polet.ru" : undefined,
+      path: "/",
+    });
 
-    // КРИТИЧЕСКИ ВАЖНО: ВСЕГДА устанавливаем cookie для браузеров
-    if (isBrowser) {
-      const isProd = process.env.NODE_ENV === "production";
-      const isHTTPS = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https";
-      
-      // 1. ВСЕГДА УСТАНАВЛИВАЕМ HTTP-ONLY COOKIE
-      res.cookie("refreshToken", userData.refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
-        httpOnly: true,
-        secure: isProd || isHTTPS,
-        sameSite: isProd ? "None" : "Lax", // "None" обязательно для кросс-домена
-        path: "/",
-      });
-    }
-
-    // 2. ВСЕГДА ВОЗВРАЩАЕМ refreshToken В ТЕЛЕ ОТВЕТА
     return res.status(200).json({
       success: true,
       userData,
       user: userData.user,
-      refreshToken: userData.refreshToken, // ← ВСЕГДА возвращаем в теле
-      _meta: {
-        cookieSet: isBrowser,
-        sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-        timestamp: new Date().toISOString(),
-      }
     });
 
   } catch (e) {
@@ -573,11 +547,9 @@ const check = async (req, res, next) => {
   try {
     const accessToken = req.headers.authorization?.split(" ")[1];
     
-    // 1. Ищем refreshToken ВЕЗДЕ
-    let refreshToken = req.cookies?.refreshToken || 
-                      req.headers["refresh-token"] || 
-                      req.headers["x-refresh-token"] ||
-                      req.body?.refreshToken;
+    // Ищем refreshToken
+    let refreshToken = req.cookies.refreshToken || 
+                      req.headers["refresh-token"];
 
     if (!accessToken || !refreshToken) {
       console.log("[CHECK] Tokens missing:", {
@@ -585,7 +557,6 @@ const check = async (req, res, next) => {
         refreshToken: !!refreshToken,
         cookies: !!req.cookies?.refreshToken,
         headers: !!req.headers["refresh-token"],
-        body: !!req.body?.refreshToken
       });
       throw ApiError.BadRequest("Токены не переданы");
     }
@@ -609,39 +580,28 @@ const check = async (req, res, next) => {
           ip,
           tokenValid: true,
           deviceType: req.deviceType || "unknown",
-          tokenSource: req.cookies?.refreshToken ? "cookie" : 
-                     req.headers["refresh-token"] ? "header" : 
-                     req.body?.refreshToken ? "body" : "unknown",
+          tokenSource: req.cookies?.refreshToken ? "cookie" : "header",
         }
       );
     }
 
-    const isBrowser = req.useragent?.isDesktop || req.useragent?.browser !== "unknown" ||
-                     (req.headers["user-agent"] && req.headers["user-agent"].includes("Mozilla"));
-
-    // 2. ВСЕГДА обновляем cookie если это браузер
-    if (isBrowser && userData.refreshToken !== refreshToken) {
-      const isProd = process.env.NODE_ENV === "production";
-      const isHTTPS = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https";
-
+    // Обновляем cookie если токен изменился
+    const isProd = process.env.NODE_ENV === "production";
+    const isHTTPS = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https";
+    
+    if (userData.refreshToken !== refreshToken) {
       res.cookie("refreshToken", userData.refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
+        maxAge: 30 * 24 * 60 * 60 * 1000,
         httpOnly: true,
         secure: isProd || isHTTPS,
-        sameSite: isProd ? "None" : "Lax",
+        sameSite: isProd ? "Strict" : "Lax",
+        domain: isProd ? ".npo-polet.ru" : undefined, // <- КОРНЕВОЙ ДОМЕН С ТОЧКОЙ
         path: "/",
       });
     }
 
-    // 3. ВСЕГДА возвращаем refreshToken в теле ответа
     return res.json({
       ...userData,
-      refreshToken: userData.refreshToken, // ← ВСЕГДА дублируем
-      _meta: {
-        cookieRefreshed: isBrowser && userData.refreshToken !== refreshToken,
-        sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-        timestamp: new Date().toISOString(),
-      }
     });
 
   } catch (e) {
