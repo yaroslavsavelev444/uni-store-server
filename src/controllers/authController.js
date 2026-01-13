@@ -236,7 +236,6 @@ const refresh = async (req, res, next) => {
         secure: isProd || isHTTPS,
         sameSite: isProd ? "None" : "Lax", // "None" для кросс-домена
         path: "/",
-        domain: isProd ? ".npo-polet.store" : undefined,
       });
     }
 
@@ -388,7 +387,6 @@ const verify2faCode = async (req, res, next) => {
         secure: isProd || isHTTPS,
         sameSite: isProd ? "None" : "Lax", // "None" обязательно для кросс-домена
         path: "/",
-        domain: isProd ? ".npo-polet.store" : undefined, // Доменное cookie для subdomain
       });
     }
 
@@ -632,7 +630,6 @@ const check = async (req, res, next) => {
         secure: isProd || isHTTPS,
         sameSite: isProd ? "None" : "Lax",
         path: "/",
-        domain: isProd ? ".npo-polet.store" : undefined,
       });
     }
 
