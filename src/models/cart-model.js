@@ -76,12 +76,13 @@ CartSchema.statics.findByUser = function(userId) {
   return this.findOne({ user: userId })
     .populate({
       path: "items.product",
-      select: "title priceForIndividual finalPriceForIndividual discount stockQuantity reservedQuantity minOrderQuantity maxOrderQuantity status isVisible mainImage sku",
+      select: "title priceForIndividual finalPriceForIndividual discount stockQuantity reservedQuantity minOrderQuantity maxOrderQuantity status isVisible images sku weight",
       match: { 
         status: { $in: ["available", "preorder"] },
         isVisible: true 
       }
     });
 };
+
 
 module.exports = model("Cart", CartSchema);

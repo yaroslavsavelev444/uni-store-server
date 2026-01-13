@@ -1,4 +1,6 @@
 const { Schema, model, Types } = require("mongoose");
+const fileService = require('../utils/fileManager');
+
 
 const ProductStatus = {
   AVAILABLE: "available",
@@ -138,7 +140,6 @@ const ProductSchema = new Schema(
       index: true 
     },
 
-    // Медиа
     mainImage: { 
       type: String,
       validate: {
@@ -165,7 +166,6 @@ const ProductSchema = new Schema(
       }
     ],
     
-    // Инструкция (может быть файлом или ссылкой)
     instruction: {
       type: {
         type: String,
@@ -228,6 +228,7 @@ const ProductSchema = new Schema(
       alt: { type: String, maxlength: 255 },
       mimetype: { type: String }
     },
+
 
     // Технические характеристики
     specifications: [
@@ -356,6 +357,91 @@ ProductSchema.virtual("finalPriceForIndividual").get(function () {
   return Math.round(finalPrice * 100) / 100;
 });
 
+
+// Функция для проверки, нужно ли обрабатывать URL
+const shouldProcessUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  
+  // Не обрабатываем если уже полный URL
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return false;
+  }
+  
+  // Обрабатываем только локальные пути
+  return url.startsWith('/uploads/');
+};
+
+// Функция для обработки одного документа
+const processProductDocument = (doc) => {
+  if (!doc || typeof doc !== 'object') return doc;
+  
+  // Обработка mainImage (если есть)
+  if (doc.mainImage && shouldProcessUrl(doc.mainImage)) {
+    doc.mainImage = fileService.getFileUrl(doc.mainImage);
+  }
+  
+  // Обработка массива images
+  if (doc.images && Array.isArray(doc.images)) {
+    doc.images = doc.images.map(image => {
+      if (image && image.url && shouldProcessUrl(image.url)) {
+        return {
+          ...image,
+          url: fileService.getFileUrl(image.url)
+        };
+      }
+      return image;
+    });
+  }
+  
+  // Обработка инструкции
+  if (doc.instruction && doc.instruction.url && shouldProcessUrl(doc.instruction.url)) {
+    doc.instruction = {
+      ...doc.instruction,
+      url: fileService.getFileUrl(doc.instruction.url)
+    };
+  }
+  
+  // Дополнительно: обработка specifications если там есть изображения
+  if (doc.specifications && Array.isArray(doc.specifications)) {
+    doc.specifications = doc.specifications.map(spec => {
+      if (spec.value && typeof spec.value === 'string' && shouldProcessUrl(spec.value)) {
+        return {
+          ...spec,
+          value: fileService.getFileUrl(spec.value)
+        };
+      }
+      return spec;
+    });
+  }
+  
+  return doc;
+};
+
+// Middleware для обработки результатов запросов
+ProductSchema.post(['find', 'findOne', 'findById'], function(docs) {
+  if (!docs) return docs;
+  
+  if (Array.isArray(docs)) {
+    return docs.map(processProductDocument);
+  }
+  
+  return processProductDocument(docs);
+});
+
+// Middleware для агрегации (чтобы работало с aggregate)
+ProductSchema.post('aggregate', function(docs) {
+  if (!docs || !Array.isArray(docs)) return docs;
+  
+  return docs.map(processProductDocument);
+});
+
+// Middleware для toJSON (если вызывается вручную)
+ProductSchema.methods.toJSON = function() {
+  const obj = this.toObject ? this.toObject() : this;
+  return processProductDocument(obj);
+};
+
+
 // Индексы
 ProductSchema.index({ sku: 1 }, { unique: true });
 ProductSchema.index({ status: 1, isVisible: 1 });
@@ -396,6 +482,23 @@ ProductSchema.methods.incrementPurchases = function(quantity = 1) {
   this.purchasesCount += quantity;
   return this.save();
 };
+
+// Дополнительные статические методы с автоматической обработкой
+ProductSchema.statics.findWithProcessedUrls = async function(...args) {
+  const docs = await this.find(...args);
+  return Array.isArray(docs) ? docs.map(processProductDocument) : processProductDocument(docs);
+};
+
+ProductSchema.statics.findOneWithProcessedUrls = async function(...args) {
+  const doc = await this.findOne(...args);
+  return processProductDocument(doc);
+};
+
+ProductSchema.statics.findByIdWithProcessedUrls = async function(id, ...args) {
+  const doc = await this.findById(id, ...args);
+  return processProductDocument(doc);
+};
+
 
 module.exports = model("Product", ProductSchema);
 module.exports.ProductStatus = ProductStatus;

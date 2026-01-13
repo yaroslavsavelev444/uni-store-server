@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const xss = require('xss');
+const fileService = require('../utils/fileManager');
 
 const contentBlockSchema = new mongoose.Schema({
   // Основные поля
@@ -109,9 +110,102 @@ const contentBlockSchema = new mongoose.Schema({
     default: Date.now
   }
 }, {
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toJSON: { 
+    virtuals: true,
+    transform: function(doc, ret) {
+      delete ret.__v;
+      return ret;
+    }
+  },
+  toObject: { 
+    virtuals: true,
+    transform: function(doc, ret) {
+      delete ret.__v;
+      return ret;
+    }
+  }
 });
+
+// Функция для проверки, нужно ли обрабатывать URL
+const shouldProcessUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  
+  // Не обрабатываем если уже полный URL
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return false;
+  }
+  
+  // Обрабатываем только локальные пути
+  return url.startsWith('/uploads/');
+};
+
+// Функция для обработки одного документа ContentBlock
+const processContentBlockDocument = (doc) => {
+  if (!doc || typeof doc !== 'object') return doc;
+  
+  // Обработка imageUrl
+  if (doc.imageUrl && shouldProcessUrl(doc.imageUrl)) {
+    doc.imageUrl = fileService.getFileUrl(doc.imageUrl);
+  }
+  
+  // Обработка button.action если это локальный путь
+  if (doc.button && doc.button.action && shouldProcessUrl(doc.button.action)) {
+    doc.button = {
+      ...doc.button,
+      action: fileService.getFileUrl(doc.button.action)
+    };
+  }
+  
+  // Обработка метаданных если там есть URL
+  if (doc.metadata && typeof doc.metadata === 'object') {
+    // Проверяем все строковые поля в metadata
+    const processMetadata = (metadata) => {
+      for (const [key, value] of Object.entries(metadata)) {
+        if (typeof value === 'string' && shouldProcessUrl(value)) {
+          metadata[key] = fileService.getFileUrl(value);
+        } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+          processMetadata(value);
+        } else if (Array.isArray(value)) {
+          metadata[key] = value.map(item => {
+            if (typeof item === 'string' && shouldProcessUrl(item)) {
+              return fileService.getFileUrl(item);
+            }
+            return item;
+          });
+        }
+      }
+      return metadata;
+    };
+    
+    doc.metadata = processMetadata(doc.metadata);
+  }
+  
+  return doc;
+};
+
+// Middleware для обработки результатов запросов
+contentBlockSchema.post(['find', 'findOne', 'findById'], function(docs) {
+  if (!docs) return docs;
+  
+  if (Array.isArray(docs)) {
+    return docs.map(processContentBlockDocument);
+  }
+  
+  return processContentBlockDocument(docs);
+});
+
+// Middleware для агрегации
+contentBlockSchema.post('aggregate', function(docs) {
+  if (!docs || !Array.isArray(docs)) return docs;
+  
+  return docs.map(processContentBlockDocument);
+});
+
+// Middleware для toJSON (если вызывается вручную)
+contentBlockSchema.methods.toJSON = function() {
+  const obj = this.toObject ? this.toObject() : this;
+  return processContentBlockDocument(obj);
+};
 
 // Предварительная обработка перед сохранением
 contentBlockSchema.pre('save', function(next) {
@@ -123,7 +217,7 @@ contentBlockSchema.pre('save', function(next) {
   if (this.description) this.description = xss(this.description);
   if (this.button?.text) this.button.text = xss(this.button.text);
   
-  // Нормализация URL
+  // Нормализация URL (только для сохранения, не для обработки)
   if (this.imageUrl) {
     this.imageUrl = this.imageUrl.replace(/\\/g, '/');
   }
@@ -161,6 +255,18 @@ contentBlockSchema.methods.toSafeObject = function() {
   const obj = this.toObject();
   delete obj.__v;
   return obj;
+};
+
+// Дополнительные статические методы с автоматической обработкой
+contentBlockSchema.statics.findActiveWithProcessedUrls = function() {
+  return this.find({ isActive: true })
+    .sort({ position: 1, createdAt: -1 })
+    .then(docs => {
+      if (Array.isArray(docs)) {
+        return docs.map(processContentBlockDocument);
+      }
+      return processContentBlockDocument(docs);
+    });
 };
 
 module.exports = mongoose.model('ContentBlock', contentBlockSchema);

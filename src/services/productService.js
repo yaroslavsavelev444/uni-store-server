@@ -18,7 +18,7 @@ class ProductService {
       maxPrice,
       inStock,
       search,
-      slug, // ← это slug категории
+      slug,
       sortBy = 'createdAt',
       sortOrder = 'desc',
       page = 1,
@@ -39,7 +39,6 @@ class ProductService {
       // По умолчанию показываем только доступные для покупки
       filter.status = { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] };
     }
-    console.log('filter after status:', JSON.stringify(filter, 2));
     
     // 2. Фильтр по категории (через ID категории)
     if (category) {
@@ -48,16 +47,13 @@ class ProductService {
       }
       filter.category = category;
     }
-    console.log('filter after category:', JSON.stringify(filter, 2));
     
-    // 3. Фильтр по slug категории - ПРАВИЛЬНОЕ ИСПРАВЛЕНИЕ
+    // 3. Фильтр по slug категории
     let categoryIdFromSlug = null;
     if (slug) {
-      
       try {
         // Находим категорию по slug
         const categoryDoc = await CategoryModel.findOne({ slug });
-        console.log('categoryDoc:', categoryDoc);
         
         if (!categoryDoc) {
           // Если категория не найдена, возвращаем пустой результат
@@ -78,11 +74,9 @@ class ProductService {
         filter.category = categoryIdFromSlug;
         
       } catch (error) {
-        console.error('Ошибка при поиске категории по slug:', error);
         throw ApiError.DatabaseError('Ошибка при поиске категории');
       }
     }
-    console.log('filter after slug:', JSON.stringify(filter, 2));
     
     // 4. Фильтр по цене
     if (minPrice || maxPrice) {
@@ -90,7 +84,6 @@ class ProductService {
       if (minPrice) filter.priceForIndividual.$gte = parseFloat(minPrice);
       if (maxPrice) filter.priceForIndividual.$lte = parseFloat(maxPrice);
     }
-    console.log('filter after minPrice and maxPrice:', JSON.stringify(filter, 2));
     
     // 5. Фильтр по наличию на складе
     if (inStock === 'true' || inStock === true) {
@@ -99,19 +92,16 @@ class ProductService {
         { status: ProductStatus.AVAILABLE }
       ];
     }
-    console.log('filter after inStock:', JSON.stringify(filter, 2));
     
     // 6. Поиск по тексту
     if (search && search.trim().length > 0) {
       filter.$text = { $search: search.trim() };
     }
-    console.log('filter after search:', JSON.stringify(filter, 2));
     
     // 7. Фильтр видимости
     filter.isVisible = true;
-    console.log('filter after isVisible:', JSON.stringify(filter, 2));
     
-    // 8. ИСКЛЮЧЕНИЕ ID продуктов (НОВОЕ)
+    // 8. ИСКЛЮЧЕНИЕ ID продуктов
     if (excludeIds && excludeIds.length > 0) {
       const validExcludeIds = excludeIds.filter(id => 
         mongoose.Types.ObjectId.isValid(id)
@@ -121,11 +111,10 @@ class ProductService {
         filter._id = { $nin: validExcludeIds };
       }
     }
-    console.log('filter after excludeIds:', JSON.stringify(filter, 2));
     
     // 9. Дополнительные фильтры
     if (showOnMainPage) {
-      filter.showOnMainPage= true;
+      filter.showOnMainPage = true;
     }
     if (manufacturer) {
       filter.manufacturer = { $regex: manufacturer, $options: 'i' };
@@ -133,26 +122,22 @@ class ProductService {
     if (warrantyMonths) {
       filter.warrantyMonths = { $gte: warrantyMonths };
     }
-    console.log('filter after showOnMainPage and manufacturer and warrantyMonths:', JSON.stringify(filter, 2));
     
     // 10. Сортировка
     const sortOptions = {};
     const sortField = this.getSortField(sortBy);
     sortOptions[sortField] = sortOrder === 'asc' ? 1 : -1;
-    console.log('sortOptions:', JSON.stringify(sortOptions, 2));
     
     // Для сортировки по популярности добавляем сортировку по названию как вторичную
     if (sortBy === 'popularity') {
       sortOptions.title = 1;
     }
-    console.log('sortOptions after sorting by popularity:', JSON.stringify(sortOptions, 2));
     
     // 11. Пагинация
     const skip = (page - 1) * limit;
-    console.log('skip:', skip);
     
     try {
-      // 12. Используем стандартные запросы вместо агрегации для простоты
+      // 12. Используем стандартные запросы
       let query = ProductModel.find(filter)
         .sort(sortOptions)
         .skip(skip)
@@ -193,70 +178,24 @@ class ProductService {
           product.stockQuantity - (product.reservedQuantity || 0)
         );
         
-        // Получаем количество отзывов ДЛЯ ЭТОГО продукта
+        // Получаем количество отзывов для этого продукта
         const reviewsCount = await ReviewsService.getProductReviewsCountStatic(product._id);
         
         // Проверяем наличие в наличии
         const inStock = availableQuantity > 0 && 
                        product.status === ProductStatus.AVAILABLE;
-        
-        // ОБРАБОТКА ИЗОБРАЖЕНИЙ - КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
-        let processedImages = [];
-        if (product.images && Array.isArray(product.images)) {
-          // Обрабатываем все изображения
-          processedImages = product.images.map(img => ({
-            ...img,
-            url: fileService.getFileUrl(img.url), // Преобразуем пути в полные URL
-            // Сохраняем оригинальный путь для внутреннего использования
-            _originalUrl: img.url
-          }));
-        }
-        
-        // Обрабатываем основное изображение (если есть)
-        let processedMainImage = product.mainImage;
-        if (product.mainImage) {
-          processedMainImage = fileService.getFileUrl(product.mainImage);
-        }
-        
-        // Обрабатываем инструкцию (если есть)
-        let processedInstructionFile = product.instructionFile;
-        if (product.instructionFile && product.instructionFile.url) {
-          processedInstructionFile = {
-            ...product.instructionFile,
-            url: fileService.getFileUrl(product.instructionFile.url),
-            _originalUrl: product.instructionFile.url
-          };
-        }
-        
-        // Обрабатываем изображение категории (если категория популирована)
-        let processedCategory = product.category;
-        if (product.category && typeof product.category === 'object' && product.category.image) {
-          processedCategory = {
-            ...product.category,
-            image: {
-              ...product.category.image,
-              url: fileService.getFileUrl(product.category.image.url),
-              _originalUrl: product.category.image.url
-            }
-          };
-        }
+
         
         return {
           ...product,
           finalPriceForIndividual: finalPrice,
           availableQuantity,
           inStock,
-          reviewsCount: reviewsCount, // ← добавляем количество отзывов
-          
-          // Подменяем обработанные изображения и файлы
-          images: processedImages,
-          mainImage: processedMainImage,
-          instructionFile: processedInstructionFile,
-          ...(processedCategory !== product.category && { category: processedCategory })
+          reviewsCount: reviewsCount
         };
       });
       
-      // Ждем выполнения ВСЕХ асинхронных операций
+      // Ждем выполнения всех асинхронных операций
       const productsWithFinalPrice = await Promise.all(productsWithReviewsPromises);
       
       return {
@@ -271,7 +210,6 @@ class ProductService {
         }
       };
     } catch (error) {
-      console.error('Ошибка при получении продуктов:', error);
       throw ApiError.DatabaseError('Ошибка при получении продуктов');
     }
   }

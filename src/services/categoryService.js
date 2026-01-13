@@ -43,24 +43,12 @@ class CategoryService {
     const categories = await CategoryModel.find(query)
       .sort(sortOptions)
       .lean();
-    
-      // Обрабатываем изображения - преобразуем пути в полные URL
-  const processedCategories = categories.map(category => {
-    if (category.image && category.image.url) {
-      const image = { ...category.image };
-      image.url = fileService.getFileUrl(image.url);
-      return { ...category, image };
-    }
-    return category;
-  });
 
-  
-  console.log('processedCategories', processedCategories);
   
     // Добавляем количество продуктов
     if (withProductCount) {
       const categoriesWithCounts = await Promise.all(
-        processedCategories.map(async (category) => {
+        categories.map(async (category) => {
           const count = await ProductModel.countDocuments({
             category: category._id,
             isVisible: true,
@@ -77,7 +65,7 @@ class CategoryService {
       return categoriesWithCounts;
     }
     
-    return processedCategories;
+    return categories;
   }
   
   // Получить категорию по ID

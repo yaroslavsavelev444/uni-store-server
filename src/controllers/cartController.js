@@ -5,7 +5,7 @@ class CartController {
   async getCart(req, res, next) {
     try {
       const cart = await cartService.getCart(req.user.id);
-      console.log('getCart', cart);
+      console.log('getCart', JSON.stringify(cart));
       
       res.json(cart);
     } catch (error) {

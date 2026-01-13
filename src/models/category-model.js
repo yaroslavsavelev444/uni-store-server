@@ -1,4 +1,5 @@
 const { Schema, model } = require('mongoose');
+const fileService = require('../utils/fileManager');
 
 const CategorySchema = new Schema({
   // Основная информация
@@ -34,11 +35,12 @@ const CategorySchema = new Schema({
   
     // Изображение - делаем полностью опциональным
   image: { 
-    url: { type: String }, // Убрали required: true
+    url: { type: String },
     alt: { type: String, maxlength: 255 },
     size: Number,
     mimetype: String
   },
+
 
   
   // Порядок сортировки
@@ -99,6 +101,46 @@ CategorySchema.pre('save', function(next) {
   }
   next();
 });
+
+
+// Middleware для преобразования URL при возврате документа
+CategorySchema.post(['find', 'findOne', 'findById'], function(docs) {
+  // Проверяем, массив это или одиночный документ
+  if (!docs) return;
+  
+  const processDocument = (doc) => {
+    if (doc && doc.image && doc.image.url && !doc.image.url.startsWith('http')) {
+      // Преобразуем путь в полный URL
+      doc.image.url = fileService.getFileUrl(doc.image.url);
+    }
+    
+    // Если нужно обработать другие поля с изображениями
+    if (doc && doc.images) {
+      // Обработка массива изображений если есть
+    }
+    
+    return doc;
+  };
+
+  if (Array.isArray(docs)) {
+    return docs.map(processDocument);
+  } else {
+    return processDocument(docs);
+  }
+});
+
+// Middleware для lean документов
+CategorySchema.post('aggregate', function(docs) {
+  if (!docs || !Array.isArray(docs)) return docs;
+  
+  return docs.map(doc => {
+    if (doc && doc.image && doc.image.url && !doc.image.url.startsWith('http')) {
+      doc.image.url = fileService.getFileUrl(doc.image.url);
+    }
+    return doc;
+  });
+});
+
 
 // Статический метод для проверки существования категории
 CategorySchema.statics.exists = async function(id) {

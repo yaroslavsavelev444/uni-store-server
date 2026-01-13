@@ -196,7 +196,7 @@ static async deleteFile(filePathOrUrl) {
     return target;
   } catch (error) {
     if (error.code === 'ENOENT') {
-      throw new Error(`Исходный файл не найден: ${sourcePath}`);
+      throw new Error(`Исходный файл не найден в moveFile : ${sourcePath}`);
     }
     throw new Error(`Ошибка при перемещении файла: ${error.message}`);
   }

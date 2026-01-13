@@ -69,13 +69,6 @@ async getAll(includeInactive = false) {
     .sort({ position: 1, createdAt: -1 })
     .lean();
 
-  // Добавляем полные URL к изображениям
-  const itemsWithFullUrls = items.map(item => {
-    if (item.imageUrl && item.imageUrl) {
-      item.imageUrl = fileService.getFileUrl(item.imageUrl);
-    }
-    return item;
-  });
 
   try {
     await this.redisClient.setJson(
@@ -90,7 +83,7 @@ async getAll(includeInactive = false) {
     logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
   }
 
-  return itemsWithFullUrls;
+  return items;
 }
 
   // Получение блока по ID
@@ -212,10 +205,10 @@ async getAll(includeInactive = false) {
           const newImageUrl = await this.processImage(updateData.imageUrl);
           console.log('newImageUrl' ,newImageUrl);
           
-          // Удаляем старое изображение
-          if (existingBlock.imageUrl) {
-            await fileService.deleteFile(existingBlock.imageUrl);
-          }
+          // // Удаляем старое изображение
+          // if (existingBlock.imageUrl) {
+          //   await fileService.deleteFile(existingBlock.imageUrl);
+          // }
 
           updateData.imageUrl = newImageUrl;
         }
@@ -224,7 +217,7 @@ async getAll(includeInactive = false) {
       // Обновляем блок
       Object.assign(existingBlock, updateData);
       existingBlock.createdBy = userId;
-      existingBlock.createdBy = userId;
+      existingBlock.updatedBy = userId;
 
       await existingBlock.save();
 
@@ -247,6 +240,7 @@ async getAll(includeInactive = false) {
 
   // Вспомогательный метод для обработки изображения (точно такой же как в категориях)
   async processImage(imageUrl) {
+    console.log(`[ContentBlockService] processImage called with ${imageUrl}`);
     // Извлекаем путь из URL если это полный URL
     let filePath = imageUrl;
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
@@ -255,21 +249,28 @@ async getAll(includeInactive = false) {
       
       // Декодируем URL-encoded символы
       filePath = decodeURIComponent(filePath);
+      console.log(`[ContentBlockService] processImage: filePath after decoding is ${filePath}`);
     }
     
     // Проверяем, является ли файл временным
     if (filePath.includes('/temp/')) {
+      console.log(`[ContentBlockService] processImage: file is temporary`);
       // Перемещаем файл в постоянную папку через fileService
       const timestamp = Date.now();
       const filename = path.basename(filePath);
       const newWebPath = `/uploads/content-blocks/${timestamp}_${filename}`;
       
+      console.log('filePath' ,filePath);
+      console.log('newWebPath' ,newWebPath);
+      
       await fileService.moveFile(filePath, newWebPath);
+      console.log(`[ContentBlockService] processImage: moved file to ${newWebPath}`);
       return newWebPath;
     }
     
     // Если файл уже в постоянной папке, просто проверяем его существование
     await fileService.validateFileExists(filePath);
+    console.log(`[ContentBlockService] processImage: file exists at ${filePath}`);
     return filePath;
   }
   // Вспомогательный метод для обработки изображения

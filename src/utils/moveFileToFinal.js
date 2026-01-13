@@ -12,7 +12,7 @@ async function moveFileToFinal(tempPath, finalPath) {
     // Проверка, существует ли исходный файл
     const tempExists = fs.existsSync(tempPath);
     if (!tempExists) {
-      console.error(`Исходный файл не найден: ${tempPath}`);
+      console.error(`Исходный файл не найден в  moveFileToFinal: ${tempPath}`);
       return;
     }
 
