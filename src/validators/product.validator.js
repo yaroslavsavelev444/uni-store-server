@@ -70,19 +70,6 @@ const createProductSchema = Joi.object({
     .precision(2)
     .max(1000000),
   
-  priceForLegalEntity: Joi.number()
-    .positive()
-    .precision(2)
-    .max(1000000)
-    .when('isLegalEntityPriceEnabled', {
-      is: true,
-      then: Joi.required(),
-      otherwise: Joi.optional()
-    }),
-  
-  isLegalEntityPriceEnabled: Joi.boolean()
-    .default(false),
-  
   stockQuantity: Joi.number()
     .required()
     .integer()
@@ -205,7 +192,6 @@ const createProductSchema = Joi.object({
     .optional()
 })
 .with('maxOrderQuantity', 'minOrderQuantity')
-.with('priceForLegalEntity', 'isLegalEntityPriceEnabled');
 
 const updateProductSchema = createProductSchema.fork(
   Object.keys(createProductSchema.describe().keys),

@@ -28,6 +28,7 @@ const {
 const { login_from_new_device } = require("../templates/templates");
 const redisClient = require("../redis/redis.client");
 const SessionService = require("./SessionService");
+const userSanctionService = require("./userSanctionService");
 
 const login = async (userData) => {
   try {
@@ -38,6 +39,12 @@ const login = async (userData) => {
       throw ApiError.BadRequest("Пользователь не найден");
     }
 
+    //Заблокирован ли 
+    const sanctionData = await userSanctionService.checkUserBlockStatus(user._id);
+
+    if (sanctionData.user.status === "blocked") {
+      throw ApiError.ForbiddenError("Пользователь заблокирован");
+    }
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw ApiError.BadRequest("Неверный пароль");

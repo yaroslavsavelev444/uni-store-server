@@ -20,7 +20,7 @@ router.get(
 
 router.get(
   "/users/reviews",
-  authMiddleware(["user", "admin"]),
+  authMiddleware('user'),
   reviewsController.getUserReviews.bind(reviewsController)
 );
 

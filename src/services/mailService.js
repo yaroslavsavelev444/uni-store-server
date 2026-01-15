@@ -25,7 +25,7 @@ const sendMail = async ({ to, subject, text, html }) => {
   const transporter = createTransporter();
 
   const mailOptions = {
-    from: `"КПБ "Полет" <${process.env.SMTP_USER}>`,
+    from: `"ООО НПО "Полет" <${process.env.SMTP_USER}>`,
     to,
     subject,
     text,
@@ -48,22 +48,12 @@ const sendNotification = async ({ email, type, data }) => {
   let html = "";
 
   switch (type) {
-    case "confirmEmail": {
-      subject = "Подтверждение вашей почты";
-      text = `Привет, ${data.username}! Пожалуйста, подтвердите вашу почту: ${data.confirmationLink}`;
-      html = renderTemplate("confirmEmail", {
-        username: data.username,
-        confirmationLink: data.confirmationLink,
-        companyName: "КПБ Полет",
-      });
-      break;
-    }
     case "resetPassword": {
       subject = "Сброс пароля";
       text = `Привет, ${data.username}! Для сброса пароля перейдите по следующей ссылке: ${data.resetLink}`;
       html = renderTemplate("resetPassword", {
         resetLink: data.resetLink,
-        companyName: "КПБ Полет",
+        companyName: "ООО НПО Полет",
       });
       break;
     }
@@ -119,24 +109,6 @@ Email: ${data.customer.email}
       break;
     }
 
-    case "orderPickupReady": {
-      //TODO
-      subject = "📝 Заказ готов к выдаче";
-      html = renderTemplate("orderPickupReady", {
-        ...data,
-        formattedDate: formattedDate(data.createdAt), // TODO инвалид дата и сырые значения кое где
-      });
-      break;
-    }
-
-    case "orderDeliverySent": {
-      subject = "📝 Заказ отправлен";
-      html = renderTemplate("orderDeliverySent", {
-        ...data,
-        formattedDate: formattedDate(data.createdAt),
-      });
-      break;
-    }
 
     case "orderCancelledByAdmin": {
       subject = `❌ Ваш заказ No${data.orderNumber} отменен`;
@@ -212,25 +184,6 @@ ${data.cons ? `Недостатки: ${data.cons.join(", ")}` : ""}
 
       html = renderTemplate("newAttachment", {
         ...data,
-      });
-      break;
-    }
-
-    case "productArchived": {
-      //TODO
-      subject = "📝 Продукт архивирован";
-      html = renderTemplate("productArchived", {
-        ...data,
-        formattedDate: formattedDate(data.createdAt),
-      });
-      break;
-    }
-
-    case "orderFileUploaded": {
-      subject = "📝 Прикрепили к заказу файл";
-      html = renderTemplate("orderFileUploaded", {
-        ...data,
-        formattedDate: formattedDate(data.updatedAt),
       });
       break;
     }
@@ -351,13 +304,6 @@ IP: ${data.ip}
       break;
     }
 
-    case "newContact": {
-      subject = "📩 Новая заявка на консультацию";
-      html = renderTemplate("newContact", {
-        ...data.contactData,
-      });
-      break;
-    }
 
     default:
       throw ApiError.BadRequest("Неверный тип уведомления");

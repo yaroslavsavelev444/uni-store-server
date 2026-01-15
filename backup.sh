@@ -4,7 +4,7 @@
 # Важно: бэкап делается только с primary узла с использованием --oplog
 
 DATABASE="polet"
-BACKUP_DIR="./backups"
+BACKUP_DIR="/var/polet/backups"  # ← ИЗМЕНЕНО для prod
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_PATH="${BACKUP_DIR}/${TIMESTAMP}"
 RETENTION_DAYS=7
@@ -21,7 +21,7 @@ info() { echo -e "${YELLOW}📦 $1${NC}"; }
 
 # Находим primary узел БЕЗ вывода в stdout
 find_primary() {
-    for node in mongo1-polet-dev mongo2-polet-dev mongo3-polet-dev; do
+    for node in mongo1-prod mongo2-prod mongo3-prod; do  # ← ИЗМЕНЕНО имена контейнеров
         # Проверяем доступность узла и является ли он primary
         if docker exec "$node" mongosh --quiet --eval "db.isMaster().ismaster" 2>/dev/null | grep -q "true"; then
             echo "$node"  # ТОЛЬКО имя узла в stdout
@@ -39,8 +39,19 @@ main() {
         error "Docker is not available"
     fi
     
-    # Создаем директорию
-    mkdir -p "${BACKUP_PATH}"
+    # Проверяем права на запись в директорию
+    if [ ! -w "/var/polet" ]; then
+        echo "⚠️  /var/polet not writable, checking permissions..."
+        # Пробуем создать директорию с sudo если нужно
+        if ! sudo mkdir -p "${BACKUP_DIR}" 2>/dev/null; then
+            error "Cannot create backup directory ${BACKUP_DIR}"
+        fi
+        if ! sudo chown -R $(whoami):$(whoami) "${BACKUP_DIR}" 2>/dev/null; then
+            echo "Warning: Could not change ownership of ${BACKUP_DIR}"
+        fi
+    else
+        mkdir -p "${BACKUP_PATH}"
+    fi
     
     # Находим primary узел
     info "Finding primary node..."
@@ -56,13 +67,14 @@ main() {
     info "Creating backup..."
     
     # Важно: --oplog для консистентности в реплика-сете
-   if ! docker exec "$PRIMARY" mongodump \
-  --uri="mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=rs0" \
-  --oplog \
-  --gzip \
-  --archive="/tmp/backup.gz"; then
-    error "Failed to create backup from $PRIMARY"
-fi
+    # Используем localhost в контейнере, так как подключение происходит внутри контейнера
+    if ! docker exec "$PRIMARY" mongodump \
+        --host localhost:27017 \
+        --oplog \
+        --gzip \
+        --archive="/tmp/backup.gz"; then
+        error "Failed to create backup from $PRIMARY"
+    fi
     
     # Копируем на хост
     info "Copying to host..."
@@ -111,7 +123,7 @@ fi
     "size_bytes": $SIZE,
     "size_human": "$HUMAN_SIZE",
     "replica_set": "rs0",
-    "nodes": ["mongo1-polet-dev", "mongo2-polet-dev", "mongo3-polet-dev"],
+    "nodes": ["mongo1-prod", "mongo2-prod", "mongo3-prod"],
     "backup_type": "mongodump with oplog",
     "mongodb_version": "$(docker exec "$PRIMARY" mongosh --quiet --eval 'db.version()' 2>/dev/null || echo "unknown")"
 }

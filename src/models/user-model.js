@@ -1,3 +1,4 @@
+// models/user-model.js (добавляем в схему UserSchema)
 const { Schema, model } = require("mongoose");
 const cartModel = require("./cart-model");
 
@@ -16,7 +17,6 @@ const UserSchema = new Schema(
       emailToken: { type: String, select: false },
       emailTokenExpiration: { type: Date },
     },
-
     tokens: {
       resetToken: { type: String, default: null, select: false },
       resetTokenStatus: {
@@ -35,10 +35,28 @@ const UserSchema = new Schema(
       ],
       select: false,
     },
+    // Добавляем статус блокировки
+    status: {
+      type: String,
+      enum: ["active", "blocked", "suspended"],
+      default: "active",
+      index: true,
+    },
+    blockedUntil: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    lastSanction: {
+      type: Schema.Types.ObjectId,
+      ref: "UserSanction",
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
+// Middleware для создания корзины
 UserSchema.post("save", async function (doc) {
   const cartExists = await cartModel.exists({ user: doc._id });
   if (!cartExists) {
@@ -46,5 +64,25 @@ UserSchema.post("save", async function (doc) {
     await newCart.save();
   }
 });
+
+// Статический метод для проверки, заблокирован ли пользователь
+UserSchema.statics.isUserBlocked = async function(userId) {
+  const user = await this.findById(userId).select('status blockedUntil');
+  
+  if (!user) return false;
+  
+  if (user.status === 'active') return false;
+  
+  if (user.blockedUntil && user.blockedUntil < new Date()) {
+    // Срок блокировки истёк, разблокируем пользователя
+    user.status = 'active';
+    user.blockedUntil = null;
+    user.lastSanction = null;
+    await user.save();
+    return false;
+  }
+  
+  return user.status === 'blocked';
+};
 
 module.exports = model("User", UserSchema);

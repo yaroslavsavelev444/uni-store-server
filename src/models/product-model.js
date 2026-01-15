@@ -46,21 +46,6 @@ const ProductSchema = new Schema(
       min: [0, 'Цена не может быть отрицательной'],
       max: [1000000, 'Цена не может превышать 1 000 000']
     },
-    priceForLegalEntity: {
-      type: Number,
-      min: [0, 'Цена не может быть отрицательной'],
-      max: [1000000, 'Цена не может превышать 1 000 000'],
-      validate: {
-        validator: function(v) {
-          return !this.isLegalEntityPriceEnabled || (v && v > 0);
-        },
-        message: 'Цена для юр. лиц обязательна при включенной опции'
-      }
-    },
-    isLegalEntityPriceEnabled: {
-      type: Boolean,
-      default: false
-    },
 
     // Скидки
     discount: {
