@@ -110,8 +110,8 @@ app.use((req, res, next) => {
 const requestContextMiddleware = require("./src/middlewares/request-context-middleware");
 const auditRequestMiddleware = require("./src/middlewares/audit-request-middleware");
 
-app.use(requestContextMiddleware);
-app.use(auditRequestMiddleware(auditEnvConfig));
+// app.use(requestContextMiddleware);
+// app.use(auditRequestMiddleware(auditEnvConfig));
 
 /* =========================
    STATIC
@@ -186,6 +186,18 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "Backend доступен" });
 });
 
+
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    logger.info(`✅ FINISHED ${req.method} ${req.url} ${res.statusCode}`);
+  });
+
+  res.on("close", () => {
+    logger.error(`❌ CLOSED ${req.method} ${req.url}`);
+  });
+
+  next();
+});
 app.use(errorHandler);
 
 /* =========================

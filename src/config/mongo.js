@@ -28,6 +28,19 @@ const connectDB = async () => {
   }
 };
 
+
+mongoose.connection.on("connected", () => {
+  logger.info("🟢 MONGO CONNECTED " + new Date().toISOString());
+});
+
+mongoose.connection.on("disconnected", () => {
+  logger.error("🔴 MONGO DISCONNECTED " + new Date().toISOString());
+});
+
+mongoose.connection.on("error", (err) => {
+  logger.error("❌ MONGO ERROR", err);
+});
+
 // Получение экземпляра базы данных через Mongoose
 const getDB = () => {
   if (!mongoose.connection.readyState) {
