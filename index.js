@@ -93,6 +93,17 @@ app.use(express.json({ limit: "100mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "100mb" }));
 app.use(cookieParser());
 app.use(useragent.express());
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    logger.info(`✅ FINISHED ${req.method} ${req.url} ${res.statusCode}`);
+  });
+
+  res.on("close", () => {
+    logger.error(`❌ CLOSED ${req.method} ${req.url}`);
+  });
+
+  next();
+});
 
 /* =========================
    LOGGING
@@ -148,6 +159,7 @@ const contentBlockRoutes = require("./src/routes/contentBlockRoutes");
 const consentRoutes = require("./src/routes/consentRoutes");
 const sitemapRoutes = require("./src/routes/sitemapRoutes");
 
+
 app.use("/auth", authRoutes);
 app.use("/health", healthcheckRoutes);
 app.use("/consent", consentRoutes);
@@ -186,18 +198,6 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "Backend доступен" });
 });
 
-
-app.use((req, res, next) => {
-  res.on("finish", () => {
-    logger.info(`✅ FINISHED ${req.method} ${req.url} ${res.statusCode}`);
-  });
-
-  res.on("close", () => {
-    logger.error(`❌ CLOSED ${req.method} ${req.url}`);
-  });
-
-  next();
-});
 app.use(errorHandler);
 
 /* =========================
