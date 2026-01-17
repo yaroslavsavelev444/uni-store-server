@@ -1,9 +1,7 @@
-// middlewares/auth-middleware.js
 const tokenService = require("../services/tokenService");
 const ApiError = require("../exceptions/api-error");
 const logger = require("../logger/logger");
 const SessionService = require("../services/SessionService");
-const UserSanctionService = require("../services/userSanctionService");
 
 /**
  * Универсальная миддлвара для проверки авторизации
@@ -22,14 +20,13 @@ module.exports = function (options = {}) {
     if (typeof input === 'object') {
       return {
         allowedRoles: input.allowedRoles || [],
-        optional: input.optional || false,
-        checkBlock: input.checkBlock !== false // По умолчанию проверяем блокировку
+        optional: input.optional || false
       };
     }
-    return { allowedRoles: [], optional: false, checkBlock: true };
+    return { allowedRoles: [], optional: false };
   };
 
-  const { allowedRoles, optional, checkBlock } = parseOptions(options);
+  const { allowedRoles, optional } = parseOptions(options);
 
   return async function (req, res, next) {
     try {
@@ -127,74 +124,6 @@ module.exports = function (options = {}) {
         }
       }
 
-      // 🔒 ПРОВЕРКА БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ (если включена)
-      if (checkBlock) {
-        try {
-          const blockStatus = await UserSanctionService.checkUserBlockStatus(userData.id);
-          console.log('blockStatus' , blockStatus);
-          
-          // Проверяем, заблокирован ли пользователь
-          if (blockStatus.user.status === 'blocked') {
-            const blockedUntil = blockStatus.user.blockedUntil 
-              ? new Date(blockStatus.user.blockedUntil)
-              : null;
-            
-            const now = new Date();
-            let errorMessage = 'Ваш аккаунт заблокирован';
-            
-            // Формируем детальное сообщение
-            if (blockedUntil && blockedUntil > now) {
-              if (isPermanentBlock(blockedUntil)) {
-                errorMessage = 'Ваш аккаунт заблокирован бессрочно';
-              } else {
-                const timeLeft = Math.ceil((blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60));
-                const days = Math.floor(timeLeft / 24);
-                const hours = timeLeft % 24;
-                
-                let timeLeftStr = '';
-                if (days > 0) {
-                  timeLeftStr += `${days} ${getDaysText(days)}`;
-                  if (hours > 0) {
-                    timeLeftStr += ` ${hours} ${getHoursText(hours)}`;
-                  }
-                } else {
-                  timeLeftStr = `${hours} ${getHoursText(hours)}`;
-                }
-                
-                errorMessage = `Ваш аккаунт заблокирован. Доступ будет восстановлен через ${timeLeftStr}`;
-              }
-            }
-            
-            // Логируем попытку доступа заблокированного пользователя
-            logger.warn(
-              `Заблокированный пользователь ${userData.id} (${userData.email}) попытался получить доступ к ${req.method} ${req.path}`
-            );
-            
-            return next(ApiError.ForbiddenError(errorMessage, null, {
-              blockDetails: {
-                status: 'blocked',
-                blockedUntil: blockStatus.user.blockedUntil,
-                isPermanent: isPermanentBlock(blockedUntil),
-                activeSanctions: blockStatus.activeSanctions,
-              }
-            }));
-          }
-          
-          // Если пользователь был разблокирован автоматически (просроченная блокировка)
-          if (userData.status === 'blocked' && blockStatus.user.status === 'active') {
-            logger.info(`Пользователь ${userData.id} автоматически разблокирован (просроченная блокировка)`);
-            // Обновляем статус в userData для дальнейшего использования
-            userData.status = 'active';
-            userData.blockedUntil = null;
-          }
-          
-        } catch (blockCheckError) {
-          // Если не удалось проверить статус блокировки, логируем и продолжаем
-          logger.error(`Ошибка при проверке блокировки пользователя ${userData.id}:`, blockCheckError);
-          // В случае ошибки не блокируем доступ, но логируем
-        }
-      }
-
       // Проверка роли (если заданы allowedRoles)
       if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes('all')) {
         if (!allowedRoles.includes(userData.role)) {
@@ -213,13 +142,8 @@ module.exports = function (options = {}) {
         }
       }
 
-      // Устанавливаем пользователя в запрос (добавляем статус блокировки)
-      req.user = {
-        ...userData,
-        status: userData.status || 'active',
-        blockedUntil: userData.blockedUntil || null
-      };
-      
+      // Устанавливаем пользователя в запрос
+      req.user = userData;
       logger.info(
         `Пользователь ${userData.id} с ролью ${userData.role} прошёл проверку ${optional ? '(опционально)' : '(обязательно)'}`
       );
@@ -240,6 +164,7 @@ module.exports = function (options = {}) {
     }
   };
 };
+
 
 // Создаем специальную middleware для refresh
 module.exports.refreshMiddleware = function () {
@@ -273,169 +198,50 @@ module.exports.refreshMiddleware = function () {
         return next(ApiError.UnauthorizedError());
       }
 
-      // 🔒 ПРОВЕРКА БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ ДЛЯ REFRESH
-      try {
-        const blockStatus = await UserSanctionService.checkUserBlockStatus(userData.id);
-        
-        if (blockStatus.user.status === 'blocked') {
-          logger.warn(`Заблокированный пользователь ${userData.id} пытается обновить токен`);
-          
-          // Для refresh endpoint возвращаем более подробную ошибку
-          const blockedUntil = blockStatus.user.blockedUntil 
-            ? new Date(blockStatus.user.blockedUntil)
-            : null;
-          
-          let errorMessage = 'Аккаунт заблокирован';
-          if (blockedUntil && !isPermanentBlock(blockedUntil)) {
-            const now = new Date();
-            if (blockedUntil > now) {
-              errorMessage = `Аккаунт заблокирован до ${blockedUntil.toLocaleString('ru-RU')}`;
-            }
-          }
-          
-          return next(ApiError.ForbiddenError(errorMessage));
-        }
-        
-      } catch (blockCheckError) {
-        logger.error(`Ошибка при проверке блокировки для refresh ${userData.id}:`, blockCheckError);
-        // В случае ошибки продолжаем
-      }
-
       req.user = userData;
       next();
     } catch (e) {
       logger.error("Error in refresh middleware:", e);
+      console.error(e);
       return next(ApiError.UnauthorizedError());
     }
   };
 };
 
 /**
- * Вспомогательные функции для форматирования времени
- */
-function isPermanentBlock(blockedUntil) {
-  if (!blockedUntil) return false;
-  
-  // Если блокировка более чем на 10 лет, считаем ее постоянной
-  const tenYearsFromNow = new Date();
-  tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
-  
-  return blockedUntil > tenYearsFromNow;
-}
-
-function getDaysText(days) {
-  if (days === 1) return 'день';
-  if (days >= 2 && days <= 4) return 'дня';
-  return 'дней';
-}
-
-function getHoursText(hours) {
-  if (hours === 1) return 'час';
-  if (hours >= 2 && hours <= 4) return 'часа';
-  return 'часов';
-}
-
-/**
  * Вспомогательная функция для быстрого создания миддлвары с определенными ролями
+ * (сохраняем обратную совместимость со старым кодом)
  */
-module.exports.withRoles = function (allowedRoles = [], options = {}) {
-  return module.exports({ 
-    allowedRoles, 
-    optional: false,
-    checkBlock: options.checkBlock !== false
-  });
+module.exports.withRoles = function (allowedRoles = []) {
+  return module.exports({ allowedRoles, optional: false });
 };
 
 /**
  * Вспомогательная функция для создания опциональной миддлвары
  */
-module.exports.optional = function (allowedRoles = [], options = {}) {
-  return module.exports({ 
-    allowedRoles, 
-    optional: true,
-    checkBlock: options.checkBlock !== false
-  });
+module.exports.optional = function (allowedRoles = []) {
+  return module.exports({ allowedRoles, optional: true });
 };
 
 /**
  * Декоратор для маршрутов, требующих определенной роли
+ * (удобно для использования с роутерами)
  */
-module.exports.requireRole = function (role, options = {}) {
-  return module.exports({ 
-    allowedRoles: [role], 
-    optional: false,
-    checkBlock: options.checkBlock !== false
-  });
+module.exports.requireRole = function (role) {
+  return module.exports({ allowedRoles: [role], optional: false });
 };
 
 /**
  * Декоратор для маршрутов, доступных только аутентифицированным пользователям
+ * (любая роль, кроме null)
  */
-module.exports.requireAuth = function (options = {}) {
-  return module.exports({ 
-    allowedRoles: ['all'], 
-    optional: false,
-    checkBlock: options.checkBlock !== false
-  });
+module.exports.requireAuth = function () {
+  return module.exports({ allowedRoles: ['all'], optional: false });
 };
 
 /**
  * Декоратор для опциональной проверки с любой ролью
  */
-module.exports.optionalAuth = function (options = {}) {
-  return module.exports({ 
-    allowedRoles: [], 
-    optional: true,
-    checkBlock: options.checkBlock !== false
-  });
-};
-
-/**
- * Специальная миддлвара для отключения проверки блокировки
- * (например, для endpoints, которые должны быть доступны даже заблокированным пользователям)
- */
-module.exports.withoutBlockCheck = function (options = {}) {
-  const baseOptions = typeof options === 'object' ? options : {};
-  return module.exports({
-    ...baseOptions,
-    checkBlock: false
-  });
-};
-
-/**
- * Миддлвара только для проверки блокировки (без проверки ролей)
- */
-module.exports.blockCheckOnly = function () {
-  return async function (req, res, next) {
-    if (!req.user || !req.user.id) {
-      return next();
-    }
-    
-    try {
-      const blockStatus = await UserSanctionService.checkUserBlockStatus(req.user.id);
-      
-      if (blockStatus.user.status === 'blocked') {
-        const blockedUntil = blockStatus.user.blockedUntil 
-          ? new Date(blockStatus.user.blockedUntil)
-          : null;
-        
-        let errorMessage = 'Ваш аккаунт заблокирован';
-        
-        if (blockedUntil && !isPermanentBlock(blockedUntil)) {
-          const now = new Date();
-          if (blockedUntil > now) {
-            const timeLeft = Math.ceil((blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60));
-            errorMessage = `Ваш аккаунт заблокирован. Доступ будет восстановлен через ${timeLeft} ${getHoursText(timeLeft)}`;
-          }
-        }
-        
-        return next(ApiError.ForbiddenError(errorMessage));
-      }
-      
-      next();
-    } catch (error) {
-      logger.error(`Ошибка при проверке блокировки в blockCheckOnly: ${error.message}`);
-      next(); // В случае ошибки разрешаем доступ
-    }
-  };
+module.exports.optionalAuth = function () {
+  return module.exports({ allowedRoles: [], optional: true });
 };
