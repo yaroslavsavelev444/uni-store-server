@@ -7,8 +7,8 @@ const FAQ_PUBLIC_TTL = 60 * 60; // 1 hour
 
 class FaqService {
   async getPublicFaq() {
-    const cached = await redis.getJson(FAQ_PUBLIC_CACHE_KEY);
-    if (cached) return cached;
+    // const cached = await redis.getJson(FAQ_PUBLIC_CACHE_KEY);
+    // if (cached) return cached;
 
     const topics = await FaqTopicModel.find({ isActive: true })
       .sort({ order: 1 })
@@ -28,7 +28,7 @@ class FaqService {
         })),
     }));
 
-    await redis.setJson(FAQ_PUBLIC_CACHE_KEY, formatted, FAQ_PUBLIC_TTL);
+    // await redis.setJson(FAQ_PUBLIC_CACHE_KEY, formatted, FAQ_PUBLIC_TTL);
     return formatted;
   }
 
