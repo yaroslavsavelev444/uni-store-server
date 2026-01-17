@@ -212,8 +212,6 @@ app.use(errorHandler);
       corsOrigins: allowedOrigins,
     });
 
-    cronInit.initialize();
-
     server.listen(PORT, HOST, () => {
       logger.info(
         `🚀 Server (${NODE_ENV}) running on http://${HOST}:${PORT}`
