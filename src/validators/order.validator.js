@@ -1,13 +1,14 @@
-// validators/order.validator.js (с логированием)
 const Joi = require('joi');
 const mongoose = require('mongoose');
-const { OrderStatus, DeliveryMethod } = require('../models/order-model');
+const { DeliveryMethod, PaymentMethod } = require('../models/order-model');
 
 // Базовые схемы валидации
-const deliveryAddressSchema = Joi.object({
+
+// Схема адреса для доставки до двери (полный адрес)
+const doorToDoorAddressSchema = Joi.object({
   street: Joi.string().required().min(5).max(200)
     .messages({
-      'string.empty': 'Укажите улицу',
+      'string.empty': 'Укажите улицу, дом и квартиру',
       'string.min': 'Адрес слишком короткий (мин. 5 символов)',
       'string.max': 'Адрес слишком длинный (макс. 200 символов)'
     }),
@@ -17,30 +18,51 @@ const deliveryAddressSchema = Joi.object({
       'string.min': 'Название города слишком короткое',
       'string.max': 'Название города слишком длинное'
     }),
-  postalCode: Joi.string().pattern(/^\d{6}$/)
+  postalCode: Joi.string().required().pattern(/^\d{6}$/)
+    .messages({
+      'string.empty': 'Укажите почтовый индекс',
+      'string.pattern.base': 'Индекс должен содержать 6 цифр'
+    }),
+  country: Joi.string().default('Россия')
+});
+
+// Схема адреса для доставки в ПВЗ (только улица/адрес ПВЗ)
+const pickupPointAddressSchema = Joi.object({
+  street: Joi.string().required().min(5).max(300)
+    .messages({
+      'string.empty': 'Укажите адрес ПВЗ',
+      'string.min': 'Адрес ПВЗ слишком короткий (мин. 5 символов)',
+      'string.max': 'Адрес ПВЗ слишком длинный (макс. 300 символов)'
+    }),
+  // Для ПВЗ город и индекс могут быть не обязательными или заполняться автоматически
+  city: Joi.string().optional().allow('', null).max(50)
+    .messages({
+      'string.max': 'Название города слишком длинное'
+    }),
+  postalCode: Joi.string().optional().allow('', null).pattern(/^\d{6}$/)
     .messages({
       'string.pattern.base': 'Индекс должен содержать 6 цифр'
     }),
   country: Joi.string().default('Россия')
 });
 
+// Общая схема адреса для валидации в зависимости от метода доставки
+const getDeliveryAddressSchema = (deliveryMethod) => {
+  switch(deliveryMethod) {
+    case DeliveryMethod.DOOR_TO_DOOR:
+      return doorToDoorAddressSchema;
+    case DeliveryMethod.PICKUP_POINT:
+      return pickupPointAddressSchema;
+    default:
+      return Joi.any().forbidden();
+  }
+};
+
 const savePreferencesSchema = Joi.object({
   saveAddress: Joi.boolean().default(false),
   saveRecipient: Joi.boolean().default(false),
   saveCompany: Joi.boolean().default(false)
 });
-
-// Функция для логирования
-const logValidation = (data, step) => {
-  console.log(`\n=== ВАЛИДАЦИЯ ИНН (${step}) ===`);
-  console.log('Полученные данные:', JSON.stringify(data, null, 2));
-  console.log('Тип taxNumber:', typeof data.taxNumber);
-  console.log('Значение taxNumber:', data.taxNumber);
-  console.log('Длина taxNumber:', data.taxNumber ? data.taxNumber.length : 0);
-  console.log('Очищенный taxNumber:', data.taxNumber ? data.taxNumber.replace(/\s/g, '') : '');
-  console.log('Все newCompanyData:', data);
-  console.log('===========================\n');
-};
 
 // Схема для данных новой компании
 const newCompanySchema = Joi.object({
@@ -63,107 +85,58 @@ const newCompanySchema = Joi.object({
   taxNumber: Joi.string()
     .required()
     .custom((value, helpers) => {
-      // Логируем входные данные
-      console.log(`\n=== ВАЛИДАЦИЯ ИНН (кастомная функция) ===`);
-      console.log('Входящее значение value:', value);
-      console.log('Тип value:', typeof value);
-      
-      // Убираем все пробелы и другие разделители для проверки
       const cleaned = value ? value.toString().replace(/\s/g, '') : '';
-      console.log('Очищенный cleaned:', cleaned);
-      console.log('Длина cleaned:', cleaned.length);
-      console.log('Это только цифры?', /^\d+$/.test(cleaned));
       
       if (!/^\d+$/.test(cleaned)) {
-        console.log('❌ Ошибка: ИНН содержит не только цифры');
         return helpers.message('ИНН должен содержать только цифры');
       }
       
       if (cleaned.length !== 10 && cleaned.length !== 12) {
-        console.log(`❌ Ошибка: длина ${cleaned.length}, нужно 10 или 12`);
         return helpers.message('ИНН должен содержать 10 или 12 цифр');
       }
       
       // Проверка контрольной суммы для 10-значного ИНН
       if (cleaned.length === 10) {
-        console.log('🔍 Проверка 10-значного ИНН');
         const weights = [2, 4, 10, 3, 5, 9, 4, 6, 8];
         let sum = 0;
         
-        console.log('Цифры ИНН:', cleaned.split(''));
-        console.log('Веса:', weights);
-        
         for (let i = 0; i < 9; i++) {
-          const digit = parseInt(cleaned[i]);
-          const weight = weights[i];
-          const product = digit * weight;
-          sum += product;
-          console.log(`[${i}] ${digit} * ${weight} = ${product} (сумма: ${sum})`);
+          sum += parseInt(cleaned[i]) * weights[i];
         }
         
         const controlNumber = (sum % 11) % 10;
-        console.log(`Сумма: ${sum}`);
-        console.log(`Сумма % 11: ${sum % 11}`);
-        console.log(`Ожидаемая контрольная цифра: ${controlNumber}`);
-        console.log(`Фактическая 10-я цифра: ${parseInt(cleaned[9])}`);
-        
         if (parseInt(cleaned[9]) !== controlNumber) {
-          console.log(`❌ Ошибка: ${parseInt(cleaned[9])} !== ${controlNumber}`);
           return helpers.message('Неверный ИНН (неверная контрольная сумма)');
-        } else {
-          console.log('✅ Контрольная сумма верна');
         }
       }
       
       // Проверка контрольной суммы для 12-значного ИНН
       if (cleaned.length === 12) {
-        console.log('🔍 Проверка 12-значного ИНН');
         const weights11 = [7, 2, 4, 10, 3, 5, 9, 4, 6, 8];
         const weights12 = [3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8];
         let sum11 = 0;
         let sum12 = 0;
         
-        console.log('Цифры ИНН:', cleaned.split(''));
-        
         // Первая контрольная цифра (11-я в номере)
-        console.log('\nПервая контрольная цифра (11-я):');
         for (let i = 0; i < 10; i++) {
-          const digit = parseInt(cleaned[i]);
-          const weight = weights11[i];
-          const product = digit * weight;
-          sum11 += product;
-          console.log(`[${i}] ${digit} * ${weight} = ${product} (сумма11: ${sum11})`);
+          sum11 += parseInt(cleaned[i]) * weights11[i];
         }
         
         // Вторая контрольная цифра (12-я в номере)
-        console.log('\nВторая контрольная цифра (12-я):');
         for (let i = 0; i < 11; i++) {
-          const digit = parseInt(cleaned[i]);
-          const weight = weights12[i];
-          const product = digit * weight;
-          sum12 += product;
-          console.log(`[${i}] ${digit} * ${weight} = ${product} (сумма12: ${sum12})`);
+          sum12 += parseInt(cleaned[i]) * weights12[i];
         }
         
         const controlNumber11 = (sum11 % 11) % 10;
         const controlNumber12 = (sum12 % 11) % 10;
         
-        console.log(`\nСумма11: ${sum11}, %11: ${sum11 % 11}, контрольная11: ${controlNumber11}`);
-        console.log(`Сумма12: ${sum12}, %11: ${sum12 % 11}, контрольная12: ${controlNumber12}`);
-        console.log(`Фактическая 11-я цифра: ${parseInt(cleaned[10])}`);
-        console.log(`Фактическая 12-я цифра: ${parseInt(cleaned[11])}`);
-        
         if (parseInt(cleaned[10]) !== controlNumber11 || 
             parseInt(cleaned[11]) !== controlNumber12) {
-          console.log(`❌ Ошибка: ${parseInt(cleaned[10])} !== ${controlNumber11} или ${parseInt(cleaned[11])} !== ${controlNumber12}`);
           return helpers.message('Неверный ИНН (неверная контрольная сумма)');
-        } else {
-          console.log('✅ Контрольные суммы верны');
         }
       }
       
-      console.log('✅ ИНН прошел валидацию');
-      return value; // Возвращаем оригинальное значение
+      return value;
     }, 'Валидация ИНН')
     .messages({
       'any.required': 'Укажите ИНН',
@@ -175,10 +148,12 @@ const newCompanySchema = Joi.object({
     })
 });
 
-// Валидатор для создания заказа (обновленный)
+// Валидатор для создания заказа (ОБНОВЛЕННЫЙ)
 const createOrderValidator = Joi.object({
   // Основные поля
-  deliveryMethod: Joi.string().valid('delivery', 'pickup').required()
+  deliveryMethod: Joi.string()
+    .valid(...Object.values(DeliveryMethod))
+    .required()
     .messages({
       'any.only': 'Выберите способ доставки',
       'any.required': 'Способ доставки обязателен'
@@ -205,43 +180,70 @@ const createOrderValidator = Joi.object({
       'string.empty': 'Email обязателен'
     }),
   
-  paymentMethod: Joi.string().required()
+  paymentMethod: Joi.string()
+    .valid(...Object.values(PaymentMethod))
+    .required()
     .messages({
-      'string.empty': 'Выберите способ оплаты'
+      'any.only': 'Выберите корректный способ оплаты',
+      'any.required': 'Способ оплаты обязателен'
     }),
   
-  // Данные доставки - проверяем в зависимости от метода
-  deliveryAddress: Joi.alternatives().conditional('deliveryMethod', {
-    is: 'delivery',
-    then: deliveryAddressSchema.required(),
-    otherwise: Joi.forbidden()
-  }).messages({
-    'any.required': 'Для доставки укажите адрес'
-  }),
+  // Данные доставки - динамическая схема в зависимости от метода
+  deliveryAddress: Joi.alternatives()
+    .conditional('deliveryMethod', [
+      {
+        is: DeliveryMethod.DOOR_TO_DOOR,
+        then: doorToDoorAddressSchema.required(),
+      },
+      {
+        is: DeliveryMethod.PICKUP_POINT,
+        then: pickupPointAddressSchema.required(),
+      },
+      {
+        is: DeliveryMethod.SELF_PICKUP,
+        then: Joi.forbidden()
+      }
+    ])
+    .messages({
+      'any.required': 'Для доставки укажите адрес'
+    }),
   
-  transportCompanyId: Joi.alternatives().conditional('deliveryMethod', {
-    is: 'delivery',
-    then: Joi.string().required(),
-    otherwise: Joi.forbidden()
-  }).messages({
-    'any.required': 'Выберите транспортную компанию'
-  }),
+  transportCompanyId: Joi.alternatives()
+    .conditional('deliveryMethod', [
+      {
+        is: DeliveryMethod.DOOR_TO_DOOR,
+        then: Joi.string().required(),
+      },
+      {
+        is: DeliveryMethod.PICKUP_POINT,
+        then: Joi.string().required(),
+      },
+      {
+        is: DeliveryMethod.SELF_PICKUP,
+        then: Joi.forbidden()
+      }
+    ])
+    .messages({
+      'any.required': 'Для доставки выберите транспортную компанию'
+    }),
   
-  pickupPointId: Joi.alternatives().conditional('deliveryMethod', {
-    is: 'pickup',
-    then: Joi.string().required(),
-    otherwise: Joi.forbidden()
-  }).messages({
-    'any.required': 'Выберите пункт самовывоза'
-  }),
+  pickupPointId: Joi.alternatives()
+    .conditional('deliveryMethod', {
+      is: DeliveryMethod.SELF_PICKUP,
+      then: Joi.string().required(),
+      otherwise: Joi.forbidden()
+    })
+    .messages({
+      'any.required': 'Для самовывоза выберите пункт выдачи'
+    }),
   
   deliveryNotes: Joi.string().max(500)
     .messages({
       'string.max': 'Примечание слишком длинное (макс. 500 символов)'
     }).optional().allow(null),
   
-  // Данные компании - ОБНОВЛЕННЫЙ БЛОК
-  // Вариант 1: Использование существующей компании по ID
+  // Данные компании
+  isCompany: Joi.boolean().default(false),
   existingCompanyId: Joi.string()
     .custom((value, helpers) => {
       if (!mongoose.Types.ObjectId.isValid(value)) {
@@ -251,7 +253,6 @@ const createOrderValidator = Joi.object({
     })
     .optional(),
   
-  // Вариант 2: Создание новой компании
   newCompanyData: Joi.alternatives().conditional('existingCompanyId', {
     is: Joi.exist(),
     then: Joi.forbidden().messages({
@@ -283,44 +284,87 @@ const createOrderValidator = Joi.object({
   userAgent: Joi.string(),
   source: Joi.string().valid('web', 'mobile', 'api', 'admin')
 }).custom((value, helpers) => {
-  // Логируем все входящие данные
-  console.log('\n=== ВСЕ ВХОДЯЩИЕ ДАННЫЕ ЗАКАЗА ===');
-  console.log(JSON.stringify(value, null, 2));
-  
-  if (value.newCompanyData) {
-    logValidation(value.newCompanyData, 'custom validation');
+  // Проверка совместимости способа оплаты и доставки
+  if (value.deliveryMethod && value.paymentMethod) {
+    const deliveryMethod = value.deliveryMethod;
+    const paymentMethod = value.paymentMethod;
+    
+    // Проверка для DOOR_TO_DOOR
+    if (deliveryMethod === DeliveryMethod.DOOR_TO_DOOR) {
+      if (paymentMethod !== PaymentMethod.INVOICE && 
+          paymentMethod !== PaymentMethod.COURIER_CASH) {
+        return helpers.error('any.invalid', {
+          message: 'Для доставки до двери доступна только оплата по счету или курьеру'
+        });
+      }
+    }
+    
+    // Проверка для PICKUP_POINT
+    if (deliveryMethod === DeliveryMethod.PICKUP_POINT) {
+      if (paymentMethod !== PaymentMethod.INVOICE && 
+          paymentMethod !== PaymentMethod.PICKUP_POINT_CASH) {
+        return helpers.error('any.invalid', {
+          message: 'Для доставки в ПВЗ доступна только оплата по счету или при получении в ПВЗ'
+        });
+      }
+    }
+    
+    // Проверка для SELF_PICKUP
+    if (deliveryMethod === DeliveryMethod.SELF_PICKUP) {
+      if (paymentMethod !== PaymentMethod.INVOICE && 
+          paymentMethod !== PaymentMethod.SELF_PICKUP_CARD && 
+          paymentMethod !== PaymentMethod.SELF_PICKUP_CASH) {
+        return helpers.error('any.invalid', {
+          message: 'Для самовывоза доступна только оплата по счету, картой или наличными при самовывозе'
+        });
+      }
+    }
   }
   
-  // Кастомная валидация - не должно быть одновременно транспортной компании и пункта выдачи
-  if (value.deliveryMethod === 'delivery' && value.pickupPointId) {
-    return helpers.error('any.invalid', {
-      message: 'При доставке не должен быть выбран пункт самовывоза'
-    });
+  // Проверка обязательных полей в зависимости от доставки
+  if (value.deliveryMethod === DeliveryMethod.DOOR_TO_DOOR || 
+      value.deliveryMethod === DeliveryMethod.PICKUP_POINT) {
+    if (!value.transportCompanyId) {
+      return helpers.error('any.invalid', {
+        message: 'Для выбранного способа доставки требуется транспортная компания'
+      });
+    }
+    
+    if (!value.deliveryAddress) {
+      return helpers.error('any.invalid', {
+        message: 'Для выбранного способа доставки требуется адрес'
+      });
+    }
   }
   
-  if (value.deliveryMethod === 'pickup' && value.transportCompanyId) {
-    return helpers.error('any.invalid', {
-      message: 'При самовывозе не должна быть выбрана транспортная компания'
-    });
+  if (value.deliveryMethod === DeliveryMethod.SELF_PICKUP) {
+    if (!value.pickupPointId) {
+      return helpers.error('any.invalid', {
+        message: 'Для самовывоза требуется пункт выдачи'
+      });
+    }
   }
   
-  // Кастомная валидация - проверяем, что указан либо ID существующей компании, либо данные новой
-  if (value.existingCompanyId && value.newCompanyData) {
-    return helpers.error('any.invalid', {
-      message: 'Нельзя одновременно указывать ID существующей компании и данные для новой компании'
-    });
+  // Проверка адреса в зависимости от метода доставки
+  if (value.deliveryAddress) {
+    if (value.deliveryMethod === DeliveryMethod.DOOR_TO_DOOR) {
+      if (!value.deliveryAddress.city || !value.deliveryAddress.postalCode) {
+        return helpers.error('any.invalid', {
+          message: 'Для доставки до двери требуется указать город и почтовый индекс'
+        });
+      }
+    }
   }
   
   return value;
 }).messages({
-  'any.invalid': '{{#label}} - {{#message}}'
+  'any.invalid': '{{#message}}'
 });
 
-// Middleware для валидации (с логированием)
+// Middleware для валидации
 const validateCreateOrder = (req, res, next) => {
-  console.log('\n=== НАЧАЛО ВАЛИДАЦИИ ЗАКАЗА ===');
+  console.log('\n=== ВАЛИДАЦИЯ ЗАКАЗА ===');
   console.log('Тело запроса:', JSON.stringify(req.body, null, 2));
-  console.log('newCompanyData в теле:', req.body.newCompanyData);
   
   const { error, value } = createOrderValidator.validate(req.body, {
     abortEarly: false,
@@ -346,8 +390,15 @@ const validateCreateOrder = (req, res, next) => {
   console.log('\n=== УСПЕШНАЯ ВАЛИДАЦИЯ ===');
   console.log('Валидированные данные:', JSON.stringify(value, null, 2));
   
-  // Определяем, является ли заказ от компании
-  value.isCompany = !!(value.existingCompanyId || value.newCompanyData);
+  // Обработка адреса для ПВЗ - если город и индекс не указаны, можно заполнить пустыми значениями
+  if (value.deliveryMethod === DeliveryMethod.PICKUP_POINT && value.deliveryAddress) {
+    if (!value.deliveryAddress.city) {
+      value.deliveryAddress.city = '';
+    }
+    if (!value.deliveryAddress.postalCode) {
+      value.deliveryAddress.postalCode = '';
+    }
+  }
   
   // Заменяем валидированные данные
   req.body = value;
@@ -356,5 +407,7 @@ const validateCreateOrder = (req, res, next) => {
 
 module.exports = {
   createOrderValidator,
-  validateCreateOrder
+  validateCreateOrder,
+  doorToDoorAddressSchema,
+  pickupPointAddressSchema
 };

@@ -1,4 +1,3 @@
-// models/order-model.js
 const { Schema, model } = require("mongoose");
 
 const OrderStatus = {
@@ -10,12 +9,22 @@ const OrderStatus = {
   DELIVERED: "delivered",
   READY_FOR_PICKUP: "ready_for_pickup",
   CANCELLED: "cancelled",
-  REFUNDED: "refunded"
+  REFUNDED: "refunded",
+  AWAITING_INVOICE: "awaiting_invoice"
 };
 
 const DeliveryMethod = {
-  DELIVERY: "delivery",
-  PICKUP: "pickup"
+  DOOR_TO_DOOR: "door_to_door",
+  PICKUP_POINT: "pickup_point",
+  SELF_PICKUP: "self_pickup"
+};
+
+const PaymentMethod = {
+  INVOICE: "invoice",
+  COURIER_CASH: "courier_cash",
+  PICKUP_POINT_CASH: "pickup_point_cash",
+  SELF_PICKUP_CARD: "self_pickup_card",
+  SELF_PICKUP_CASH: "self_pickup_cash"
 };
 
 const OrderSchema = new Schema(
@@ -34,13 +43,13 @@ const OrderSchema = new Schema(
       index: true
     },
     
-    // Информация о доставке
+    // Информация о доставке (ОБНОВЛЕНО)
     delivery: {
       method: {
         type: String,
         enum: Object.values(DeliveryMethod),
         required: true,
-        default: DeliveryMethod.DELIVERY
+        default: DeliveryMethod.DOOR_TO_DOOR
       },
       address: {
         street: String,
@@ -49,23 +58,24 @@ const OrderSchema = new Schema(
         country: String
       },
       pickupPoint: {
-        name: String,
-        address: String,
-        hours: String
+        type: Schema.Types.ObjectId,
+        ref: "PickupPoint"
+      },
+      transportCompany: {
+        type: Schema.Types.ObjectId,
+        ref: "TransportCompany"
       },
       trackingNumber: String,
-      carrier: String,
       estimatedDelivery: Date,
       notes: String
     },
     
-    // Информация о получателе
+    // Информация о получателе (ОБНОВЛЕНО)
     recipient: {
       fullName: { type: String, required: true },
       phone: { type: String, required: true },
-      email: { type: String },
-      companyName: String,
-      taxId: String
+      email: { type: String, required: true },
+      contactPerson: String
     },
     
     // Информация о компании (если заказ от компании)
@@ -73,7 +83,9 @@ const OrderSchema = new Schema(
       companyId: { type: Schema.Types.ObjectId, ref: "Company" },
       name: String,
       address: String,
-      taxNumber: String
+      legalAddress: String,
+      taxNumber: String,
+      contactPerson: String
     },
     
     // Товары в заказе
@@ -90,17 +102,17 @@ const OrderSchema = new Schema(
         required: true,
         min: 1
       },
-      unitPrice: { // Цена за единицу на момент заказа
+      unitPrice: {
         type: Number,
         required: true,
         min: 0
       },
-      discount: { // Скидка на товар
+      discount: {
         type: Number,
         default: 0,
         min: 0
       },
-      totalPrice: { // Общая цена за позицию
+      totalPrice: {
         type: Number,
         required: true,
         min: 0
@@ -115,12 +127,12 @@ const OrderSchema = new Schema(
     
     // Финансовая информация
     pricing: {
-      subtotal: { // Сумма без скидок и доставки
+      subtotal: {
         type: Number,
         required: true,
         min: 0
       },
-      discount: { // Общая скидка по заказу
+      discount: {
         type: Number,
         default: 0,
         min: 0
@@ -135,7 +147,7 @@ const OrderSchema = new Schema(
         default: 0,
         min: 0
       },
-      total: { // Итоговая сумма к оплате
+      total: {
         type: Number,
         required: true,
         min: 0
@@ -146,9 +158,13 @@ const OrderSchema = new Schema(
       }
     },
     
-    // Платежная информация
+    // Платежная информация (ОБНОВЛЕНО)
     payment: {
-      method: String,
+      method: {
+        type: String,
+        enum: Object.values(PaymentMethod),
+        required: true
+      },
       status: {
         type: String,
         enum: ["pending", "paid", "failed", "refunded"],
@@ -210,10 +226,18 @@ const OrderSchema = new Schema(
       uploadedBy: { type: Schema.Types.ObjectId, ref: "User" }
     }],
     
-    // Метаданные
+    // Дополнительные поля (ОБНОВЛЕНО)
     notes: String,
     internalNotes: String,
     tags: [String],
+    
+    // Флаги для логики создания компании
+    companyCreated: Boolean,
+    companySelection: {
+      type: { type: String, enum: ["existing", "new"] },
+      companyId: String,
+      taxNumber: String
+    },
     
     // Системные поля
     ipAddress: String,
@@ -243,16 +267,40 @@ OrderSchema.pre("save", async function(next) {
   next();
 });
 
+// Виртуальные поля для удобства
+OrderSchema.virtual("company", {
+  ref: "Company",
+  localField: "companyInfo.companyId",
+  foreignField: "_id",
+  justOne: true
+});
+
+OrderSchema.virtual("pickupPointData", {
+  ref: "PickupPoint",
+  localField: "delivery.pickupPoint",
+  foreignField: "_id",
+  justOne: true
+});
+
+OrderSchema.virtual("transportCompanyData", {
+  ref: "TransportCompany",
+  localField: "delivery.transportCompany",
+  foreignField: "_id",
+  justOne: true
+});
+
 // Индексы для быстрого поиска
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ status: 1, createdAt: -1 });
 OrderSchema.index({ "payment.status": 1 });
 OrderSchema.index({ "delivery.method": 1 });
+OrderSchema.index({ "payment.method": 1 });
 
 const OrderModel = model("Order", OrderSchema);
 
 module.exports = {
   OrderModel,
   OrderStatus,
-  DeliveryMethod
+  DeliveryMethod,
+  PaymentMethod
 };

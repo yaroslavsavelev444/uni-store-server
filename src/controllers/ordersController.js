@@ -1,5 +1,6 @@
 // controllers/orders.controller.js
 const ApiError = require("../exceptions/api-error");
+const { DeliveryMethod, PaymentMethod } = require("../models/order-model");
 const OrderService = require("../services/ordersService");
 
 class OrdersController {
@@ -44,25 +45,54 @@ class OrdersController {
    * POST /api/orders
    */
   async createOrder(req, res, next) {
-    try {
-      const orderData = {
-        ...req.body,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        source: 'web'
-      };
-      
-      const order = await OrderService.createOrder(req.user, orderData);
-      res.status(201).json({
-        success: true,
-        orderNumber: order.orderNumber,
-        orderId: order._id,
-        message: 'Заказ успешно создан'
-      });
-    } catch (error) {
-      next(error);
+  try {
+    const orderData = {
+      ...req.body,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      source: 'web'
+    };
+    
+    // Дополнительная проверка совместимости способов доставки и оплаты
+    const { deliveryMethod, paymentMethod } = orderData;
+    
+    if (deliveryMethod === DeliveryMethod.DOOR_TO_DOOR) {
+      if (paymentMethod !== PaymentMethod.INVOICE && 
+          paymentMethod !== PaymentMethod.COURIER_CASH) {
+        throw ApiError.BadRequest(
+          'Для доставки до двери доступна только оплата по счету или курьеру'
+        );
+      }
+    } else if (deliveryMethod === DeliveryMethod.PICKUP_POINT) {
+      if (paymentMethod !== PaymentMethod.INVOICE && 
+          paymentMethod !== PaymentMethod.PICKUP_POINT_CASH) {
+        throw ApiError.BadRequest(
+          'Для доставки в ПВЗ доступна только оплата по счету или при получении в ПВЗ'
+        );
+      }
+    } else if (deliveryMethod === DeliveryMethod.SELF_PICKUP) {
+      if (paymentMethod !== PaymentMethod.INVOICE && 
+          paymentMethod !== PaymentMethod.SELF_PICKUP_CARD && 
+          paymentMethod !== PaymentMethod.SELF_PICKUP_CASH) {
+        throw ApiError.BadRequest(
+          'Для самовывоза доступна только оплата по счету, картой или наличными при самовывозе'
+        );
+      }
     }
+    
+    const order = await OrderService.createOrder(req.user, orderData);
+    
+    res.status(201).json({
+      success: true,
+      orderNumber: order.orderNumber,
+      orderId: order._id,
+      message: 'Заказ успешно создан'
+    });
+  } catch (error) {
+    next(error);
   }
+}
+
   
   /**
    * Отмена заказа пользователем

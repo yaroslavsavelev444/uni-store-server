@@ -120,15 +120,12 @@ class OrderService {
       const tax = this.calculateTax(subtotal, orderData);
       const total = subtotal + shippingCost + tax;
 
-      // 5. Обработка данных компании (ОБНОВЛЕННЫЙ БЛОК)
       let companyInfo = null;
       let createdCompany = null;
 
       if (orderData.isCompany) {
-        // Случай 1: Использование существующей компании
         if (orderData.existingCompanyId) {
           try {
-            // Получаем компанию через CompanyService с проверкой принадлежности пользователю
             const existingCompany = await CompanyService.getCompanyById(
               user.id,
               orderData.existingCompanyId
@@ -158,7 +155,6 @@ class OrderService {
         // Случай 2: Создание новой компании
         else if (orderData.newCompanyData) {
           try {
-            // Проверяем наличие всех необходимых данных
             const requiredFields = [
               "companyName",
               "companyAddress",
@@ -172,7 +168,6 @@ class OrderService {
               }
             }
 
-            // Создаем новую компанию через CompanyService
             createdCompany = await CompanyService.createCompany(user.id, {
               companyName: orderData.newCompanyData.companyName,
               legalAddress:
@@ -240,58 +235,63 @@ class OrderService {
 
       // 6. Создаем заказ
       const order = new OrderModel({
-        user: user.id,
-        orderNumber: "temp",
-        delivery: {
-          method: orderData.deliveryMethod,
-          address: orderData.deliveryAddress,
-          pickupPoint: orderData.pickupPoint,
-          transportCompany: orderData.transportCompanyId,
-          notes: orderData.deliveryNotes,
+      user: user.id,
+      orderNumber: "temp",
+      delivery: {
+        method: orderData.deliveryMethod,
+        address: orderData.deliveryAddress,
+        pickupPoint: orderData.deliveryMethod === DeliveryMethod.SELF_PICKUP 
+          ? orderData.pickupPointId 
+          : undefined,
+        transportCompany: (orderData.deliveryMethod === DeliveryMethod.DOOR_TO_DOOR || 
+                          orderData.deliveryMethod === DeliveryMethod.PICKUP_POINT)
+          ? orderData.transportCompanyId 
+          : undefined,
+        notes: orderData.deliveryNotes,
+      },
+      recipient: {
+        fullName: orderData.recipientName,
+        phone: orderData.recipientPhone,
+        email: orderData.recipientEmail || user.email,
+        contactPerson: orderData.newCompanyData?.contactPerson || orderData.recipientName,
+      },
+      companyInfo: companyInfo,
+      items: orderItems,
+      pricing: {
+        subtotal,
+        discount: cart.summary.totalDiscount || 0,
+        shippingCost,
+        tax,
+        total,
+        currency: "RUB",
+      },
+      payment: {
+        method: orderData.paymentMethod,
+        status: orderData.awaitingInvoice ? "pending" : "pending", // Для счета настраивается отдельно
+      },
+      status: OrderStatus.PENDING,
+      statusHistory: [
+        {
+          status: OrderStatus.PENDING,
+          changedAt: new Date(),
+          changedBy: user.id,
+          comment: orderData.awaitingInvoice 
+            ? "Заказ создан, ожидает выставления счета" 
+            : "Заказ создан",
         },
-        recipient: {
-          fullName: orderData.recipientName,
-          phone: orderData.recipientPhone,
-          email: orderData.recipientEmail || user.email,
-          contactPerson:
-            orderData.newCompanyData?.contactPerson || orderData.recipientName,
-        },
-        companyInfo: companyInfo,
-        items: orderItems,
-        pricing: {
-          subtotal,
-          discount: cart.summary.totalDiscount || 0,
-          shippingCost,
-          tax,
-          total,
-          currency: "RUB",
-        },
-        payment: {
-          method: orderData.paymentMethod,
-          status: "pending",
-        },
-        status: OrderStatus.PENDING,
-        statusHistory: [
-          {
-            status: OrderStatus.PENDING,
-            changedAt: new Date(),
-            changedBy: user.id,
-            comment: "Заказ создан",
-          },
-        ],
-        notes: orderData.notes,
-        ipAddress: orderData.ipAddress,
-        userAgent: orderData.userAgent,
-        source: orderData.source || "web",
-        // Сохраняем флаг, была ли компания создана при оформлении заказа
-        companyCreated: !!createdCompany,
-        // Сохраняем данные о выборе компании
-        companySelection: orderData.existingCompanyId
-          ? { type: "existing", companyId: orderData.existingCompanyId }
-          : orderData.newCompanyData
-          ? { type: "new", taxNumber: orderData.newCompanyData.taxNumber }
-          : null,
-      });
+      ],
+      notes: orderData.notes,
+      ipAddress: orderData.ipAddress,
+      userAgent: orderData.userAgent,
+      source: orderData.source || "web",
+      companyCreated: !!createdCompany,
+      companySelection: orderData.existingCompanyId
+        ? { type: "existing", companyId: orderData.existingCompanyId }
+        : orderData.newCompanyData
+        ? { type: "new", taxNumber: orderData.newCompanyData.taxNumber }
+        : null,
+    });
+
 
       // 7. Сохраняем все изменения в транзакции
       await Promise.all(productUpdates);

@@ -4,7 +4,6 @@ const router = express.Router();
 const ordersController = require('../controllers/ordersController');
 const authMiddleware = require('../middlewares/auth-middleware');
 const { validateCreateOrder } = require('../validators/order.validator');
-// const upload = require('../middlewares/upload-middleware');
 
 // ========== USER ROUTES ==========
 router.get(
@@ -60,7 +59,6 @@ router.post(
 router.post(
   '/admin/orders/:id/attachments',
   authMiddleware('admin'),
-//   upload.single('file'),
   ordersController.uploadAttachment
 );
 
