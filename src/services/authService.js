@@ -4,6 +4,7 @@ const {
   UserModel,
   UserSecurityModel,
   UserSessionModel,
+  UserAcceptedConsentModel,
 } = require("../models/index.models");
 const { registerSchema } = require("../validators/user.validator");
 const bcrypt = require("bcryptjs");
@@ -94,7 +95,8 @@ const logout = async (refreshToken, userData) => {
   }
 };
 
-const register = async (userData) => {
+
+const register = async (userData, meta = {}) => {
   try {
     const { error, value } = registerSchema.validate(userData, {
       abortEarly: false,
@@ -102,48 +104,65 @@ const register = async (userData) => {
     });
 
     if (error) {
-      const details = error.details.map((d) => d.message).join("; ");
+      const details = error.details.map(d => d.message).join("; ");
       throw ApiError.BadRequest("Ошибка валидации: " + details);
     }
 
-    const { name, email, password } = value;
+    const { name, email, password, acceptedConsents } = value;
 
     const existingUser = await UserModel.findOne({ email }).exec();
-
     if (existingUser) {
-      if (existingUser.email === email) {
-        throw ApiError.BadRequest("Пользователь с таким email уже существует");
-      } else {
-        throw ApiError.BadRequest(
-          "Пользователь с таким телефоном уже существует"
-        );
-      }
+      throw ApiError.BadRequest(
+        "Пользователь с таким email уже существует"
+      );
     }
-
-    let user;
 
     const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    user = new UserModel({
+    const user = new UserModel({
       name,
       email,
       role: "user",
       password: hashedPassword,
     });
 
-    const userSecurity = new UserSecurityModel({ userId: user._id });
+    const userSecurity = new UserSecurityModel({
+      userId: user._id,
+    });
 
     await Promise.all([user.save(), userSecurity.save()]);
 
+    // === СОХРАНЕНИЕ ПРИНЯТЫХ СОГЛАСИЙ ===
+    if (Array.isArray(acceptedConsents) && acceptedConsents.length > 0) {
+      const consentDocs = acceptedConsents.map(consent => ({
+        userId: user._id,
+        consentSlug: consent.slug,
+        consentVersion: consent.version,
+        ip: meta.ip || "unknown",
+        userAgent: meta.userAgent || "unknown",
+      }));
+
+      await UserAcceptedConsentModel.insertMany(
+        consentDocs,
+        { ordered: false }
+      );
+    }
+
     return {
-      user: { userId: user._id, email: user.email, role: user.role },
+      user: {
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+      },
     };
   } catch (error) {
     logger.error(`[REGISTER] ${error.message}`);
+
     if (error instanceof ApiError) {
       throw error;
     }
+
     throw ApiError.InternalServerError(
       "Произошла ошибка при регистрации",
       error

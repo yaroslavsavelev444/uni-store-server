@@ -27,6 +27,7 @@ const PickupPointModel = require("./pickup-point-model");
 const TransportCompanyModel = require("./transport-company-model");
 const ContentBlockModel = require("./content-block-model");
 const UserSanctionModel = require("./user-sanction-model");
+const UserAcceptedConsentModel = require("./user-accepted-consent-model");
 module.exports = {
   CartModel,
   ProductModel,
@@ -57,5 +58,6 @@ module.exports = {
   PickupPointModel,
   TransportCompanyModel,
   ContentBlockModel,
-  UserSanctionModel
+  UserSanctionModel,
+  UserAcceptedConsentModel
 };

@@ -4,7 +4,7 @@ const ApiError = require("../exceptions/api-error");
 const getIp = require("../utils/getIp");
 const { create2FACodeAndNotify } = require("../services/2faService");
 const auditLogger = require("../logger/auditLogger");
-
+const consentService = require("../services/consentService");
 const register = async (req, res, next) => {
   try {
     const userData = req.body;
@@ -15,15 +15,31 @@ const register = async (req, res, next) => {
       throw ApiError.BadRequest("Пользователь не передан");
     }
 
-    if (
-      !userData.email ||
-      !userData.password ||
-      !userData.name ||
-      !userData.acceptedConsents
-    ) {
+    const { email, password, name, acceptedConsents } = userData;
+
+    if (!email || !password || !name || !acceptedConsents) {
       throw ApiError.BadRequest("Переданы не все данные");
     }
 
+    if (!Array.isArray(acceptedConsents) || acceptedConsents.length === 0) {
+      throw ApiError.BadRequest("Согласия не переданы");
+    }
+
+    // 1. Проверяем структуру с клиента
+    const acceptedSlugs = acceptedConsents.map(c => {
+      if (!c.slug || !c.version) {
+        
+        throw ApiError.BadRequest("Некорректный формат согласий");
+      }
+      return c.slug;
+    });
+
+    // 2. Проверяем, что все обязательные соглашения существуют и активны
+    const validConsents = await consentService.checkAllAcceptedConsents(
+      acceptedSlugs
+    );
+
+    // 3. Только после этого — регистрация
     const { user } = await authService.register(userData);
 
     let faResult = null;
@@ -31,17 +47,17 @@ const register = async (req, res, next) => {
     if (user.userId) {
       faResult = await create2FACodeAndNotify(user.userId);
 
-      // Логирование успешной регистрации с 2FA
+      // 4. Аудит — фиксируем факт принятия
       await auditLogger.logUserEvent(
         user.userId,
-        userData.email,
+        email,
         "USER_REGISTRATION",
         "CREATE_ACCOUNT_2FA",
         {
           ip,
           userAgent,
-          name: userData.name,
-          acceptedConsents: userData.acceptedConsents,
+          name,
+          acceptedConsents: validConsents,
           verificationMethod: "email_2fa",
         }
       );
@@ -53,8 +69,8 @@ const register = async (req, res, next) => {
       userData: { userId: user.userId, email: user.email },
     });
   } catch (error) {
-    // Логирование ошибки регистрации
     const ip = getIp(req);
+
     await auditLogger.logUserEvent(
       "unknown",
       req.body?.email || "unknown@email",
@@ -63,7 +79,6 @@ const register = async (req, res, next) => {
       {
         ip,
         error: error.message,
-        reason: error instanceof ApiError ? error.message : "System error",
       }
     );
 
