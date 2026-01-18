@@ -1,7 +1,5 @@
-// services/consent.service.js
 const ApiError = require("../exceptions/api-error");
 const {ConsentModel} = require("../models/index.models");
-const { incrementVersion } = require("../utils/versioning");
 const redisClient = require("../redis/redis.client");
 
 class ConsentService {
@@ -10,7 +8,9 @@ class ConsentService {
     this.CACHE_KEYS = {
       CONSENTS_LIST: 'consents:list',
       CONSENT_BY_SLUG: (slug) => `consents:${slug}`,
-      ACTIVE_VERSION: (slug) => `consents:${slug}:active`,
+      REGISTRATION_CONSENTS: 'consents:registration',
+      REQUIRED_ACCEPTANCE: 'consents:required:acceptance',
+      ACTIVE_CONSENTS: 'consents:active'
     };
   }
 
@@ -19,41 +19,47 @@ class ConsentService {
     try {
       const promises = [];
       
-      // Всегда инвалидируем список соглашений
       promises.push(redisClient.del(this.CACHE_KEYS.CONSENTS_LIST));
+      promises.push(redisClient.del(this.CACHE_KEYS.REGISTRATION_CONSENTS));
+      promises.push(redisClient.del(this.CACHE_KEYS.REQUIRED_ACCEPTANCE));
+      promises.push(redisClient.del(this.CACHE_KEYS.ACTIVE_CONSENTS));
       
       if (slug) {
-        // Инвалидируем кеш конкретного соглашения
         promises.push(redisClient.del(this.CACHE_KEYS.CONSENT_BY_SLUG(slug)));
-        promises.push(redisClient.del(this.CACHE_KEYS.ACTIVE_VERSION(slug)));
       }
       
       await Promise.all(promises);
     } catch (error) {
       console.error('Ошибка при инвалидации кеша:', error);
-      // Продолжаем выполнение даже если кеш не очистился
     }
   }
 
   // Создание нового соглашения
-  async createConsent(title, slug, content, isRequired = true) {
+  async createConsent(title, slug, description, content, isRequired = true, needsAcceptance = true, documentUrl = null, authorId) {
     try {
       const newConsent = new ConsentModel({
         title,
         slug,
-        isRequired,
-        versions: [
-          {
-            version: "1.0.0",
-            content,
-            status: "draft",
-          },
-        ],
+        description,
+        content,
+        isRequired: isRequired !== false,
+        needsAcceptance: needsAcceptance !== false,
+        documentUrl,
+        version: "1.0.0",
+        isActive: true,
+        lastUpdatedBy: authorId,
+        history: [{
+          version: "1.0.0",
+          content,
+          documentUrl,
+          author: authorId,
+          changeDescription: "Первоначальная версия",
+          createdAt: new Date()
+        }]
       });
 
       const savedConsent = await newConsent.save();
       
-      // Инвалидируем кеш после создания
       await this.invalidateCache();
       
       return savedConsent;
@@ -65,65 +71,49 @@ class ConsentService {
     }
   }
 
-  // Добавление новой версии соглашения
-  async addVersion(slug, content, authorId, changeDescription) {
+  // Обновление соглашения
+  async updateConsent(slug, updateData, authorId, changeDescription = "Обновление соглашения") {
     try {
       const consent = await ConsentModel.findOne({ slug });
       if (!consent) throw ApiError.BadRequest("Соглашение не найдено");
 
-      const lastVersion = consent.versions.slice(-1)[0];
-      
-      const newVersion = {
-        version: incrementVersion(lastVersion.version, "minor"),
-        content,
-        status: "draft",
-        changes: [
-          {
-            author: authorId,
-            description: changeDescription || "Новая версия",
-          },
-        ],
-      };
+      // Сохраняем текущие значения перед обновлением
+      const originalContent = consent.content;
+      const originalDocumentUrl = consent.documentUrl;
+      const originalVersion = consent.version;
 
-      consent.versions.push(newVersion);
-      const updatedConsent = await consent.save();
-      
-      // Инвалидируем кеш этого соглашения
-      await this.invalidateCache(slug);
-      
-      return updatedConsent;
-    } catch (error) {
-      throw ApiError.InternalServerError(error.message);
-    }
-  }
-
-  // Публикация версии соглашения
-  async publishVersion(slug, versionId) {
-    try {
-      const consent = await ConsentModel.findOne({ slug });
-      if (!consent) throw ApiError.BadRequest("Соглашение не найдено");
-
-      const version = consent.versions.id(versionId);
-      if (!version) throw ApiError.BadRequest("Версия не найдена");
-
-      if (version.status === "published") {
-        throw ApiError.BadRequest("Версия уже опубликована");
-      }
-      
-      // Деактивируем текущую опубликованную версию
-      consent.versions.forEach((v) => {
-        if (v.status === "published") {
-          v.status = 'archived';
+      // Обновляем данные соглашения
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] !== undefined) {
+          consent[key] = updateData[key];
         }
       });
 
-      version.status = "published";
-      version.publishedAt = new Date();
-      consent.currentPublished = version._id;
+      // Сохраняем историю вручную, чтобы middleware сработал правильно
+      if (consent.content !== originalContent || consent.documentUrl !== originalDocumentUrl) {
+        consent.history.push({
+          version: originalVersion,
+          content: originalContent,
+          documentUrl: originalDocumentUrl,
+          author: consent.lastUpdatedBy,
+          changeDescription: consent._changeDescription || "Предыдущая версия",
+          createdAt: consent.lastUpdatedAt || new Date()
+        });
+
+        // Увеличиваем версию
+        const [major, minor, patch] = consent.version.split('.').map(Number);
+        consent.version = `${major}.${minor}.${patch + 1}`;
+      }
+
+      // Обновляем информацию об авторе изменения
+      consent.lastUpdatedBy = authorId;
+      consent.lastUpdatedAt = new Date();
+      
+      // Сохраняем описание изменения для истории
+      consent._changeDescription = changeDescription;
 
       const updatedConsent = await consent.save();
       
-      // Инвалидируем кеш этого соглашения и активной версии
       await this.invalidateCache(slug);
       
       return updatedConsent;
@@ -132,59 +122,22 @@ class ConsentService {
     }
   }
 
-  // Редактирование черновика версии
-  async updateDraftVersion(slug, versionId, content, authorId, changeDescription, isRequired) {
-  try {
-    const consent = await ConsentModel.findOne({ slug });
-    if (!consent) throw ApiError.BadRequest("Соглашение не найдено");
-
-    const version = consent.versions.id(versionId);
-    if (!version) throw ApiError.BadRequest("Версия не найдена");
-
-    if (version.status !== "draft") {
-      throw ApiError.BadRequest("Можно редактировать только черновики");
-    }
-
-    // Обновить флаг isRequired соглашения если передан
-    if (isRequired !== undefined) {
-      consent.isRequired = isRequired;
-    }
-
-    version.content = content;
-    version.changes.push({
-      author: authorId,
-      description: changeDescription || "Редактирование черновика",
-    });
-
-    const updatedConsent = await consent.save();
-    
-    // Инвалидируем кеш этого соглашения
-    await this.invalidateCache(slug);
-    
-    return updatedConsent;
-  } catch (error) {
-    throw ApiError.InternalServerError(error.message);
-  }
-}
-
-
-  // Удаление версии (только черновик)
-  async deleteVersion(slug, versionId) {
+  // Активация соглашения
+  async activateConsent(slug, authorId) {
     try {
       const consent = await ConsentModel.findOne({ slug });
       if (!consent) throw ApiError.BadRequest("Соглашение не найдено");
 
-      const version = consent.versions.id(versionId);
-      if (!version) throw ApiError.BadRequest("Версия не найдена");
-
-      if (version.status !== "draft") {
-        throw ApiError.BadRequest("Можно удалять только черновики");
+      if (consent.isActive) {
+        throw ApiError.BadRequest("Соглашение уже активировано");
       }
 
-      consent.versions.pull(versionId);
+      consent.isActive = true;
+      consent.lastUpdatedBy = authorId;
+      consent.lastUpdatedAt = new Date();
+
       const updatedConsent = await consent.save();
       
-      // Инвалидируем кеш этого соглашения
       await this.invalidateCache(slug);
       
       return updatedConsent;
@@ -193,37 +146,154 @@ class ConsentService {
     }
   }
 
-  // Получение активной версии с кешированием
-  async getActiveVersion(slug) {
+  // Деактивация соглашения
+  async deactivateConsent(slug, authorId) {
     try {
-      const cacheKey = this.CACHE_KEYS.ACTIVE_VERSION(slug);
+      const consent = await ConsentModel.findOne({ slug });
+      if (!consent) throw ApiError.BadRequest("Соглашение не найдено");
+
+      if (!consent.isActive) {
+        throw ApiError.BadRequest("Соглашение уже деактивировано");
+      }
+
+      consent.isActive = false;
+      consent.lastUpdatedBy = authorId;
+      consent.lastUpdatedAt = new Date();
+
+      const updatedConsent = await consent.save();
       
-      // Пробуем получить из кеша
+      await this.invalidateCache(slug);
+      
+      return updatedConsent;
+    } catch (error) {
+      throw ApiError.InternalServerError(error.message);
+    }
+  }
+
+  // Удаление соглашения
+  async deleteConsent(slug) {
+    try {
+      const consent = await ConsentModel.findOne({ slug });
+      if (!consent) throw ApiError.BadRequest("Соглашение не найдено");
+
+      await ConsentModel.deleteOne({ slug });
+      
+      await this.invalidateCache(slug);
+      
+      return { success: true };
+    } catch (error) {
+      throw ApiError.InternalServerError(error.message);
+    }
+  }
+
+  // Получение соглашений для отображения при регистрации
+  async getConsentsForRegistration() {
+    try {
+      const cacheKey = this.CACHE_KEYS.REGISTRATION_CONSENTS;
+      
       const cached = await redisClient.getJson(cacheKey);
       if (cached) {
         return cached;
       }
       
-      const consent = await ConsentModel.findOne({ slug })
-        .select("title slug currentPublished versions")
-        .populate("currentPublished");
-
-      if (!consent || !consent.currentPublished) {
-        throw ApiError.BadRequest("Активная версия не найдена");
-      }
-
-      const result = {
+      const consents = await ConsentModel.find({ 
+        isActive: true , needsAcceptance: true
+      })
+        .select("title slug description content documentUrl isRequired needsAcceptance version lastUpdatedAt")
+        .sort({ createdAt: -1 });
+      
+      const result = consents.map(consent => ({
+        _id: consent._id,
         title: consent.title,
         slug: consent.slug,
-        version: consent.currentPublished.version,
-        content: consent.currentPublished.content,
-        publishedAt: consent.currentPublished.publishedAt,
-      };
+        description: consent.description,
+        content: consent.content,
+        documentUrl: consent.documentUrl,
+        isRequired: consent.isRequired,
+        needsAcceptance: consent.needsAcceptance,
+        version: consent.version,
+        updatedAt: consent.lastUpdatedAt
+      }));
       
-      // Сохраняем в кеш
       await redisClient.setJson(cacheKey, result, this.CACHE_TTL);
       
       return result;
+    } catch (error) {
+      throw ApiError.InternalServerError(error.message);
+    }
+  }
+
+  // Получение соглашений, которые требуют принятия (для акцептов)
+  async getConsentsRequiringAcceptance() {
+    try {
+      const cacheKey = this.CACHE_KEYS.REQUIRED_ACCEPTANCE;
+      
+      const cached = await redisClient.getJson(cacheKey);
+      if (cached) {
+        return cached;
+      }
+      
+      const consents = await ConsentModel.find({ 
+        isActive: true,
+        needsAcceptance: true 
+      })
+        .select("title slug content isRequired version")
+        .sort({ isRequired: -1, createdAt: -1 });
+      
+      const result = consents.map(consent => ({
+        _id: consent._id,
+        title: consent.title,
+        slug: consent.slug,
+        content: consent.content,
+        isRequired: consent.isRequired,
+        version: consent.version
+      }));
+      
+      await redisClient.setJson(cacheKey, result, this.CACHE_TTL);
+      
+      return result;
+    } catch (error) {
+      throw ApiError.InternalServerError(error.message);
+    }
+  }
+
+  // Проверка всех принятых соглашений
+  async checkAllAcceptedConsents(acceptedSlugs) {
+    try {
+      const requiredConsents = await ConsentModel.find({ 
+        isActive: true,
+        isRequired: true,
+        needsAcceptance: true 
+      }).select("slug title");
+
+      const missingRequired = requiredConsents
+        .map(c => c.slug)
+        .filter(slug => !acceptedSlugs.includes(slug));
+
+      if (missingRequired.length > 0) {
+        const missingTitles = requiredConsents
+          .filter(c => missingRequired.includes(c.slug))
+          .map(c => c.title);
+          
+        throw ApiError.BadRequest(`Отсутствуют обязательные согласия: ${missingTitles.join(', ')}`);
+      }
+
+      // Получаем только те соглашения, которые требуют принятия
+      const acceptedConsents = await ConsentModel.find({ 
+        slug: { $in: acceptedSlugs },
+        isActive: true,
+        needsAcceptance: true 
+      })
+        .select("title slug content version");
+
+      const formattedConsents = acceptedConsents.map(consent => ({
+        title: consent.title,
+        slug: consent.slug,
+        version: consent.version,
+        content: consent.content
+      }));
+
+      return formattedConsents;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -237,17 +307,16 @@ class ConsentService {
     try {
       const cacheKey = this.CACHE_KEYS.CONSENTS_LIST;
       
-      // Пробуем получить из кеша
       const cached = await redisClient.getJson(cacheKey);
       if (cached) {
         return cached;
       }
       
       const consents = await ConsentModel.find()
-        .select("title slug isRequired currentPublished versions")
-        .populate("currentPublished", "version publishedAt");
+        .select("title slug description isRequired needsAcceptance isActive version documentUrl lastUpdatedAt history")
+        .populate("lastUpdatedBy", "email firstName lastName")
+        .sort({ createdAt: -1 });
       
-      // Сохраняем в кеш
       await redisClient.setJson(cacheKey, consents, this.CACHE_TTL);
       
       return consents;
@@ -261,19 +330,19 @@ class ConsentService {
     try {
       const cacheKey = this.CACHE_KEYS.CONSENT_BY_SLUG(slug);
       
-      // Пробуем получить из кеша
       const cached = await redisClient.getJson(cacheKey);
       if (cached) {
         return cached;
       }
       
-      const consent = await ConsentModel.findOne({ slug }).populate("currentPublished");
+      const consent = await ConsentModel.findOne({ slug })
+        .populate("lastUpdatedBy", "email firstName lastName")
+        .populate("history.author", "email firstName lastName");
       
       if (!consent) {
         throw ApiError.BadRequest("Соглашение не найдено");
       }
       
-      // Сохраняем в кеш
       await redisClient.setJson(cacheKey, consent, this.CACHE_TTL);
       
       return consent;
@@ -285,42 +354,24 @@ class ConsentService {
     }
   }
 
-  // Проверка всех принятых соглашений
-  async checkAllAcceptedConsents(acceptedSlugs) {
+  // Получение активных соглашений
+  async getActiveConsents() {
     try {
-      const consents = await ConsentModel.find({ slug: { $in: acceptedSlugs } })
-        .select("title slug currentPublished isRequired")
-        .populate("currentPublished");
-
-      const requiredConsents = await ConsentModel.find({ isRequired: true }).select("slug");
-
-      const missingRequired = requiredConsents
-        .map(c => c.slug)
-        .filter(slug => !acceptedSlugs.includes(slug));
-
-      if (missingRequired.length > 0) {
-        throw ApiError.BadRequest(`Отсутствуют обязательные согласия: ${missingRequired.join(', ')}`);
+      const cacheKey = this.CACHE_KEYS.ACTIVE_CONSENTS;
+      
+      const cached = await redisClient.getJson(cacheKey);
+      if (cached) {
+        return cached;
       }
-
-      const formattedConsents = consents.map(consent => {
-        if (!consent.currentPublished) {
-          throw ApiError.BadRequest(`У согласия "${consent.slug}" нет опубликованной версии`);
-        }
-
-        return {
-          title: consent.title,
-          slug: consent.slug,
-          version: consent.currentPublished.version,
-          content: consent.currentPublished.content,
-          publishedAt: consent.currentPublished.publishedAt
-        };
-      });
-
-      return formattedConsents;
+      
+      const consents = await ConsentModel.find({ isActive: true })
+        .select("title slug isRequired needsAcceptance version")
+        .sort({ createdAt: -1 });
+      
+      await redisClient.setJson(cacheKey, consents, this.CACHE_TTL);
+      
+      return consents;
     } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
       throw ApiError.InternalServerError(error.message);
     }
   }
