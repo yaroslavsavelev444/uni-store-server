@@ -93,17 +93,6 @@ app.use(express.json({ limit: "100mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "100mb" }));
 app.use(cookieParser());
 app.use(useragent.express());
-app.use((req, res, next) => {
-  res.on("finish", () => {
-    logger.info(`✅ FINISHED ${req.method} ${req.url} ${res.statusCode}`);
-  });
-
-  res.on("close", () => {
-    logger.error(`❌ CLOSED ${req.method} ${req.url}`);
-  });
-
-  next();
-});
 
 /* =========================
    LOGGING
@@ -121,8 +110,8 @@ app.use((req, res, next) => {
 const requestContextMiddleware = require("./src/middlewares/request-context-middleware");
 const auditRequestMiddleware = require("./src/middlewares/audit-request-middleware");
 
-// app.use(requestContextMiddleware);
-// app.use(auditRequestMiddleware(auditEnvConfig));
+app.use(requestContextMiddleware);
+app.use(auditRequestMiddleware(auditEnvConfig));
 
 /* =========================
    STATIC
@@ -134,7 +123,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
    ROUTES
 ========================= */
 
-const authRoutes = require("./src/routes/authRoutes"); 
+const authRoutes = require("./src/routes/authRoutes"); //прмер
 const productsRoutes = require("./src/routes/productsRoutes");
 const contactsRoutes = require("./src/routes/contactsRoutes");
 const reviewsRoutes = require("./src/routes/reviewsRoutes");
@@ -158,7 +147,6 @@ const deliveryRoutes = require("./src/routes/deliveryRoutes");
 const contentBlockRoutes = require("./src/routes/contentBlockRoutes");
 const consentRoutes = require("./src/routes/consentRoutes");
 const sitemapRoutes = require("./src/routes/sitemapRoutes");
-
 
 app.use("/auth", authRoutes);
 app.use("/health", healthcheckRoutes);
@@ -211,6 +199,8 @@ app.use(errorHandler);
     initSocket(server, {
       corsOrigins: allowedOrigins,
     });
+
+    cronInit.initialize();
 
     server.listen(PORT, HOST, () => {
       logger.info(

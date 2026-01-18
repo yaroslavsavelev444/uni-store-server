@@ -46,23 +46,23 @@ async getAll(includeInactive = false) {
     ? this.CACHE_KEYS.ALL_BLOCKS
     : this.CACHE_KEYS.ACTIVE_BLOCKS;
 
-  // try {
-  //   const cached = await this.redisClient.getJson(cacheKey);
-  //   if (cached) {
-  //     logger.debug(
-  //       `[ContentBlockService] getAll from cache (includeInactive: ${includeInactive})`
-  //     );
-  //     // Добавляем полные URL к изображениям в кешированных данных
-  //     return cached.map(item => {
-  //       if (item.imageUrl && item.imageUrl) {
-  //         item.imageUrl = fileService.getFileUrl(item.imageUrl);
-  //       }
-  //       return item;
-  //     });
-  //   }
-  // } catch (err) {
-  //   logger.warn(`[ContentBlockService] Cache get error: ${err.message}`);
-  // }
+  try {
+    const cached = await this.redisClient.getJson(cacheKey);
+    if (cached) {
+      logger.debug(
+        `[ContentBlockService] getAll from cache (includeInactive: ${includeInactive})`
+      );
+      // Добавляем полные URL к изображениям в кешированных данных
+      return cached.map(item => {
+        if (item.imageUrl && item.imageUrl) {
+          item.imageUrl = fileService.getFileUrl(item.imageUrl);
+        }
+        return item;
+      });
+    }
+  } catch (err) {
+    logger.warn(`[ContentBlockService] Cache get error: ${err.message}`);
+  }
 
   const query = includeInactive ? {} : { isActive: true };
   const items = await ContentBlockModel.find(query)
@@ -70,18 +70,18 @@ async getAll(includeInactive = false) {
     .lean();
 
 
-  // try {
-  //   await this.redisClient.setJson(
-  //     cacheKey,
-  //     items, // Сохраняем в кеш без fullUrl, чтобы не кешировать абсолютные URL
-  //     includeInactive ? this.CACHE_TTL.ALL : this.CACHE_TTL.ACTIVE
-  //   );
-  //   logger.debug(
-  //     `[ContentBlockService] getAll cached (includeInactive: ${includeInactive})`
-  //   );
-  // } catch (err) {
-  //   logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
-  // }
+  try {
+    await this.redisClient.setJson(
+      cacheKey,
+      items, // Сохраняем в кеш без fullUrl, чтобы не кешировать абсолютные URL
+      includeInactive ? this.CACHE_TTL.ALL : this.CACHE_TTL.ACTIVE
+    );
+    logger.debug(
+      `[ContentBlockService] getAll cached (includeInactive: ${includeInactive})`
+    );
+  } catch (err) {
+    logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
+  }
 
   return items;
 }
