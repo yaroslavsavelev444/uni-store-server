@@ -5,6 +5,7 @@ const {
   createConsentSchema,
   updateConsentSchema,
 } = require("../validators/consent.validators");
+const consentNotificationService = require("../services/consentNotificationService");
 
 class ConsentController {
   async create(req, res, next) {
@@ -88,85 +89,135 @@ class ConsentController {
     }
   }
 
-  // Обновление соглашения
-  async update(req, res, next) {
-    try {
-      const { error, value } = updateConsentSchema.validate(req.body, {
-        abortEarly: false,
-        stripUnknown: true,
-      });
+ async update(req, res, next) {
+  try {
+    const { error, value } = updateConsentSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
 
-      if (error) {
-        return next(
-          ApiError.BadRequest(error.details.map((d) => d.message).join(", "))
-        );
-      }
-      const { slug } = req.params;
-      const {
+    if (error) {
+      return next(
+        ApiError.BadRequest(error.details.map((d) => d.message).join(", "))
+      );
+    }
+    
+    const { slug } = req.params;
+    const {
+      title,
+      description,
+      content,
+      isRequired,
+      needsAcceptance,
+      documentUrl,
+      changeDescription,
+      notifyUsers,
+      notificationTypes
+    } = value; // Используем validated value
+
+    if (!slug) {
+      return next(ApiError.BadRequest("Не указан slug соглашения."));
+    }
+
+    const consent = await consentService.updateConsent(
+      slug,
+      {
         title,
         description,
         content,
         isRequired,
         needsAcceptance,
         documentUrl,
-        changeDescription,
-      } = req.body;
+        notifyUsers,
+        notificationTypes
+      },
+      req.user.id,
+      changeDescription || "Обновление соглашения"
+    );
 
-      if (!slug) {
-        return next(ApiError.BadRequest("Не указан slug соглашения."));
-      }
-
-      const consent = await consentService.updateConsent(
-        slug,
-        {
-          title,
-          description,
-          content,
-          isRequired,
-          needsAcceptance,
-          documentUrl,
-        },
-        req.user.id,
-        changeDescription || "Обновление соглашения"
-      );
-
-      // Логирование
-      await auditLogger.logAdminEvent(
-        req.user.id,
-        req.user.email,
-        req.user.role,
-        "CONSENT_MANAGEMENT",
-        "UPDATE_CONSENT",
-        { id: consent._id.toString(), slug },
-        [
+    // Отправляем уведомления, если выбран чекбокс
+    let notificationStats = null;
+    if (notifyUsers && notificationTypes && notificationTypes.length > 0) {
+      try {
+        notificationStats = await consentNotificationService.notifyUsersAboutConsentUpdate(
           {
-            field: "version",
-            old: consent.history[consent.history.length - 2]?.version,
-            new: consent.version,
+            title: consent.title,
+            version: consent.version,
+            documentUrl: consent.documentUrl,
+            changeDescription: changeDescription || "Изменения в условиях соглашения"
           },
-          { field: "updatedBy", old: "предыдущий автор", new: req.user.email },
-        ],
-        `Обновлено соглашение "${slug}" до версии ${consent.version}`
-      );
+          notificationTypes
+        );
 
-      res.json(consent);
-    } catch (error) {
-      await auditLogger.logAdminEvent(
-        req.user.id,
-        req.user.email,
-        req.user.role,
-        "CONSENT_MANAGEMENT",
-        "UPDATE_CONSENT_FAILED",
-        null,
-        [
-          { field: "error", old: null, new: error.message },
-          { field: "slug", old: null, new: req.params.slug },
-        ],
-        `Ошибка при обновлении соглашения "${req.params.slug}": ${error.message}`
-      );
-      next(error);
+        // Логируем статистику отправки
+        await consentNotificationService.logNotification(slug, notificationStats, req.user.id);
+        
+        console.log(`📨 Уведомления отправлены: ${notificationStats.notified}/${notificationStats.totalUsers} пользователей`);
+      } catch (notificationError) {
+        console.error("❌ Ошибка отправки уведомлений:", notificationError);
+      }
     }
+
+    // Логирование
+    await auditLogger.logAdminEvent(
+      req.user.id,
+      req.user.email,
+      req.user.role,
+      "CONSENT_MANAGEMENT",
+      "UPDATE_CONSENT",
+      { 
+        id: consent._id.toString(), 
+        slug,
+        version: consent.version,
+        notifyUsers,
+        notificationTypes,
+        notificationStats
+      },
+      [
+        {
+          field: "version",
+          old: consent.history[consent.history.length - 2]?.version,
+          new: consent.version,
+        },
+        { 
+          field: "notifyUsers", 
+          old: null, 
+          new: notifyUsers ? "Да" : "Нет" 
+        },
+        { 
+          field: "notificationChannels", 
+          old: null, 
+          new: notificationTypes ? notificationTypes.join(", ") : "Не отправлялись" 
+        },
+      ],
+      `Обновлено соглашение "${slug}" до версии ${consent.version}${
+        notifyUsers ? ` (уведомления отправлены ${notificationStats?.notified || 0} пользователям)` : ''
+      }`
+    );
+
+    res.json({
+      ...consent.toObject(),
+      notificationStats
+    });
+    
+  } catch (error) {
+    await auditLogger.logAdminEvent(
+      req.user.id,
+      req.user.email,
+      req.user.role,
+      "CONSENT_MANAGEMENT",
+      "UPDATE_CONSENT_FAILED",
+      null,
+      [
+        { field: "error", old: null, new: error.message },
+        { field: "slug", old: null, new: req.params.slug },
+      ],
+      `Ошибка при обновлении соглашения "${req.params.slug}": ${error.message}`
+    );
+    next(error);
   }
+}
+
 
   // Активация соглашения
   async activate(req, res, next) {

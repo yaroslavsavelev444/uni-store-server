@@ -1,0 +1,64 @@
+{{#extend "baseLayout" title="Обновление соглашения"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #1a1a1a; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+        <h2 style="color: #ff8c42; font-size: 22px; margin-bottom: 20px; text-align: center;">
+          📄 Обновлено {{consentTitle}}
+        </h2>
+        
+        <div style="background-color: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff8c42;">
+          <p style="font-size: 16px; color: #ccc; margin-bottom: 10px;">
+            <strong>Версия:</strong> {{version}}
+          </p>
+          <p style="font-size: 16px; color: #ccc; margin-bottom: 10px;">
+            <strong>Дата обновления:</strong> {{updateDate}}
+          </p>
+          <p style="font-size: 16px; color: #ccc; margin-bottom: 10px;">
+            <strong>Вступает в силу:</strong> {{effectiveDate}}
+          </p>
+        </div>
+
+        <div style="margin-bottom: 25px;">
+          <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px;">Основные изменения:</h3>
+          <p style="font-size: 16px; color: #ccc; line-height: 1.6; background-color: #2a2a2a; padding: 15px; border-radius: 6px;">
+            {{changeDescription}}
+          </p>
+        </div>
+
+        {{#if documentUrl}}
+        <div style="text-align: center; margin-bottom: 25px;">
+          <a href="{{documentUrl}}" style="
+            display: inline-block;
+            background-color: #ff8c42;
+            color: #fff;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.3s;
+          " onmouseover="this.style.backgroundColor='#ff9e5e'" onmouseout="this.style.backgroundColor='#ff8c42'">
+            📖 Прочитать полный текст
+          </a>
+        </div>
+        {{/if}}
+
+        <div style="background-color: #2a2a2a; padding: 15px; border-radius: 6px; margin-bottom: 25px;">
+          <p style="font-size: 14px; color: #888; text-align: center; margin: 0;">
+            Продолжение использования сайта после {{effectiveDate}} означает ваше согласие с обновленными условиями.
+          </p>
+        </div>
+
+        <div style="border-top: 1px solid #333; padding-top: 20px; font-size: 14px; color: #999;">
+          <p style="margin-bottom: 10px;">
+            <strong>Если вы не согласны с изменениями:</strong><br>
+            Вы можете удалить свой аккаунт в разделе настроек профиля или прекратить использование сайта.
+          </p>
+          <p style="margin-bottom: 0;">
+            Это уведомление отправлено в соответствии с требованиями законодательства РФ и вашими пользовательскими соглашениями.
+          </p>
+        </div>
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

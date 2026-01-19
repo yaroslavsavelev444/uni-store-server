@@ -208,6 +208,34 @@ IP: ${data.ip}
       });
       break;
     }
+
+    case "consentUpdated": {
+  subject = `📄 Обновлено ${data.consentTitle}`;
+  text = `Уважаемый пользователь!
+Мы обновили ${data.consentTitle} (редакция ${data.version} от ${data.updateDate}).
+
+Ключевые изменения: ${data.changeDescription}
+
+Новая версия доступна по ссылке: ${data.documentUrl || "на нашем сайте в разделе документов"}
+
+Изменения вступают в силу с ${data.effectiveDate}.
+Продолжение использования сайта означает ваше согласие с обновленными условиями.
+
+Если вы не согласны с изменениями, вы можете удалить свой аккаунт в разделе настроек профиля.`;
+
+  html = renderTemplate("consentUpdated", {
+    consentTitle: data.consentTitle,
+    version: data.version,
+    updateDate: data.updateDate,
+    changeDescription: data.changeDescription,
+    documentUrl: data.documentUrl,
+    effectiveDate: data.effectiveDate,
+    notificationTypes: data.notificationTypes || ['email']
+  });
+  break;
+}
+
+
     case "newFeedback": {
       subject = "📬 Новый фидбек от пользователя";
       text = `Поступил новый фидбек:
