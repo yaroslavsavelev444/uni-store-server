@@ -873,6 +873,7 @@ class OrderService {
   canCancelOrder(order) {
     const cancellableStatuses = [
       OrderStatus.PENDING,
+      OrderStatus.AWAITING_INVOICE,
       OrderStatus.CONFIRMED,
       OrderStatus.PROCESSING,
     ];
