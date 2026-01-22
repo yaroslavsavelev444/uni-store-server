@@ -9,7 +9,7 @@ const UserSchema = new Schema(
       type: String, 
       required: true, 
       unique: true,
-      set: normalizeEmail, // Автоматически нормализуем при сохранении
+      set: normalizeEmail,
       validate: {
         validator: function(v) {
           // Простая проверка формата email
