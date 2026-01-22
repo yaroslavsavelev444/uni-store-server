@@ -46,6 +46,10 @@ exports.processProductFiles = async (productData) => {
     result.images = processedImages;
   }
   
+  if (result.instruction === null) {
+  delete result.instruction;
+}
+
   // Обрабатываем файл инструкции
   if (result.instructionFile) {
     if (result.instructionFile._shouldDelete) {

@@ -27,17 +27,31 @@ class ProductService {
       excludeIds,
       showOnMainPage,
       manufacturer,
-      warrantyMonths
+      warrantyMonths,
+      isAdmin 
     } = query;
-    
+    console.log('query', query);
     const filter = {};
     
     // 1. Базовый фильтр по статусу и видимости
-    if (status && Object.values(ProductStatus).includes(status)) {
-      filter.status = status;
+    // ЕСЛИ АДМИН - ПОКАЗЫВАЕМ ВСЕ СТАТУСЫ И ВСЮ ВИДИМОСТЬ
+    if (isAdmin) {
+      // Админ видит все товары, включая скрытые и любых статусов
+      if (status && Object.values(ProductStatus).includes(status)) {
+        filter.status = status;
+      }
+      // Не добавляем фильтр по isVisible для админа
     } else {
-      // По умолчанию показываем только доступные для покупки
-      filter.status = { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] };
+      // Для обычных пользователей стандартные фильтры
+      if (status && Object.values(ProductStatus).includes(status)) {
+        filter.status = status;
+      } else {
+        // По умолчанию показываем только доступные для покупки
+        filter.status = { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] };
+      }
+      
+      // Фильтр видимости - только видимые товары
+      filter.isVisible = true;
     }
     
     // 2. Фильтр по категории (через ID категории)
@@ -98,8 +112,8 @@ class ProductService {
       filter.$text = { $search: search.trim() };
     }
     
-    // 7. Фильтр видимости
-    filter.isVisible = true;
+    // 7. Фильтр видимости (только для НЕ админов - уже добавлен выше)
+    // Для админов фильтр isVisible не добавляется
     
     // 8. ИСКЛЮЧЕНИЕ ID продуктов
     if (excludeIds && excludeIds.length > 0) {
@@ -150,14 +164,19 @@ class ProductService {
       }
       
       // Популяция связанных продуктов
+      // ДЛЯ СВЯЗАННЫХ ПРОДУКТОВ ТАКЖЕ УЧИТЫВАЕМ isAdmin
       if (populate === 'relatedProducts' || populate === 'all') {
+        const relatedProductsFilter = {};
+        if (!isAdmin) {
+          // Для не-админов связанные продукты тоже должны быть видимыми
+          relatedProductsFilter.status = { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] };
+          relatedProductsFilter.isVisible = true;
+        }
+        
         query = query.populate({
           path: 'relatedProducts',
           select: 'title priceForIndividual mainImage status discount _id',
-          match: { 
-            status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
-            isVisible: true 
-          },
+          match: relatedProductsFilter,
           options: { limit: 10 }
         });
       }
@@ -409,7 +428,10 @@ class ProductService {
     const processedImages = await this.processImagesForDb(productData.images);
     
     // Обрабатываем инструкцию
-    const processedInstruction = await this.processInstructionForDb(productData.instruction);
+    const processedInstruction = productData.instruction !== null 
+      ? await this.processInstructionForDb(productData.instruction)
+      : undefined;
+
     
     const product = new ProductModel({
       ...productData,
@@ -756,47 +778,6 @@ async processInstructionForDb(instructionData, oldInstruction = null) {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw ApiError.DatabaseError('Ошибка при обновлении статуса продукта');
-    }
-  }
-  
-  async deleteProduct(id, userId) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw ApiError.BadRequest('Некорректный формат ID продукта');
-    }
-    
-    try {
-      const product = await ProductModel.findById(id);
-      if (!product) {
-        throw ApiError.NotFound('Продукт не найден');
-      }
-      
-      // Проверка на наличие заказов
-      const hasOrders = await this.checkProductOrders(id);
-      if (hasOrders) {
-        // Архивация вместо удаления
-        product.status = ProductStatus.ARCHIVED;
-        product.isVisible = false;
-        product.updatedBy = userId;
-        await product.save();
-        
-        return { 
-          success: true, 
-          message: 'Продукт архивирован (имеются заказы)',
-          archived: true 
-        };
-      }
-      
-      // Удаление продукта
-      await ProductModel.findByIdAndDelete(id);
-      
-      return { 
-        success: true, 
-        message: 'Продукт удален',
-        archived: false 
-      };
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError('Ошибка при удалении продукта');
     }
   }
 

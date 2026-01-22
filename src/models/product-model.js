@@ -44,7 +44,7 @@ const ProductSchema = new Schema(
       type: Number,
       required: [true, 'Цена для физ. лиц обязательна'],
       min: [0, 'Цена не может быть отрицательной'],
-      max: [1000000, 'Цена не может превышать 1 000 000']
+      max: [100000000, 'Цена не может превышать 1 000 000 00']
     },
 
     // Скидки
@@ -155,15 +155,9 @@ const ProductSchema = new Schema(
       type: {
         type: String,
         enum: ['file', 'link'],
-        required: function() {
-          return this.instruction !== null && this.instruction !== undefined;
-        }
       },
       url: {
         type: String,
-        required: function() {
-          return this.instruction !== null && this.instruction !== undefined;
-        },
         validate: {
           validator: function(v) {
             if (!this.instruction || !this.instruction.type) return true;
@@ -193,18 +187,12 @@ const ProductSchema = new Schema(
       },
       originalName: {
         type: String,
-        required: function() {
-          return this.instruction && this.instruction.type === 'file';
-        },
         maxlength: 255
       },
       size: {
         type: Number,
         min: 0,
         max: 50 * 1024 * 1024, // 50MB
-        required: function() {
-          return this.instruction && this.instruction.type === 'file';
-        }
       },
       title: {
         type: String,
@@ -379,7 +367,7 @@ const processProductDocument = (doc) => {
   }
   
   // Обработка инструкции
-  if (doc.instruction && doc.instruction.url && shouldProcessUrl(doc.instruction.url)) {
+  if (doc.instruction && doc.instruction !== null && doc.instruction.url && shouldProcessUrl(doc.instruction.url)) {
     doc.instruction = {
       ...doc.instruction,
       url: fileService.getFileUrl(doc.instruction.url)

@@ -38,6 +38,10 @@ router.post('/clearSearchHistory', authMiddleware(['all']), productController.cl
 router.get(
   '/',
   validateQueryParams(productQuerySchema),
+  authMiddleware.optionalAuth({
+    allowedRoles: ['user', 'admin'],
+    checkBlock: true
+  }),
   productController.getAllProducts
 );
 
@@ -109,13 +113,6 @@ router.post(
   validateObjectId('id'),
   validateProduct(Joi.object({ relatedProductId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).required() })), // ДОБАВИТЬ
   productController.addRelatedProduct
-);
-
-
-router.delete(
-  '/:id',
-  validateObjectId('id'),
-  productController.deleteProduct
 );
 
 module.exports = router;
