@@ -25,7 +25,8 @@ const productController = {
           );
         }
       }
-      
+
+      console.log(`[GET_ALL_PRODUCTS] query: ${JSON.stringify(query)}`, req.user);
       const result = await productService.getAllProducts(query);
       console.log('resultresultresultresult', result);
       
@@ -81,6 +82,8 @@ const productController = {
       
       // Обрабатываем изображения и инструкцию через FileManager
       const processedData = await processProductFiles(productData);
+      
+      console.log('processedData', processedData);
       
       const product = await productService.createProduct(processedData, userId);
       
@@ -323,22 +326,7 @@ const productController = {
       next(error);
     }
   },
-  
-  async deleteProduct(req, res, next) {
-    try {
-      const { id } = req.params;
-      const userId = req.user.id;
-      
-      const result = await productService.deleteProduct(id, userId);
-      
-      res.json({
-        success: true,
-        message: result.message
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
+
   
   async getRelatedProducts(req, res, next) {
     try {

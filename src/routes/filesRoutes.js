@@ -7,16 +7,19 @@ const rateLimit = require("express-rate-limit");
 
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 минут
-  max: 20, // максимум 20 запросов за окно
+  max: 20, // Максимальное количество запросов
   message: "Слишком много запросов на загрузку файлов. Попробуйте позже.",
   skipSuccessfulRequests: false,
+  skip: (req, res) => {
+    // Пропускаем лимитер для пользователей с ролью admin
+    return req.user && req.user.role === 'admin';
+  }
 });
-
 
 router.post(
   "/upload",
-  authMiddleware(["all"]),
-  uploadLimiter,
+  authMiddleware(["all"]), // Сначала аутентификация
+  uploadLimiter,            // Потом лимитер (будет знать о роли)
   multerMiddleware({
     fields: "files",
     maxFileSizeMB: 30,
