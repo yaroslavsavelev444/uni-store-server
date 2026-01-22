@@ -46,7 +46,7 @@ const create2FACodeTransaction = async (userId, expiresInMinutes = 5) => {
     const userData = await UserModel.findById(userId);
     const userSecurity = await UserSecurityModel.findOne({ userId });
 
-    if (!userData || !userSecurity) {
+    if (!userData) {
       throw ApiError.BadRequest("Пользователь не найден");
     }
 

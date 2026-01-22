@@ -1,10 +1,23 @@
-// models/user-model.js (добавляем в схему UserSchema)
+// models/user-model.js
 const { Schema, model } = require("mongoose");
 const cartModel = require("./cart-model");
+const { normalizeEmail } = require("../utils/normalizers");
 
 const UserSchema = new Schema(
   {
-    email: { type: String, required: true, unique: true },
+    email: { 
+      type: String, 
+      required: true, 
+      unique: true,
+      set: normalizeEmail, // Автоматически нормализуем при сохранении
+      validate: {
+        validator: function(v) {
+          // Простая проверка формата email
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        },
+        message: props => `${props.value} не является корректным email адресом!`
+      }
+    },
     password: { type: String, required: true },
     role: {
       type: String,
@@ -35,7 +48,6 @@ const UserSchema = new Schema(
       ],
       select: false,
     },
-    // Добавляем статус блокировки
     status: {
       type: String,
       enum: ["active", "blocked", "suspended"],
@@ -55,6 +67,7 @@ const UserSchema = new Schema(
   },
   { timestamps: true }
 );
+
 
 // Middleware для создания корзины
 UserSchema.post("save", async function (doc) {

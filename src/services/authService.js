@@ -34,8 +34,10 @@ const userSanctionService = require("./userSanctionService");
 const login = async (userData) => {
   try {
     const { password } = userData;
-    const email = userData.email.toLowerCase().trim();
+    const email = userData.email.toLowerCase();
+    
     const user = await UserModel.findOne({ email }).select("+password").exec();
+
     if (!user) {
       throw ApiError.BadRequest("Пользователь не найден");
     }
@@ -108,7 +110,9 @@ const register = async (userData, meta = {}) => {
       throw ApiError.BadRequest("Ошибка валидации: " + details);
     }
 
-    const { name, email, password, acceptedConsents } = value;
+    const { name, password, acceptedConsents } = value;
+
+    const email = value.email.toLowerCase();
 
     const existingUser = await UserModel.findOne({ email }).exec();
     if (existingUser) {
@@ -504,8 +508,8 @@ const checkService = async (accessToken, refreshToken, deviceType, ip) => {
   };
 };
 
-const initiatePasswordReset = async (userEmail) => {
-  const user = await UserModel.findOne({ email: userEmail });
+const initiatePasswordReset = async (email) => {
+  const user = await UserModel.findOne({ email });
   if (!user) throw ApiError.NotFoundError("Пользователь не найден");
   await create2FACodeAndNotify(user._id);
   return;
@@ -529,7 +533,7 @@ const completePasswordReset = async (email, resetToken, newPassword) => {
 
   // Атомарно обновляем пароль и очищаем токен
   await Promise.all([
-    UserModel.updateOne({ _id: userId }, { password: hashedPassword }),
+    UserModel.updateOne({ _id: userId, email }, { password: hashedPassword }),
     UserSecurityModel.updateOne(
       { userId },
       {
@@ -561,9 +565,9 @@ const completePasswordReset = async (email, resetToken, newPassword) => {
 };
 
 const verifyPasswordResetCode = async (email, code) => {
-  const userData = await UserModel.findOne({ email: email }); //
+  const userData = await UserModel.findOne({ email }); 
   if (!userData)
-    throw ApiError.NotFoundError("Пользователь не найден sdfsfsfs");
+    throw ApiError.NotFoundError("Пользователь не найден при подтвержлении восстановления пароля");
 
   const { user } = await verify2FACodeOnly(userData._id, code);
   const signedToken = await generatePasswordResetToken(user.id);

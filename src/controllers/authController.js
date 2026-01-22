@@ -5,6 +5,7 @@ const getIp = require("../utils/getIp");
 const { create2FACodeAndNotify } = require("../services/2faService");
 const auditLogger = require("../logger/auditLogger");
 const consentService = require("../services/consentService");
+const { normalizeEmail } = require("../utils/normalizers");
 const register = async (req, res, next) => {
   try {
     const userData = req.body;
@@ -639,9 +640,8 @@ const check = async (req, res, next) => {
 };
 const initiatePasswordReset = async (req, res, next) => {
   try {
-    const { email } = req.body;
     const ip = getIp(req);
-
+    const email = req.body.email.toLowerCase();
     if (!email) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
@@ -683,12 +683,14 @@ const initiatePasswordReset = async (req, res, next) => {
 
 const completePasswordReset = async (req, res, next) => {
   try {
-    const { email, resetToken, newPassword } = req.body;
+    const { resetToken, newPassword } = req.body;
     const ip = getIp(req);
 
-    if (!email || !resetToken || !newPassword) {
+    if (!resetToken || !newPassword) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
+
+    const email = normalizeEmail(req.body.email); // ← унифицировано
 
     const result = await authService.completePasswordReset(
       email,
@@ -738,8 +740,9 @@ const verifyPasswordResetCode = async (req, res, next) => {
     if (!email || !code) {
       throw ApiError.BadRequest("Недостаточно данных");
     }
+      const normalizedEmail = normalizeEmail(email);
 
-    const result = await authService.verifyPasswordResetCode(email, code);
+    const result = await authService.verifyPasswordResetCode(normalizedEmail, code);
 
     // Логирование успешной верификации кода сброса
     await auditLogger.logUserEvent(
@@ -776,8 +779,8 @@ const verifyPasswordResetCode = async (req, res, next) => {
 
 const resendResetCode = async (req, res, next) => {
   try {
-    const { email } = req.body;
     const ip = getIp(req);
+    const email = normalizeEmail(req.body.email);
 
     if (!email) {
       throw ApiError.BadRequest("Недостаточно данных");
