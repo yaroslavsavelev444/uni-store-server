@@ -9,7 +9,6 @@ const ReviewsService = require('./reviewService');
 const FileManager = require('../utils/fileManager');
 class ProductService {
   
-  
   async getAllProducts(query = {}) {
     const {
       category,
@@ -490,25 +489,28 @@ class ProductService {
     // Проверка связанных продуктов
     await this.validateRelatedProducts(updateData, id);
     
-    // Сохраняем старые данные файлов для отката
     const oldImages = [...product.images];
     const oldMainImage = product.mainImage;
     const oldInstruction = product.instruction;
     
-    // Обрабатываем изображения
     if (updateData.images !== undefined) {
-      if (updateData.images === null) {
-        // Удаляем все изображения
-        product.images = [];
-      } else if (Array.isArray(updateData.images)) {
-        // Обрабатываем новые изображения
-        const processedImages = await this.processImagesForDb(
-          updateData.images, 
-          oldImages
-        );
-        product.images = processedImages;
-      }
+  if (updateData.images === null) {
+    product.images = [];
+  } else if (Array.isArray(updateData.images)) {
+    try {
+      const processedImages = await this.processImagesForDb(
+        updateData.images,
+        oldImages
+      );
+      product.images = processedImages;
+    } catch (error) {
+      console.error('[UPDATE_PRODUCT] Ошибка при обработке изображений:', error.message);
+      console.error('[UPDATE_PRODUCT] Продолжаем обновление продукта...');
+      product.images = oldImages; 
     }
+  }
+}
+
     
     // Обрабатываем основное изображение
     if (updateData.mainImage !== undefined) {

@@ -3,7 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 const logger = require("../logger/logger");
 const serverConfig = require("../config/serverConfig");
-const FileManager = require("../utils/fileManager"); // Добавляем импорт FileManager
+const FileManager = require("../utils/fileManager"); 
 
 class FileService {
   constructor() {
