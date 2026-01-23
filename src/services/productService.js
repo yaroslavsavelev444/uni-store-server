@@ -376,6 +376,13 @@ class ProductService {
       throw ApiError.NotFound('Категория продукта не найдена');
     }
 
+    // ФИЛЬТРАЦИЯ СПЕЦИФИКАЦИЙ - только видимые
+    if (Array.isArray(product.specifications)) {
+      product.specifications = product.specifications.filter(
+        spec => spec.isVisible !== false
+      );
+    }
+
     product.finalPriceForIndividual = this.calculateFinalPrice(product);
 
     if (Array.isArray(product.images)) {
@@ -454,7 +461,6 @@ class ProductService {
 
   
   async updateProduct(id, updateData, userId) {
-  console.log('updateProduct called with id:', id, 'and updateData:', updateData);
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw ApiError.BadRequest('Некорректный формат ID продукта');
   }
@@ -464,9 +470,7 @@ class ProductService {
     if (!product) {
       throw ApiError.NotFound('Продукт не найден');
     }
-    
-    console.log('found product:', product);
-    
+
     // Проверка SKU на уникальность
     if (updateData.sku && updateData.sku !== product.sku) {
       const existingProduct = await ProductModel.findOne({ 
@@ -613,43 +617,65 @@ async processInstructionForDb(instructionData, oldInstruction = null) {
    * Обработка изображений для сохранения в БД
    */
   async processImagesForDb(images, existingImages = []) {
-    if (!images || !Array.isArray(images)) {
-      return [];
+  if (!images || !Array.isArray(images)) {
+    return [];
+  }
+
+  const processedImages = [];
+  const existingUrls = existingImages.map(img => {
+    // Нормализуйте существующие URL для сравнения: обрежьте до pathname, если полный
+    let url = img.url;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      url = new URL(url).pathname;
     }
-    
-    const processedImages = [];
-    const existingUrls = existingImages.map(img => img.url);
-    
-    for (const image of images) {
-      if (image._shouldDelete) {
-        // Пропускаем изображения помеченные на удаление
+    return url;
+  });
+
+  for (const image of images) {
+    if (image._shouldDelete) {
+      continue;
+    }
+
+    if (image.url) {
+      // Нормализуйте image.url для сравнения
+      let compareUrl = image.url;
+      if (image.url.startsWith('http://') || image.url.startsWith('https://')) {
+        compareUrl = new URL(image.url).pathname;
+      }
+
+      // Если совпадает с существующим (нормализованным), добавьте существующее без проверки
+      if (existingUrls.includes(compareUrl)) {
+        const existingImage = existingImages.find(img => {
+          let imgCompare = img.url;
+          if (img.url.startsWith('http://') || img.url.startsWith('https://')) {
+            imgCompare = new URL(img.url).pathname;
+          }
+          return imgCompare === compareUrl;
+        });
+        if (existingImage) {
+          processedImages.push(existingImage);
+        }
         continue;
       }
-      
-      if (image.url) {
-        // Если изображение уже существует (из БД), сохраняем как есть
-        if (existingUrls.includes(image.url)) {
-          const existingImage = existingImages.find(img => img.url === image.url);
-          if (existingImage) {
-            processedImages.push(existingImage);
-          }
-          continue;
-        }
-        
-        // Проверяем что новый файл существует
+
+      // Для новых: Проверяйте с try-catch, чтобы записать лог, но продолжить
+      try {
         await fileService.validateFileExists(image.url);
-        
-        // Сохраняем изображение
-        processedImages.push({
-          url: image.url,
-          alt: image.alt || '',
-          order: image.order || processedImages.length
-        });
+      } catch (error) {
+        console.error(`Предупреждение: Пропускаем недействительное новое изображение: ${image.url} - ${error.message}`);
+        continue; // Пропустите добавление плохого изображения, но не выбрасывайте
       }
+
+      processedImages.push({
+        url: image.url,
+        alt: image.alt || '',
+        order: image.order || processedImages.length
+      });
     }
-    
-    return processedImages;
   }
+
+  return processedImages;
+}
   
   /**
    * Удаление неиспользуемых файлов

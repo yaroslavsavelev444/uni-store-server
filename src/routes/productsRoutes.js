@@ -13,9 +13,9 @@ const {
 const {
   validateObjectId,
   validateQueryParams,
-  validateProduct
 } = require('../middlewares/validation.middleware');
 const Joi = require('joi');
+const { validateProduct } = require('../validators/product.validator'); // или где у вас лежит файл
 
 
 router.get('/getHints', productController.getHints);
@@ -82,14 +82,14 @@ router.post(
   validateProduct(createProductSchema),
   productController.createProduct
 );
-
 router.put(
   '/:id',
-  authMiddleware(['admin']), // ДОБАВИТЬ
+  authMiddleware(['admin']),
   validateObjectId('id'),
-  validateProduct(updateProductSchema), // ДОБАВИТЬ: валидация данных
+  validateProduct(updateProductSchema), // Этот middleware теперь будет логировать всё
   productController.updateProduct
 );
+
 
 router.patch(
   '/:id/status',

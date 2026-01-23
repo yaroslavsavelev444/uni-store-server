@@ -68,25 +68,38 @@ exports.processProductFiles = async (productData) => {
   
   return result;
 };
-
+const API_URL = process.env.API_URL || 'https://api.npo-polet.ru';
 /**
  * Обработка одного файла
  */
 const processSingleFile = async (fileUrl, targetFolder, fileType) => {
-  // Извлекаем путь из URL если это полный URL
   let cleanPath = fileUrl;
+  let isExisting = false;
+
   if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
     const url = new URL(fileUrl);
     cleanPath = url.pathname;
     cleanPath = decodeURIComponent(cleanPath);
+
+    // Если это домен нашего API и не temp (неизменённое существующее изображение), сохраняйте полный URL, без проверки
+    if (fileUrl.startsWith(API_URL) && !cleanPath.includes('/temp/')) {
+      isExisting = true;
+      // Опционально: Проверьте существование для отчёта, но не выбрасывайте исключение
+      try {
+        await fileService.validateFileExists(cleanPath);
+      } catch (error) {
+        console.warn(`Предупреждение: Отсутствует или недоступен файл существующего изображения: ${fileUrl} - ${error.message}`);
+      }
+      return fileUrl; // Сохраняйте оригинальный полный URL
+    }
   }
-  
-  // Если файл уже в постоянной папке, возвращаем как есть
+
+  // Если не в temp, возвращайте cleanPath (для других случаев без temp)
   if (!cleanPath.includes('/temp/')) {
     return cleanPath;
   }
-  
-  // Проверяем существование файла
+
+  // Для новых/temp файлов: Проверяйте (выбрасывайте при ошибке)
   await fileService.validateFileExists(cleanPath);
   
   // Генерируем уникальное имя файла

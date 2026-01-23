@@ -80,10 +80,7 @@ const productController = {
       const productData = req.validatedData;
       const userId = req.user.id;
       
-      // Обрабатываем изображения и инструкцию через FileManager
       const processedData = await processProductFiles(productData);
-      
-      console.log('processedData', processedData);
       
       const product = await productService.createProduct(processedData, userId);
       
@@ -102,26 +99,11 @@ const productController = {
       const { id } = req.params;
       const updateData = req.validatedData;
       const userId = req.user.id;
-      
-      console.log("[UPDATE_PRODUCT] updateData", JSON.stringify(updateData));
 
-      // Обрабатываем изображения и инструкцию через FileManager
       const processedData = await processProductFiles(updateData);
-      
-      console.log("[UPDATE_PRODUCT] processedData", JSON.stringify(processedData));
-      
-      // Получаем существующий продукт для удаления старых файлов
       const existingProduct = await productService.getProductById(id, { isAdmin: true });
-      
-      console.log("[UPDATE_PRODUCT] existingProduct", JSON.stringify(existingProduct));
-      
-      // Удаляем старые файлы если они были заменены
-      // await cleanupOldProductFiles(existingProduct, processedData);
-      
       const product = await productService.updateProduct(id, processedData, userId);
-      
-      console.log("[UPDATE_PRODUCT] updated product", JSON.stringify(product));
-      
+
       res.json({
         success: true,
         message: 'Продукт успешно обновлен',
