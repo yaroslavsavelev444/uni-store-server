@@ -97,18 +97,17 @@ class OrderService {
         });
       }
 
-      // 4. Рассчитываем стоимость
+      // 4. Рассчитываем стоимость (ИСКЛЮЧАЕМ ДОСТАВКУ)
       const subtotal = orderItems.reduce(
         (sum, item) => sum + item.totalPrice,
         0
       );
-      const shippingCost = this.calculateShippingCost(
-        orderData.deliveryMethod,
-        orderData,
-        orderItems
-      );
+      
+      // ИСКЛЮЧАЕМ расчет стоимости доставки
+      const shippingCost = 0; // Устанавливаем 0 вместо расчета
+      
       const tax = this.calculateTax(subtotal, orderData);
-      const total = subtotal + shippingCost + tax;
+      const total = subtotal + shippingCost + tax; // shippingCost = 0, не влияет на итог
 
       let companyInfo = null;
       let createdCompany = null;
@@ -250,7 +249,7 @@ class OrderService {
       pricing: {
         subtotal,
         discount: cart.summary.totalDiscount || 0,
-        shippingCost,
+        shippingCost, // Теперь здесь всегда 0
         tax,
         total,
         currency: "RUB",
