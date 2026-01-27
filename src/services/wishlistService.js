@@ -196,8 +196,7 @@ class WishlistService {
 
     wishlistProducts.forEach(product => {
       // Считаем доступные/недоступные
-      const availableQuantity = Math.max(0, product.stockQuantity - product.reservedQuantity);
-      const isAvailable = product.status === "available" && availableQuantity > 0;
+      const isAvailable = product.status === "available";
       const isPreorder = product.status === "preorder";
       
       if (isAvailable) summary.totalAvailable++;

@@ -348,24 +348,7 @@ const productController = {
       next(error);
     }
   },
-  
-  async updateStock(req, res, next) {
-    try {
-      const { id } = req.params;
-      const { quantity, operation = 'set', reason } = req.validatedData;
-      const userId = req.user.id;
-      
-      const product = await productService.updateStock(id, quantity, operation, reason, userId);
-      
-      res.json({
-        success: true,
-        message: 'Количество на складе обновлено',
-        data: product
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
+
   
   async searchProducts(req, res, next) {
     try {

@@ -6,9 +6,7 @@ const {
   createProductSchema,
   updateProductSchema,
   productQuerySchema,
-  productSearchSchema, // ДОБАВЛЕНО
-  updateStatusSchema, // ДОБАВЛЕНО
-  updateStockSchema // ДОБАВЛЕНО
+  productSearchSchema, 
 } = require('../validators/product.validator');
 const {
   validateObjectId,
@@ -97,14 +95,6 @@ router.patch(
   validateObjectId('id'),
   // validateProduct(updateStatusSchema), // ДОБАВИТЬ: валидация данных
   productController.updateProductStatus
-);
-
-router.patch(
-  '/:id/stock',
-  authMiddleware(['admin']), // ДОБАВИТЬ
-  validateObjectId('id'),
-  validateProduct(updateStockSchema), // ДОБАВИТЬ: валидация данных
-  productController.updateStock
 );
 
 router.post(

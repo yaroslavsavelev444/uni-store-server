@@ -6,6 +6,8 @@ const { create2FACodeAndNotify } = require("../services/2faService");
 const auditLogger = require("../logger/auditLogger");
 const consentService = require("../services/consentService");
 const { normalizeEmail } = require("../utils/normalizers");
+const { validatePassword } = require('../validators/passwordValidator');
+
 const register = async (req, res, next) => {
   try {
     const userData = req.body;
@@ -18,8 +20,15 @@ const register = async (req, res, next) => {
 
     const { email, password, name, acceptedConsents } = userData;
 
+    // Проверка обязательных полей
     if (!email || !password || !name || !acceptedConsents) {
       throw ApiError.BadRequest("Переданы не все данные");
+    }
+
+    // ВАЛИДАЦИЯ ПАРОЛЯ НА СЕРВЕРЕ
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      throw ApiError.BadRequest(passwordError);
     }
 
     if (!Array.isArray(acceptedConsents) || acceptedConsents.length === 0) {
@@ -29,7 +38,6 @@ const register = async (req, res, next) => {
     // 1. Проверяем структуру с клиента
     const acceptedSlugs = acceptedConsents.map(c => {
       if (!c.slug || !c.version) {
-        
         throw ApiError.BadRequest("Некорректный формат согласий");
       }
       return c.slug;
@@ -60,6 +68,7 @@ const register = async (req, res, next) => {
           name,
           acceptedConsents: validConsents,
           verificationMethod: "email_2fa",
+          passwordStrength: "strong", // Можно добавить оценку сложности пароля
         }
       );
     }
@@ -80,6 +89,7 @@ const register = async (req, res, next) => {
       {
         ip,
         error: error.message,
+        failedField: error.message.includes("Пароль") ? "password" : "other",
       }
     );
 
@@ -87,7 +97,6 @@ const register = async (req, res, next) => {
     next(error);
   }
 };
-
 const login = async (req, res, next) => {
   try {
     const userData = req.body;
@@ -690,7 +699,12 @@ const completePasswordReset = async (req, res, next) => {
       throw ApiError.BadRequest("Недостаточно данных");
     }
 
-    const email = normalizeEmail(req.body.email); // ← унифицировано
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      throw ApiError.BadRequest(passwordError);
+    }
+
+    const email = normalizeEmail(req.body.email); 
 
     const result = await authService.completePasswordReset(
       email,

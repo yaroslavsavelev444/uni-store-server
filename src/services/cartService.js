@@ -4,166 +4,155 @@ const fileService = require('../utils/fileManager');
 
 class CartService {
   async getCart(userId) {
-  if (!userId) {
-    throw ApiError.BadRequest("ID пользователя обязателен");
-  }
+    if (!userId) {
+      throw ApiError.BadRequest("ID пользователя обязателен");
+    }
 
-  const cart = await CartModel.findByUser(userId);
-  
-  if (!cart) {
+    const cart = await CartModel.findByUser(userId);
+    
+    if (!cart) {
+      return {
+        items: [],
+        summary: {
+          totalItems: 0,
+          totalPrice: 0,
+          totalDiscount: 0,
+          itemsCount: 0
+        },
+        validation: {
+          isValid: true,
+          issues: []
+        }
+      };
+    }
+
+    const processedItems = [];
+    let totalPrice = 0;
+    let totalPriceWithoutDiscount = 0;
+    let itemsToUpdate = false;
+    const validationIssues = [];
+    let isCartValid = true;
+
+    for (const item of cart.items) {
+      const product = item.product;
+      
+      // Если товар не найден или недоступен, пропускаем
+      if (!product || !product.isVisible || !["available", "preorder"].includes(product.status)) {
+        itemsToUpdate = true;
+        continue;
+      }
+
+      // Корректировка количества
+      let quantity = item.quantity;
+
+      // Проверка минимального заказа
+      if (product.minOrderQuantity && quantity < product.minOrderQuantity) {
+        validationIssues.push({
+          productId: product._id,
+          productTitle: product.title,
+          currentQuantity: quantity,
+          minOrderQuantity: product.minOrderQuantity,
+          message: `Минимальное количество для заказа: ${product.minOrderQuantity}`
+        });
+        isCartValid = false;
+      }
+
+      // Проверка максимального количества
+      if (product.maxOrderQuantity && quantity > product.maxOrderQuantity) {
+        quantity = product.maxOrderQuantity;
+        itemsToUpdate = true;
+      }
+
+      // Рассчитываем цены
+      const price = product.priceForIndividual || 0;
+      const finalPrice = product.finalPriceForIndividual || price;
+      
+      const itemTotal = price * quantity;
+      const itemTotalWithDiscount = finalPrice * quantity;
+      const itemDiscount = itemTotal - itemTotalWithDiscount;
+
+      totalPriceWithoutDiscount += itemTotal;
+      totalPrice += itemTotalWithDiscount;
+
+      // Получаем главное изображение из массива images
+      let mainImage = null;
+      if (product.images && product.images.length > 0) {
+        // Берем первое изображение из массива (или ищем по полю order)
+        const firstImage = product.images.sort((a, b) => (a.order || 0) - (b.order || 0))[0];
+        if (firstImage && firstImage.url) {
+          mainImage = fileService.getFileUrl(firstImage.url);
+        }
+      }
+
+      // Обрабатываем все изображения
+      let processedImages = null;
+      if (product.images && Array.isArray(product.images)) {
+        processedImages = product.images
+          .sort((a, b) => (a.order || 0) - (b.order || 0))
+          .map(img => {
+            if (img && img.url) {
+              return {
+                ...img,
+                url: fileService.getFileUrl(img.url)
+              };
+            }
+            return img;
+          });
+      }
+
+      processedItems.push({
+        product: {
+          _id: product._id,
+          title: product.title,
+          sku: product.sku,
+          price: price,
+          finalPrice: finalPrice,
+          minOrderQuantity: product.minOrderQuantity || 1,
+          maxOrderQuantity: product.maxOrderQuantity,
+          mainImage: mainImage, // Используем первое изображение как главное
+          images: processedImages, // Все обработанные изображения
+          status: product.status,
+          weight: product.weight || 0,
+          // Дополнительные поля если нужны
+          ...(product.dimensions && { dimensions: product.dimensions }),
+          ...(product.brand && { brand: product.brand }),
+          ...(product.category && { category: product.category }),
+          ...(product.description && { description: product.description })
+        },
+        quantity: quantity,
+        addedAt: item.addedAt,
+        subtotal: itemTotalWithDiscount,
+        discount: itemDiscount
+      });
+    }
+
+    // Обновляем корзину, если были изменения
+    if (itemsToUpdate) {
+      cart.items = processedItems.map(item => ({
+        product: item.product._id,
+        quantity: item.quantity,
+        addedAt: item.addedAt
+      }));
+      await cart.save();
+    }
+
     return {
-      items: [],
+      items: processedItems,
       summary: {
-        totalItems: 0,
-        totalPrice: 0,
-        totalDiscount: 0,
-        itemsCount: 0
+        totalItems: processedItems.reduce((sum, item) => sum + item.quantity, 0),
+        totalPrice: Math.round(totalPrice * 100) / 100,
+        totalDiscount: Math.round((totalPriceWithoutDiscount - totalPrice) * 100) / 100,
+        itemsCount: processedItems.length
       },
       validation: {
-        isValid: true,
-        issues: []
-      }
+        isValid: isCartValid,
+        issues: validationIssues
+      },
+      cartId: cart._id,
+      updatedAt: cart.updatedAt
     };
   }
 
-  const processedItems = [];
-  let totalPrice = 0;
-  let totalPriceWithoutDiscount = 0;
-  let itemsToUpdate = false;
-  const validationIssues = [];
-  let isCartValid = true;
-
-  for (const item of cart.items) {
-    const product = item.product;
-    
-    // Если товар не найден или недоступен, пропускаем
-    if (!product || !product.isVisible || !["available", "preorder"].includes(product.status)) {
-      itemsToUpdate = true;
-      continue;
-    }
-
-    // Проверка наличия
-    const availableQuantity = Math.max(0, product.stockQuantity - product.reservedQuantity);
-    if (availableQuantity === 0) {
-      itemsToUpdate = true;
-      continue;
-    }
-
-    // Корректировка количества
-    let quantity = item.quantity;
-    if (quantity > availableQuantity) {
-      quantity = availableQuantity;
-      itemsToUpdate = true;
-    }
-
-    // Проверка минимального заказа
-    if (product.minOrderQuantity && quantity < product.minOrderQuantity) {
-      validationIssues.push({
-        productId: product._id,
-        productTitle: product.title,
-        currentQuantity: quantity,
-        minOrderQuantity: product.minOrderQuantity,
-        message: `Минимальное количество для заказа: ${product.minOrderQuantity}`
-      });
-      isCartValid = false;
-    }
-
-    // Проверка максимального количества
-    if (product.maxOrderQuantity && quantity > product.maxOrderQuantity) {
-      quantity = product.maxOrderQuantity;
-      itemsToUpdate = true;
-    }
-
-    // Рассчитываем цены
-    const price = product.priceForIndividual || 0;
-    const finalPrice = product.finalPriceForIndividual || price;
-    
-    const itemTotal = price * quantity;
-    const itemTotalWithDiscount = finalPrice * quantity;
-    const itemDiscount = itemTotal - itemTotalWithDiscount;
-
-    totalPriceWithoutDiscount += itemTotal;
-    totalPrice += itemTotalWithDiscount;
-
-    // Получаем главное изображение из массива images
-    let mainImage = null;
-    if (product.images && product.images.length > 0) {
-      // Берем первое изображение из массива (или ищем по полю order)
-      const firstImage = product.images.sort((a, b) => (a.order || 0) - (b.order || 0))[0];
-      if (firstImage && firstImage.url) {
-        mainImage = fileService.getFileUrl(firstImage.url);
-      }
-    }
-
-    // Обрабатываем все изображения
-    let processedImages = null;
-    if (product.images && Array.isArray(product.images)) {
-      processedImages = product.images
-        .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .map(img => {
-          if (img && img.url) {
-            return {
-              ...img,
-              url: fileService.getFileUrl(img.url)
-            };
-          }
-          return img;
-        });
-    }
-
-    processedItems.push({
-      product: {
-        _id: product._id,
-        title: product.title,
-        sku: product.sku,
-        price: price,
-        finalPrice: finalPrice,
-        availableQuantity: availableQuantity,
-        minOrderQuantity: product.minOrderQuantity || 1,
-        maxOrderQuantity: product.maxOrderQuantity,
-        mainImage: mainImage, // Используем первое изображение как главное
-        images: processedImages, // Все обработанные изображения
-        status: product.status,
-        weight: product.weight || 0,
-        // Дополнительные поля если нужны
-        ...(product.dimensions && { dimensions: product.dimensions }),
-        ...(product.brand && { brand: product.brand }),
-        ...(product.category && { category: product.category }),
-        ...(product.description && { description: product.description })
-      },
-      quantity: quantity,
-      addedAt: item.addedAt,
-      subtotal: itemTotalWithDiscount,
-      discount: itemDiscount
-    });
-  }
-
-  // Обновляем корзину, если были изменения
-  if (itemsToUpdate) {
-    cart.items = processedItems.map(item => ({
-      product: item.product._id,
-      quantity: item.quantity,
-      addedAt: item.addedAt
-    }));
-    await cart.save();
-  }
-
-  return {
-    items: processedItems,
-    summary: {
-      totalItems: processedItems.reduce((sum, item) => sum + item.quantity, 0),
-      totalPrice: Math.round(totalPrice * 100) / 100,
-      totalDiscount: Math.round((totalPriceWithoutDiscount - totalPrice) * 100) / 100,
-      itemsCount: processedItems.length
-    },
-    validation: {
-      isValid: isCartValid,
-      issues: validationIssues
-    },
-    cartId: cart._id,
-    updatedAt: cart.updatedAt
-  };
-}
   async addOrUpdateItem(userId, productId, quantity) {
     // Валидация входных данных
     if (!userId || !productId || quantity < 1) {
@@ -181,20 +170,9 @@ class CartService {
       throw ApiError.BadRequest("Товар недоступен для заказа");
     }
 
-    // Проверяем наличие
-    const availableQuantity = Math.max(0, product.stockQuantity - product.reservedQuantity);
-    if (availableQuantity === 0) {
-      throw ApiError.BadRequest("Товар отсутствует в наличии");
-    }
-
     // Проверяем максимальное количество
     if (product.maxOrderQuantity && quantity > product.maxOrderQuantity) {
       throw ApiError.BadRequest(`Максимальное количество для заказа: ${product.maxOrderQuantity}`);
-    }
-
-    // Проверяем, не превышает ли количество доступное
-    if (quantity > availableQuantity) {
-      throw ApiError.BadRequest(`Доступно только ${availableQuantity} единиц товара`);
     }
 
     // Ищем или создаем корзину

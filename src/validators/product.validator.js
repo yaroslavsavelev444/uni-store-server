@@ -72,12 +72,6 @@ const createProductSchema = Joi.object({
     .precision(2)
     .max(100000000),
   
-  stockQuantity: Joi.number()
-    .required()
-    .integer()
-    .min(0)
-    .max(100000),
-  
   status: Joi.string()
     .valid(...Object.values(ProductStatus))
     .default(ProductStatus.AVAILABLE),
@@ -209,7 +203,7 @@ const productQuerySchema = Joi.object({
   isAdmin: Joi.boolean(),
   slug: Joi.string().max(100),
   search: Joi.string().max(100),
-  sortBy: Joi.string().valid('price', 'title', 'createdAt', 'updatedAt', 'popularity', 'stockQuantity'),
+  sortBy: Joi.string().valid('price', 'title', 'createdAt', 'updatedAt', 'popularity'),
   sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),

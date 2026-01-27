@@ -79,17 +79,7 @@ class OrderService {
           );
         }
 
-        const availableQuantity =
-          product.stockQuantity - product.reservedQuantity;
-        if (availableQuantity < item.quantity) {
-          throw ApiError.BadRequest(
-            `Недостаточное количество товара ${product.title}. Доступно: ${availableQuantity}`
-          );
-        }
-
         // Резервируем товар
-        product.reservedQuantity =
-          (product.reservedQuantity || 0) + item.quantity;
         productUpdates.push(product.save({ session }));
 
         // Формируем элемент заказа
@@ -917,10 +907,6 @@ class OrderService {
         session
       );
       if (product) {
-        product.reservedQuantity = Math.max(
-          0,
-          (product.reservedQuantity || 0) - item.quantity
-        );
         updates.push(product.save({ session }));
       }
     }

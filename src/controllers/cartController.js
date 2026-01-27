@@ -1,4 +1,3 @@
-const ApiError = require("../exceptions/api-error");
 const cartService = require("../services/cartService");
 
 class CartController {

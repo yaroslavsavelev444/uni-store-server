@@ -98,14 +98,6 @@ class ProductService {
       if (maxPrice) filter.priceForIndividual.$lte = parseFloat(maxPrice);
     }
     
-    // 5. Фильтр по наличию на складе
-    if (inStock === 'true' || inStock === true) {
-      filter.$and = [
-        { stockQuantity: { $gt: 0 } },
-        { status: ProductStatus.AVAILABLE }
-      ];
-    }
-    
     // 6. Поиск по тексту
     if (search && search.trim().length > 0) {
       filter.$text = { $search: search.trim() };
@@ -190,25 +182,12 @@ class ProductService {
         // Рассчитываем финальную цену
         const finalPrice = this.calculateFinalPrice(product);
         
-        // Рассчитываем доступное количество
-        const availableQuantity = Math.max(
-          0, 
-          product.stockQuantity - (product.reservedQuantity || 0)
-        );
-        
         // Получаем количество отзывов для этого продукта
         const reviewsCount = await ReviewsService.getProductReviewsCountStatic(product._id);
-        
-        // Проверяем наличие в наличии
-        const inStock = availableQuantity > 0 && 
-                       product.status === ProductStatus.AVAILABLE;
-
         
         return {
           ...product,
           finalPriceForIndividual: finalPrice,
-          availableQuantity,
-          inStock,
           reviewsCount: reviewsCount
         };
       });
@@ -231,7 +210,6 @@ class ProductService {
       throw ApiError.DatabaseError('Ошибка при получении продуктов');
     }
   }
-
   
 
   async getSimilarProducts(productId, options = {}) {
@@ -834,7 +812,7 @@ function escapeRegex(string) {
         status: { $in: ["available", "preorder"] }, // Только доступные товары
         isVisible: true // Только видимые
       })
-      .select("title sku mainImage priceForIndividual discount status stockQuantity category")
+      .select("title sku mainImage priceForIndividual discount status category")
       .populate('category', 'name slug')
       .limit(10);
     }
@@ -856,7 +834,7 @@ function escapeRegex(string) {
         score: { $meta: "textScore" },
         title: 1 
       })
-      .select("title sku mainImage priceForIndividual discount status stockQuantity category")
+      .select("title sku mainImage priceForIndividual discount status category")
       .populate('category', 'name slug')
       .limit(10);
 
@@ -872,7 +850,7 @@ function escapeRegex(string) {
           status: { $in: ["available", "preorder"] },
           isVisible: true
         })
-        .select("title sku mainImage priceForIndividual discount status stockQuantity category")
+        .select("title sku mainImage priceForIndividual discount status category")
         .populate('category', 'name slug')
         .limit(10);
       }
@@ -899,8 +877,6 @@ function escapeRegex(string) {
       }
 
       // Определяем доступность
-      const isAvailable = product.status === "available" && 
-                         (product.stockQuantity - (product.reservedQuantity || 0)) > 0;
       const isPreorder = product.status === "preorder";
 
       return {
@@ -912,9 +888,7 @@ function escapeRegex(string) {
         hasDiscount: product.discount?.isActive || false,
         image: product.mainImage,
         category: product.category?.name || null,
-        isAvailable,
         isPreorder,
-        stock: product.stockQuantity - (product.reservedQuantity || 0),
         raw: product.toObject() // Отправляем все данные для расширенной обработки
       };
     });
@@ -1037,60 +1011,7 @@ async getSearchHistory (userId) {
       throw ApiError.DatabaseError('Ошибка при получении связанных продуктов');
     }
   }
-  
-  async updateStock(id, quantity, operation, reason, userId) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw ApiError.BadRequest('Некорректный формат ID продукта');
-    }
-    
-    try {
-      const product = await ProductModel.findById(id);
-      if (!product) {
-        throw ApiError.NotFound('Продукт не найден');
-      }
-      
-      let newQuantity;
-      switch (operation) {
-        case 'set':
-          newQuantity = quantity;
-          break;
-        case 'add':
-          newQuantity = product.stockQuantity + quantity;
-          break;
-        case 'subtract':
-          newQuantity = product.stockQuantity - quantity;
-          break;
-        default:
-          throw ApiError.BadRequest('Некорректная операция');
-      }
-      
-      if (newQuantity < 0) {
-        throw ApiError.BadRequest('Недостаточное количество на складе');
-      }
-      
-      product.stockQuantity = newQuantity;
-      
-      // Обновление статуса при изменении количества
-      if (newQuantity === 0 && product.status === ProductStatus.AVAILABLE) {
-        product.status = ProductStatus.UNAVAILABLE;
-      } else if (newQuantity > 0 && product.status === ProductStatus.UNAVAILABLE) {
-        product.status = ProductStatus.AVAILABLE;
-      }
-      
-      product.updatedBy = userId;
-      
-      // Логирование изменения склада
-      await this.logStockChange(id, quantity, operation, reason, userId, 
-        product.stockQuantity);
-      
-      await product.save();
-      
-      return product.toObject({ virtuals: true });
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError('Ошибка при обновлении количества на складе');
-    }
-  }
+
   
   async searchProducts(query, options = {}) {
     const { limit = 10, page = 1, category } = options;
@@ -1213,8 +1134,7 @@ async getSearchHistory (userId) {
       'title': 'title',
       'createdAt': 'createdAt',
       'updatedAt': 'updatedAt',
-      'popularity': 'viewsCount', // Предполагаемое поле
-      'stockQuantity': 'stockQuantity'
+      'popularity': 'viewsCount', 
     };
     
     return sortMap[sortBy] || 'createdAt';

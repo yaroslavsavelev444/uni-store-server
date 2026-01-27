@@ -75,18 +75,7 @@ const ProductSchema = new Schema(
       },
       default: ProductStatus.AVAILABLE
     },
-    stockQuantity: {
-      type: Number,
-      required: [true, 'Количество на складе обязательно'],
-      default: 0,
-      min: [0, 'Количество на складе не может быть отрицательным'],
-      max: [100000, 'Количество на складе не может превышать 100000']
-    },
-    reservedQuantity: {
-      type: Number,
-      default: 0,
-      min: [0, 'Зарезервированное количество не может быть отрицательным']
-    },
+
     minOrderQuantity: {
       type: Number,
       default: 1,
@@ -300,9 +289,6 @@ const ProductSchema = new Schema(
 );
 
 // Виртуальные поля
-ProductSchema.virtual("availableQuantity").get(function () {
-  return Math.max(0, this.stockQuantity - this.reservedQuantity);
-});
 
 ProductSchema.virtual("finalPriceForIndividual").get(function () {
   if (!this.discount?.isActive) return this.priceForIndividual;
@@ -426,9 +412,6 @@ ProductSchema.index({ showOnMainPage: 1, isVisible: 1 });
 
 // Middleware
 ProductSchema.pre("save", function (next) {
-  // Автоматическое обновление поля isAvailable
-  this.isAvailable = this.status === ProductStatus.AVAILABLE && this.availableQuantity > 0;
-  
   // Автоматическое обновление publishedAt при публикации
   if (this.isModified('isVisible') && this.isVisible && !this.publishedAt) {
     this.publishedAt = new Date();

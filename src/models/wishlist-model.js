@@ -88,7 +88,7 @@ WishlistSchema.statics.findByUser = function(userId) {
   return this.findOne({ user: userId })
     .populate({
       path: "items.product",
-      select: "title sku priceForIndividual finalPriceForIndividual discount stockQuantity reservedQuantity minOrderQuantity maxOrderQuantity status isVisible mainImage manufacturer category specifications weight warrantyMonths viewsCount purchasesCount",
+      select: "title sku priceForIndividual finalPriceForIndividual discount minOrderQuantity maxOrderQuantity status isVisible mainImage manufacturer category specifications weight warrantyMonths viewsCount purchasesCount",
       match: { isVisible: true }, // Всегда получаем товар, даже если не доступен
       populate: {
         path: "category",
