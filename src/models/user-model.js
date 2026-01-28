@@ -26,7 +26,6 @@ const UserSchema = new Schema(
     },
     name: { type: String, required: true },
     activations: {
-      emailVerified: { type: Boolean, default: false },
       emailToken: { type: String, select: false },
       emailTokenExpiration: { type: Date },
     },

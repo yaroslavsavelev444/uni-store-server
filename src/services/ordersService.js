@@ -913,52 +913,68 @@ class OrderService {
     await Promise.all(updates);
   }
 
-  /**
-   * Отправка уведомлений о создании заказа
-   */
-  async sendOrderNotifications(order, user) {
-    try {
-      const admin = await UserModel.findOne({ role: "admin" });
-      if (admin) {
-        // Администратору
-        await sendEmailNotification(
-          process.env.SMTP_USER,
-          "newOrderAdmin",
-          {
-            orderNumber: order.orderNumber,
-            orderData: order.toObject(),
-            customer: user,
-          },
-          true
-        );
+ /**
+ * Отправка уведомлений о создании заказа
+ */
+async sendOrderNotifications(order, user) {
+  try {
+    // Получаем ВСЕХ администраторов
+    const admins = await UserModel.find({ role: "admin" });
+    
+    if (admins && admins.length > 0) {
+      // Отправляем уведомления каждому администратору
+      for (const admin of admins) {
+        try {
+          // Email уведомление администратору
+          await sendEmailNotification(
+            admin.email,
+            "newOrderAdmin",
+            {
+              orderNumber: order.orderNumber,
+              orderData: order.toObject(),
+              customer: user,
+            },
+            true
+          );
 
-        await sendPushNotification({
-          userId: admin._id,
-          title: "Новый заказ",
-          body: `Новый заказ No${order.orderNumber}`,
-        });
+          // Push уведомление администратору
+          await sendPushNotification({
+            userId: admin._id,
+            title: "Новый заказ",
+            body: `Новый заказ No${order.orderNumber}`,
+          });
+
+          
+        } catch (error) {
+          logger.error(
+            `[OrderService] Ошибка отправки уведомления админу ${admin.email}:`,
+            error
+          );
+          // Продолжаем отправку другим админам даже при ошибке
+        }
       }
-
-      // Пользователю
-      await sendEmailNotification(user.email, "newOrderUser", {
-        orderNumber: order.orderNumber,
-        orderData: order.toObject(),
-        customer: user,
-      });
-
-      await sendPushNotification({
-        userId: user._id,
-        title: "Новый заказ",
-        body: `Новый заказ No${order.orderNumber}`,
-      });
-    } catch (error) {
-      logger.error(
-        `[OrderService] Ошибка отправки уведомлений для заказа ${order.orderNumber}:`,
-        error
-      );
-      // Не прерываем выполнение при ошибке отправки email
     }
+
+    // Пользователю
+    await sendEmailNotification(user.email, "newOrderUser", {
+      orderNumber: order.orderNumber,
+      orderData: order.toObject(),
+      customer: user,
+    });
+
+    await sendPushNotification({
+      userId: user._id,
+      title: "Новый заказ",
+      body: `Новый заказ No${order.orderNumber}`,
+    });
+  } catch (error) {
+    logger.error(
+      `[OrderService] Ошибка отправки уведомлений для заказа ${order.orderNumber}:`,
+      error
+    );
+    // Не прерываем выполнение при ошибке отправки email
   }
+}
 
   /**
    * Отправка уведомления об отправке

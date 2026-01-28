@@ -13,7 +13,6 @@ const http = require("http");
 const path = require("path");
 
 const cronInit = require("./src/cron/index");
-const { initSocket } = require("./src/socket/socketServer");
 const errorHandler = require("./src/error/error");
 const logger = require("./src/logger/logger");
 const { connectDB } = require("./src/config/mongo");
@@ -194,16 +193,12 @@ app.get("/api/test", (req, res) => {
 app.use(errorHandler);
 
 /* =========================
-   DB + SOCKET + SERVER
+   DB + SERVER
 ========================= */
 
 (async () => {
   try {
     await connectDB();
-
-    initSocket(server, {
-      corsOrigins: allowedOrigins,
-    });
 
     cronInit.initialize();
 
