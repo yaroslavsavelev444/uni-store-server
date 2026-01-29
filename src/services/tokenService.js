@@ -56,9 +56,10 @@ const removeToken = async (refreshToken) => {
 // Проверка access токена
 const validateAccessToken = (token) => {
    logger.info(token);
-  if(!token) {
-    return logger.error("Refresh token not found");
-  };
+  if (!token) {
+  logger.error("Access token not provided");
+  return null;
+}
   try {
     return jwt.verify(token, process.env.ACCESS_TOKEN);
   } catch (e) {
