@@ -64,6 +64,7 @@ const validateAccessToken = (token) => {
     return jwt.verify(token, process.env.ACCESS_TOKEN);
   } catch (e) {
     return null;
+    
   }
 };
 

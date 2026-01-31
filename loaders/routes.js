@@ -1,0 +1,30 @@
+const authMiddleware = require("../src/middlewares/auth-middleware");
+
+module.exports = (app) => {
+  app.use("/auth", require("../src/routes/authRoutes"));
+  app.use("/health", require("../src/routes/healthcheckRoutes"));
+  app.use("/consent", require("../src/routes/consentRoutes"));
+  app.use("/contacts", require("../src/routes/contactsRoutes"));
+  app.use("/notifications", authMiddleware(["all"]), require("../src/routes/notificationsRoutes"));
+  app.use("/feedback", require("../src/routes/feedbackRoutes"));
+  app.use("/topics", require("../src/routes/topicRoutes"));
+  app.use("/files", require("../src/routes/filesRoutes"));
+  app.use("/categories", require("../src/routes/categoriesRoutes"));
+  app.use("/products", require("../src/routes/productsRoutes"));
+  app.use("/reviews", require("../src/routes/reviewsRoutes"));
+  app.use("/company", require("../src/routes/companyRoutes"));
+  app.use("/faq", require("../src/routes/faqRoutes"));
+  app.use("/bannerStats", require("../src/routes/bannerStatsRoutes"));
+  app.use("/refund", require("../src/routes/refundRoutes"));
+  app.use("/sitemap", require("../src/routes/sitemapRoutes"));
+  app.use("/content-blocks", require("../src/routes/contentBlockRoutes"));
+  app.use("/users", require("../src/routes/usersRoutes"));
+  app.use("/banners", require("../src/routes/bannerRoutes"));
+  app.use("/delivery", require("../src/routes/deliveryRoutes"));
+  app.use("/promoBlocks", require("../src/routes/promoBlocksRoutes"));
+  app.use("/orders", require("../src/routes/ordersRoutes"));
+  app.use("/cart", authMiddleware(["all"]), require("../src/routes/cartRoutes"));
+  app.use("/wishlist", authMiddleware(["all"]), require("../src/routes/wishlistRoutes"));
+  app.use("/admin/queues", require("../src/queues/bullBoard"));
+  app.use("/admin", authMiddleware(["admin"]), require("../src/routes/adminRoutes"));
+};
