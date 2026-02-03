@@ -155,7 +155,7 @@ class RefundService {
         userEmail,
         startDate,
         endDate,
-        limit = 20,
+        limit = 50,
         page = 1,
         sortBy = 'createdAt',
         sortOrder = 'desc'

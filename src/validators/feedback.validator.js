@@ -165,7 +165,7 @@ const paginationSchema = Joi.object({
     .integer()
     .min(1)
     .max(100)
-    .default(20)
+    .default(50)
     .messages({
       'number.min': 'Лимит должен быть не меньше 1',
       'number.max': 'Лимит не должен превышать 100',

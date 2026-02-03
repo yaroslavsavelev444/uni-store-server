@@ -391,7 +391,7 @@ class CompanyService {
       const companies = await CompanyModel.find(searchQuery)
         .select('-__v')
         .sort({ companyName: 1 })
-        .limit(20)
+        .limit(50)
         .lean();
 
       // Сохраняем в кеш на 5 минут

@@ -136,7 +136,7 @@ class OrdersController {
       
       const pagination = {
         page: req.query.page || 1,
-        limit: req.query.limit || 20
+        limit: req.query.limit || 50
       };
       
       const result = await OrderService.getAdminOrders(filters, pagination);

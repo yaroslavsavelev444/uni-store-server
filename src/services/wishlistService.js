@@ -278,7 +278,7 @@ class WishlistService {
         products: [],
         pagination: {
           page: 1,
-          limit: 20,
+          limit: 50,
           total: 0,
           pages: 0,
           hasNext: false,
@@ -287,7 +287,7 @@ class WishlistService {
       };
     }
 
-    const { page = 1, limit = 20, sortBy = 'addedAt', sortOrder = 'desc' } = options;
+    const { page = 1, limit = 50, sortBy = 'addedAt', sortOrder = 'desc' } = options;
 
     const wishlist = await WishlistModel.findByUser(userId);
     

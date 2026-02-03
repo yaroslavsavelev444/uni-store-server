@@ -206,7 +206,7 @@ const productQuerySchema = Joi.object({
   sortBy: Joi.string().valid('price', 'title', 'createdAt', 'updatedAt', 'popularity'),
   sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
+  limit: Joi.number().integer().min(1).max(100).default(50),
   showOnMainPage: Joi.boolean().default(false),
   populate: Joi.string().valid('category', 'relatedProducts', 'all', 'none').default('none'),
   excludeIds: Joi.alternatives().try(

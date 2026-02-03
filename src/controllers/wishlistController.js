@@ -95,7 +95,7 @@ class WishlistController {
 
   async getPaginated(req, res, next) {
     try {
-      const { page = 1, limit = 20, sortBy = 'addedAt', sortOrder = 'desc' } = req.query;
+      const { page = 1, limit = 50, sortBy = 'addedAt', sortOrder = 'desc' } = req.query;
       
       const result = await wishlistService.getWishlistPaginated(req.user.id, {
         page: parseInt(page),

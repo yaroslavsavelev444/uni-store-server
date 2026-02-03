@@ -247,7 +247,7 @@ const productController = {
     try {
       const { categoryId } = req.params;
       const { 
-        limit = 20, 
+        limit = 50, 
         excludeIds,
         sortBy = 'popularity',
         sortOrder = 'desc'

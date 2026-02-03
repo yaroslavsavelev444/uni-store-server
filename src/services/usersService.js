@@ -158,7 +158,7 @@ class UserService {
 // services/user-service.js (исправленный метод searchUsers)
 async searchUsers(searchParams) {
     try {
-      const { query, status, role, page = 1, limit = 20 } = searchParams;
+      const { query, status, role, page = 1, limit = 50 } = searchParams;
       const skip = (page - 1) * limit;
 
       // Строим базовый запрос
