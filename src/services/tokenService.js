@@ -19,7 +19,7 @@ checkEnvVars();
 // Генерация пары токенов
 function generateToken(payload, options = {}) {
   const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN, {
-    expiresIn: "15m",
+    expiresIn: "24h",
   });
 
   if (options.onlyAccess) return { accessToken };
