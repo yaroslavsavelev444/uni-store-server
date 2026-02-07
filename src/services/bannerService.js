@@ -500,7 +500,7 @@ class BannerService {
 
   async changeStatus(id, status) {
     if (!['draft', 'active', 'archived'].includes(status)) {
-      throw ApiError.BadRequestError("Неверный статус");
+      throw ApiError.BadRequest("Неверный статус");
     }
     
     const banner = await BannerModel.findById(id);

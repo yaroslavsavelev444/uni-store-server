@@ -155,7 +155,32 @@ const OrderSchema = new Schema(
       currency: {
         type: String,
         default: "RUB"
+      },
+
+      // Новые поля для детализации скидок
+      productDiscounts: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      centralDiscountAmount: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      priceWithoutDiscount: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      centralDiscountPercent: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
       }
+
+
     },
     
     // Платежная информация (ОБНОВЛЕНО)
@@ -203,6 +228,28 @@ const OrderSchema = new Schema(
       comment: String,
       metadata: Schema.Types.Mixed
     }],
+
+        // Скидки, примененные к заказу (НОВОЕ ПОЛЕ)
+    appliedDiscounts: [{
+      discountId: {
+        type: Schema.Types.ObjectId,
+        ref: "Discount"
+      },
+      name: String,
+      type: {
+        type: String,
+        enum: ["quantity_based", "amount_based", "percentage_based"]
+      },
+      discountPercent: Number,
+      discountAmount: Number,
+      condition: Schema.Types.Mixed,
+      appliedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+
+    
     
     // Информация об отмене
     cancellation: {
@@ -212,6 +259,7 @@ const OrderSchema = new Schema(
       refundAmount: Number,
       notes: String
     },
+    
     
     // Прикрепленные файлы
     attachments: [{

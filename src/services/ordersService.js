@@ -5,6 +5,7 @@ const CartService = require("./cartService");
 const ProductService = require("./productService");
 const OrderCacheService = require("./OrderCacheService");
 const redisClient = require("../redis/redis.client");
+const DiscountService = require("./discountService"); // Добавляем импорт
 const logger = require("../logger/logger");
 const {
   sendEmailNotification,
@@ -27,6 +28,8 @@ class OrderService {
     this.cartService = CartService;
     this.productService = ProductService;
     this.cache = OrderCacheService;
+        this.discountService = DiscountService; // Добавляем
+
   }
 
   // ========== PUBLIC METHODS (для пользователей) ==========
@@ -34,18 +37,14 @@ class OrderService {
   /**
    * Создание нового заказа
    */
-  // services/orders.service.js (фрагмент с исправлениями)
 
-  /**
-   * Создание нового заказа
-   */
   async createOrder(user, orderData) {
     const session = await mongoose.startSession();
 
     try {
       session.startTransaction();
 
-      // 1. Получаем корзину пользователя
+            // 1. Получаем корзину пользователя с рассчитанными скидками
       const cart = await this.cartService.getCart(user.id);
 
       if (!cart.items || cart.items.length === 0) {
@@ -59,6 +58,7 @@ class OrderService {
           cart.validation.issues
         );
       }
+
 
       // 3. Проверяем доступность товаров и резервируем
       const productUpdates = [];
@@ -82,7 +82,7 @@ class OrderService {
         // Резервируем товар
         productUpdates.push(product.save({ session }));
 
-        // Формируем элемент заказа
+        // Формируем элемент заказа с учетом цен из корзины
         const unitPrice = item.product.finalPrice || item.product.price;
         orderItems.push({
           product: product._id,
@@ -90,24 +90,39 @@ class OrderService {
           name: product.title,
           quantity: item.quantity,
           unitPrice: unitPrice,
-          discount: item.product.discount || 0,
+          discount: item.discount || 0,
           totalPrice: unitPrice * item.quantity,
           weight: product.weight,
           dimensions: product.dimensions,
         });
       }
 
-      // 4. Рассчитываем стоимость (ИСКЛЮЧАЕМ ДОСТАВКУ)
-      const subtotal = orderItems.reduce(
-        (sum, item) => sum + item.totalPrice,
-        0
-      );
-      
-      // ИСКЛЮЧАЕМ расчет стоимости доставки
-      const shippingCost = 0; // Устанавливаем 0 вместо расчета
-      
-      const tax = this.calculateTax(subtotal, orderData);
-      const total = subtotal + shippingCost + tax; // shippingCost = 0, не влияет на итог
+      // 4. Используем расчеты из корзины для финансовых показателей
+      const {
+  priceWithoutDiscount = 0,
+  totalPrice = 0,
+  productDiscountAmount = 0,        // ← исправлено
+  centralDiscountAmount = 0,
+  centralDiscountPercent = 0
+} = cart.summary;
+
+      // Рассчитываем стоимость доставки (ИСКЛЮЧАЕМ ДОСТАВКУ)
+      const shippingCost = 0;
+
+      const tax = this.calculateTax(totalPrice, orderData);
+      const total = totalPrice + shippingCost + tax;
+
+      // 5. Формируем информацию о примененных скидках
+      const appliedDiscounts = cart.discounts.applied.map(discount => ({
+        discountId: discount._id,
+        name: discount.name,
+        type: discount.type,
+        discountPercent: discount.discountPercent,
+        discountAmount: discount.amount,
+        condition: discount.condition || {},
+        appliedAt: new Date()
+      }));
+
 
       let companyInfo = null;
       let createdCompany = null;
@@ -222,64 +237,70 @@ class OrderService {
         }
       }
 
-      // 6. Создаем заказ
+      // 6. Создаем заказ с информацией о скидках
       const order = new OrderModel({
-      user: user.id,
-      orderNumber: "temp",
-      delivery: {
-        method: orderData.deliveryMethod,
-        address: orderData.deliveryAddress,
-        pickupPoint: orderData.deliveryMethod === DeliveryMethod.SELF_PICKUP 
-          ? orderData.pickupPointId 
-          : undefined,
-        transportCompany: (orderData.deliveryMethod === DeliveryMethod.DOOR_TO_DOOR || 
-                          orderData.deliveryMethod === DeliveryMethod.PICKUP_POINT)
-          ? orderData.transportCompanyId 
-          : undefined,
-        notes: orderData.deliveryNotes,
-      },
-      recipient: {
-        fullName: orderData.recipientName,
-        phone: orderData.recipientPhone,
-        email: orderData.recipientEmail || user.email,
-        contactPerson: orderData.newCompanyData?.contactPerson || orderData.recipientName,
-      },
-      companyInfo: companyInfo,
-      items: orderItems,
-      pricing: {
-        subtotal,
-        discount: cart.summary.totalDiscount || 0,
-        shippingCost, // Теперь здесь всегда 0
-        tax,
-        total,
-        currency: "RUB",
-      },
-      payment: {
-        method: orderData.paymentMethod,
-        status: orderData.awaitingInvoice ? "pending" : "pending", // Для счета настраивается отдельно
-      },
-      status: OrderStatus.PENDING,
-      statusHistory: [
-        {
-          status: OrderStatus.PENDING,
-          changedAt: new Date(),
-          changedBy: user.id,
-          comment: orderData.awaitingInvoice 
-            ? "Заказ создан, ожидает выставления счета" 
-            : "Заказ создан",
+        user: user.id,
+        orderNumber: "temp",
+        delivery: {
+          method: orderData.deliveryMethod,
+          address: orderData.deliveryAddress,
+          pickupPoint: orderData.deliveryMethod === DeliveryMethod.SELF_PICKUP 
+            ? orderData.pickupPointId 
+            : undefined,
+          transportCompany: (orderData.deliveryMethod === DeliveryMethod.DOOR_TO_DOOR || 
+                            orderData.deliveryMethod === DeliveryMethod.PICKUP_POINT)
+            ? orderData.transportCompanyId 
+            : undefined,
+          notes: orderData.deliveryNotes,
         },
-      ],
-      notes: orderData.notes,
-      ipAddress: orderData.ipAddress,
-      userAgent: orderData.userAgent,
-      source: orderData.source || "web",
-      companyCreated: !!createdCompany,
-      companySelection: orderData.existingCompanyId
-        ? { type: "existing", companyId: orderData.existingCompanyId }
-        : orderData.newCompanyData
-        ? { type: "new", taxNumber: orderData.newCompanyData.taxNumber }
-        : null,
-    });
+        recipient: {
+          fullName: orderData.recipientName,
+          phone: orderData.recipientPhone,
+          email: orderData.recipientEmail || user.email,
+          contactPerson: orderData.newCompanyData?.contactPerson || orderData.recipientName,
+        },
+        companyInfo: companyInfo,
+        items: orderItems,
+        pricing: {
+  subtotal: priceWithoutDiscount,
+  discount: productDiscountAmount + centralDiscountAmount,   // ← тоже обнови
+  shippingCost: shippingCost,
+  tax: tax,
+  total: total,
+  currency: "RUB",
+  productDiscountAmount: productDiscountAmount,              // ← новое поле
+  centralDiscountAmount: centralDiscountAmount,
+  priceWithoutDiscount: priceWithoutDiscount,
+  centralDiscountPercent: centralDiscountPercent
+},
+        appliedDiscounts: appliedDiscounts,
+        payment: {
+          method: orderData.paymentMethod,
+          status: orderData.awaitingInvoice ? "pending" : "pending",
+        },
+        status: OrderStatus.PENDING,
+        statusHistory: [
+          {
+            status: OrderStatus.PENDING,
+            changedAt: new Date(),
+            changedBy: user.id,
+            comment: orderData.awaitingInvoice 
+              ? "Заказ создан, ожидает выставления счета" 
+              : "Заказ создан",
+          },
+        ],
+        notes: orderData.notes,
+        ipAddress: orderData.ipAddress,
+        userAgent: orderData.userAgent,
+        source: orderData.source || "web",
+        companyCreated: !!createdCompany,
+        companySelection: orderData.existingCompanyId
+          ? { type: "existing", companyId: orderData.existingCompanyId }
+          : orderData.newCompanyData
+          ? { type: "new", taxNumber: orderData.newCompanyData.taxNumber }
+          : null,
+      });
+
 
 
       // 7. Сохраняем все изменения в транзакции
@@ -291,14 +312,29 @@ class OrderService {
 
       await session.commitTransaction();
 
-      // 9. Отправляем уведомления (вне транзакции)
+      // 9. Увеличиваем счетчик использования скидок (вне транзакции)
+      for (const discount of cart.discounts.applied) {
+        try {
+          await this.discountService.incrementDiscountUsage(
+            discount._id, 
+            discount.amount
+          );
+          logger.info(`[OrderService] Увеличен счетчик использования скидки ${discount._id} на ${discount.amount}`);
+        } catch (error) {
+          logger.error(`[OrderService] Ошибка увеличения счетчика скидки ${discount._id}:`, error);
+          // Не прерываем выполнение при ошибке увеличения счетчика
+        }
+      }
+
+
+      // 10. Отправляем уведомления (вне транзакции)
       await this.sendOrderNotifications(order, user);
 
-      // 10. Кешируем заказ
+      // 11. Кешируем заказ
       await this.cache.setOrder(order);
       await this.cache.invalidateUserCache(user.id);
 
-      // 11. Инвалидируем кеш компаний, если была создана новая
+      // 12. Инвалидируем кеш компаний, если была создана новая
       if (createdCompany) {
         await CompanyService.invalidateUserCompaniesCache(user.id);
       }
@@ -336,8 +372,8 @@ class OrderService {
     return baseCost + extraWeight * 50;
   }
 
-  /**
-   * Получение заказов пользователя
+   /**
+   * Получение заказов пользователя с информацией о скидках
    */
   async getUserOrders(userId, filters = {}) {
     try {
@@ -364,25 +400,24 @@ class OrderService {
       // Получаем заказы с полными данными
       const orders = await OrderModel.find(query)
         .populate("items.product", "title sku mainImage")
-        .populate("companyInfo.companyId") // Получаем ВСЕ данные компании
+        .populate("companyInfo.companyId")
         .populate({
           path: "delivery.pickupPoint",
-          model: "PickupPoint", // Явно указываем модель
-          select: "name address coordinates workingHours contact description", // Выбираем нужные поля
+          model: "PickupPoint",
+          select: "name address coordinates workingHours contact description",
         })
+        .populate("appliedDiscounts.discountId", "name type discountPercent")
         .sort({ createdAt: -1 })
         .lean();
 
-      // Обрабатываем данные компании
+      // Обрабатываем данные компании и скидок
       const processedOrders = orders.map((order) => {
         const processedOrder = { ...order };
 
         // Преобразуем данные компании для удобства использования на клиенте
         if (order.companyInfo?.companyId) {
-          // Если компания получена через populate, добавляем все данные
           processedOrder.company = order.companyInfo.companyId;
 
-          // Также сохраняем старый формат для обратной совместимости
           processedOrder.companyInfo = {
             ...order.companyInfo,
             name: order.companyInfo.companyId?.companyName,
@@ -392,7 +427,6 @@ class OrderService {
             contactPerson: order.companyInfo.companyId?.contactPerson,
           };
         } else if (order.companyInfo) {
-          // Если компания не была найдена, но есть данные в companyInfo
           processedOrder.company = {
             _id: order.companyInfo.companyId,
             companyName: order.companyInfo.name,
@@ -407,13 +441,25 @@ class OrderService {
         if (order.delivery?.pickupPoint) {
           processedOrder.pickupPoint = order.delivery.pickupPoint;
 
-          // Форматируем адрес для удобного отображения
           if (processedOrder.pickupPoint.address) {
             const addr = processedOrder.pickupPoint.address;
             processedOrder.pickupPoint.formattedAddress = `${addr.street}, ${
               addr.city
             }${addr.postalCode ? ` (${addr.postalCode})` : ""}`;
           }
+        }
+
+        // Добавляем детализацию скидок
+        if (order.appliedDiscounts && order.appliedDiscounts.length > 0) {
+          processedOrder.discountDetails = {
+            appliedDiscounts: order.appliedDiscounts,
+            summary: {
+              productDiscounts: order.pricing.productDiscounts || 0,
+              centralDiscounts: order.pricing.centralDiscountAmount || 0,
+              totalDiscount: order.pricing.discount || 0,
+              priceWithoutDiscount: order.pricing.priceWithoutDiscount || 0
+            }
+          };
         }
 
         // Добавляем полные URL к вложениям
@@ -447,7 +493,7 @@ class OrderService {
         user: userId,
       })
         .populate("items.product")
-        .populate("companyInfo.companyId") // Полные данные компании
+        .populate("companyInfo.companyId")
         .populate({
           path: "delivery.pickupPoint",
           model: "PickupPoint",
@@ -455,6 +501,7 @@ class OrderService {
             "name address coordinates workingHours contact description isActive",
         })
         .populate("statusHistory.changedBy", "name email")
+        .populate("appliedDiscounts.discountId", "name type discountPercent") // Добавляем populate для скидок
         .lean();
 
       if (!order) {
@@ -497,6 +544,20 @@ class OrderService {
         }));
       }
 
+      // Формируем детализированную информацию о скидках
+      if (order.appliedDiscounts && order.appliedDiscounts.length > 0) {
+        order.discountDetails = {
+          appliedDiscounts: order.appliedDiscounts,
+          summary: {
+            productDiscounts: order.pricing.productDiscounts || 0,
+            centralDiscounts: order.pricing.centralDiscountAmount || 0,
+            totalDiscount: order.pricing.discount || 0,
+            priceWithoutDiscount: order.pricing.priceWithoutDiscount || 0,
+            finalPrice: order.pricing.total || 0
+          }
+        };
+      }
+
       return order;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -504,6 +565,7 @@ class OrderService {
       throw ApiError.DatabaseError("Ошибка при получении заказа");
     }
   }
+
 
   /**
    * Отмена заказа пользователем

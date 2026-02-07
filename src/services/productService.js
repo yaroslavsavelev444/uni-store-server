@@ -7,9 +7,11 @@ const fileService = require('../utils/fileManager');
 const PurchaseCheckService = require('./purchaseCheckService');
 const ReviewsService = require('./reviewService');
 const FileManager = require('../utils/fileManager');
+const ProductDiscountService = require('./ProductDiscountService');
+
 class ProductService {
   
-  async getAllProducts(query = {}) {
+async getAllProducts(query = {}) {
     const {
       category,
       status,
@@ -195,8 +197,60 @@ class ProductService {
       // Ждем выполнения всех асинхронных операций
       const productsWithFinalPrice = await Promise.all(productsWithReviewsPromises);
       
+      // 14. Добавляем информацию о централизованных скидках к каждому продукту
+      // Используем флаг skipDiscountCheck для возможности пропуска проверки скидок
+      let productsWithDiscounts = productsWithFinalPrice;
+      if (!query.skipDiscountCheck) {
+        try {
+          productsWithDiscounts = await ProductDiscountService.getDiscountsForProducts(productsWithFinalPrice);
+        } catch (error) {
+          console.error('Ошибка при получении скидок для продуктов:', error);
+          // В случае ошибки возвращаем продукты без информации о скидках
+        }
+      }
+      
+      // 15. Обрабатываем изображения для всех продуктов
+      const processedProducts = productsWithDiscounts.map(product => {
+        const processedProduct = { ...product };
+        
+        // Обработка mainImage
+        if (processedProduct.mainImage && !processedProduct.mainImage.startsWith('http')) {
+          processedProduct.mainImage = FileManager.getFileUrl(processedProduct.mainImage);
+        }
+        
+        // Обработка массива images
+        if (Array.isArray(processedProduct.images)) {
+          processedProduct.images = processedProduct.images.map(img => ({
+            ...img,
+            url: FileManager.getFileUrl(img.url),
+          }));
+        }
+        
+        // Обработка инструкции
+        if (processedProduct.instruction && processedProduct.instruction.url && 
+            !processedProduct.instruction.url.startsWith('http')) {
+          processedProduct.instruction.url = FileManager.getFileUrl(processedProduct.instruction.url);
+        }
+        
+        // Для удобства добавляем краткую информацию о скидке в корень продукта
+        if (processedProduct.centralDiscounts && processedProduct.centralDiscounts.length > 0) {
+          const mainDiscount = processedProduct.centralDiscounts[0];
+          processedProduct.hasCentralDiscount = true;
+          processedProduct.centralDiscountPercent = mainDiscount.discountPercent;
+          processedProduct.discountMessage = mainDiscount.message;
+          
+          // Для quantity_based скидок добавляем дополнительную информацию
+          if (mainDiscount.type === 'quantity_based') {
+            processedProduct.centralDiscountMinQuantity = mainDiscount.minTotalQuantity;
+            processedProduct.discountType = 'quantity_based';
+          }
+        }
+        
+        return processedProduct;
+      });
+      
       return {
-        products: productsWithFinalPrice,
+        products: processedProducts,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -210,7 +264,6 @@ class ProductService {
       throw ApiError.DatabaseError('Ошибка при получении продуктов');
     }
   }
-  
 
   async getSimilarProducts(productId, options = {}) {
     if (!mongoose.Types.ObjectId.isValid(productId)) {
@@ -325,71 +378,89 @@ class ProductService {
   }
   
 
-  async getProductBySku(sku, options = {}) {
-  try {
-    let query = ProductModel.findOne({ sku });
+   async getProductBySku(sku, options = {}) {
+    try {
+      let query = ProductModel.findOne({ sku });
 
-    if (options.populate === 'category' || options.populate === 'all') {
-      query = query.populate('category', 'name slug description _id');
-    }
+      if (options.populate === 'category' || options.populate === 'all') {
+        query = query.populate('category', 'name slug description _id');
+      }
 
-    if (options.populate === 'relatedProducts' || options.populate === 'all') {
-      query = query.populate(
-        'relatedProducts',
-        'title sku priceForIndividual mainImage status _id'
-      );
-    }
-
-    const product = await query.lean({ virtuals: true });
-
-    if (!product) {
-      throw ApiError.NotFound('Продукт не найден');
-    }
-
-    if (!options.isAdmin && !product.isVisible) {
-      throw ApiError.NotFound('Продукт не доступен');
-    }
-
-    if (product.category && !product.category._id) {
-      throw ApiError.NotFound('Категория продукта не найдена');
-    }
-
-    // ФИЛЬТРАЦИЯ СПЕЦИФИКАЦИЙ - только видимые
-    if (Array.isArray(product.specifications)) {
-      product.specifications = product.specifications.filter(
-        spec => spec.isVisible !== false
-      );
-    }
-
-    product.finalPriceForIndividual = this.calculateFinalPrice(product);
-
-    if (Array.isArray(product.images)) {
-      product.images = product.images.map(img => ({
-        ...img,
-        url: FileManager.getFileUrl(img.url),
-      }));
-    }
-
-    if (options.userId) {
-      product.hasPurchased =
-        await PurchaseCheckService.hasUserPurchasedProduct(
-          options.userId,
-          product._id.toString()
+      if (options.populate === 'relatedProducts' || options.populate === 'all') {
+        query = query.populate(
+          'relatedProducts',
+          'title sku priceForIndividual mainImage status _id'
         );
+      }
 
-      product.hasReviewed =
-        await ReviewsService.checkIfUserHasReviewedStatic(
-          options.userId,
-          product._id.toString()
+      const product = await query.lean({ virtuals: true });
+
+      if (!product) {
+        throw ApiError.NotFound('Продукт не найден');
+      }
+
+      if (!options.isAdmin && !product.isVisible) {
+        throw ApiError.NotFound('Продукт не доступен');
+      }
+
+      if (product.category && !product.category._id) {
+        throw ApiError.NotFound('Категория продукта не найдена');
+      }
+
+      // ФИЛЬТРАЦИЯ СПЕЦИФИКАЦИЙ - только видимые
+      if (Array.isArray(product.specifications)) {
+        product.specifications = product.specifications.filter(
+          spec => spec.isVisible !== false
         );
-    }
+      }
 
-    return product;
-  } catch (error) {
-    if (error instanceof ApiError) throw error;
-    throw ApiError.DatabaseError('Ошибка при получении продукта');
+      product.finalPriceForIndividual = this.calculateFinalPrice(product);
+
+      if (Array.isArray(product.images)) {
+        product.images = product.images.map(img => ({
+          ...img,
+          url: FileManager.getFileUrl(img.url),
+        }));
+      }
+
+      // Добавляем информацию о централизованных скидках
+      if (!options.skipDiscountCheck) {
+        const discountInfo = await ProductDiscountService.getCartDiscountInfoForProduct(
+          product, 
+          options.cartQuantity || 1
+        );
+        
+        if (discountInfo) {
+          product.cartDiscount = discountInfo;
+          
+          // Также добавляем краткую информацию в корень продукта для удобства
+          product.hasCentralDiscount = discountInfo.hasDiscount;
+          product.centralDiscountPercent = discountInfo.discountPercent;
+          product.discountMessage = discountInfo.message;
+        }
+      }
+
+      if (options.userId) {
+        product.hasPurchased =
+          await PurchaseCheckService.hasUserPurchasedProduct(
+            options.userId,
+            product._id.toString()
+          );
+
+        product.hasReviewed =
+          await ReviewsService.checkIfUserHasReviewedStatic(
+            options.userId,
+            product._id.toString()
+          );
+      }
+
+      return product;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw ApiError.DatabaseError('Ошибка при получении продукта');
+    }
   }
-}
+
 
   async createProduct(productData, userId) {
   try {

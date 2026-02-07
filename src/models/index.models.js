@@ -31,6 +31,7 @@ const UserAcceptedConsentModel = require("./user-accepted-consent-model");
 const RefundModel = require("./refund-model");
 const BannerViewModel = require("./banner-view-model");
 const BannerModel = require("./banner-model");
+const DiscountModel = require("./discount-model");
 module.exports = {
   CartModel,
   ProductModel,
@@ -65,5 +66,6 @@ module.exports = {
   UserAcceptedConsentModel,
   RefundModel,
   BannerViewModel,
-  BannerModel
+  BannerModel,
+  DiscountModel
 };

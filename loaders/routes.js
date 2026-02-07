@@ -21,10 +21,12 @@ module.exports = (app) => {
   app.use("/users", require("../src/routes/usersRoutes"));
   app.use("/banners", require("../src/routes/bannerRoutes"));
   app.use("/delivery", require("../src/routes/deliveryRoutes"));
+  app.use("/discounts", require("../src/routes/discountRoutes"));
   app.use("/promoBlocks", require("../src/routes/promoBlocksRoutes"));
   app.use("/orders", require("../src/routes/ordersRoutes"));
   app.use("/cart", authMiddleware(["all"]), require("../src/routes/cartRoutes"));
   app.use("/wishlist", authMiddleware(["all"]), require("../src/routes/wishlistRoutes"));
   app.use("/admin/queues", require("../src/queues/bullBoard"));
   app.use("/admin", authMiddleware(["admin"]), require("../src/routes/adminRoutes"));
+
 };
