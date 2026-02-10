@@ -291,8 +291,7 @@ const createOrderValidator = Joi.object({
     
     // Проверка для DOOR_TO_DOOR
     if (deliveryMethod === DeliveryMethod.DOOR_TO_DOOR) {
-      if (paymentMethod !== PaymentMethod.INVOICE && 
-          paymentMethod !== PaymentMethod.COURIER_CASH) {
+      if (paymentMethod !== PaymentMethod.INVOICE) {
         return helpers.error('any.invalid', {
           message: 'Для доставки до двери доступна только оплата по счету или курьеру'
         });
@@ -301,8 +300,7 @@ const createOrderValidator = Joi.object({
     
     // Проверка для PICKUP_POINT
     if (deliveryMethod === DeliveryMethod.PICKUP_POINT) {
-      if (paymentMethod !== PaymentMethod.INVOICE && 
-          paymentMethod !== PaymentMethod.PICKUP_POINT_CASH) {
+      if (paymentMethod !== PaymentMethod.INVOICE) {
         return helpers.error('any.invalid', {
           message: 'Для доставки в ПВЗ доступна только оплата по счету или при получении в ПВЗ'
         });

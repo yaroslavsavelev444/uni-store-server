@@ -1,7 +1,6 @@
 const { Schema, model, Types } = require("mongoose");
 const fileService = require('../utils/fileManager');
 
-
 const ProductStatus = {
   AVAILABLE: "available",
   UNAVAILABLE: "unavailable",
@@ -191,7 +190,6 @@ const ProductSchema = new Schema(
       mimetype: { type: String }
     },
 
-
     // Технические характеристики
     specifications: [
       {
@@ -281,14 +279,30 @@ const ProductSchema = new Schema(
       transform: function(doc, ret) {
         delete ret.__v;
         delete ret.updatedAt;
+        
+        // ГАРАНТИРОВАННАЯ ГЕНЕРАЦИЯ URL В toJSON
+        if (ret.sku) {
+          generateAndAddUrl(ret);
+        }
+        
         return ret;
       }
     },
-    toObject: { virtuals: true }
+    toObject: { 
+      virtuals: true,
+      transform: function(doc, ret) {
+        // ГАРАНТИРОВАННАЯ ГЕНЕРАЦИЯ URL В toObject
+        if (ret.sku) {
+          generateAndAddUrl(ret);
+        }
+        
+        return ret;
+      }
+    }
   }
 );
 
-// Виртуальные поля
+// ========== ВИРТУАЛЬНЫЕ ПОЛЯ ==========
 
 ProductSchema.virtual("finalPriceForIndividual").get(function () {
   if (!this.discount?.isActive) return this.priceForIndividual;
@@ -316,8 +330,46 @@ ProductSchema.virtual("finalPriceForIndividual").get(function () {
   return Math.round(finalPrice * 100) / 100;
 });
 
+// Виртуальное поле для URL (работает только при populate)
+ProductSchema.virtual('url').get(function() {
+  if (this.category && typeof this.category === 'object' && this.category.slug && this.sku) {
+    const BASE_URL = 'https://npo-polet.ru';
+    return `${BASE_URL}/categories/${this.category.slug}/products/${this.sku}`;
+  }
+  return null;
+});
 
-// Функция для проверки, нужно ли обрабатывать URL
+// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+
+// Функция для гарантированной генерации URL
+function generateAndAddUrl(productObj) {
+  if (!productObj.sku) return;
+  
+  let categorySlug = '';
+  
+  // Извлекаем slug категории
+  if (productObj.category) {
+    if (typeof productObj.category === 'object') {
+      // Категория уже популирована
+      categorySlug = productObj.category.slug || '';
+    }
+    // Если category это ObjectId (строка), slug будет null
+    // но это нормально - URL сгенерируется ниже в processProductDocument
+  }
+  
+  // Генерируем URL если есть slug
+  if (categorySlug) {
+    const BASE_URL = 'https://npo-polet.ru';
+    productObj.url = `${BASE_URL}/categories/${categorySlug}/products/${productObj.sku}`;
+    productObj.productUrl = `/categories/${categorySlug}/products/${productObj.sku}`;
+  } else {
+    // Если нет slug, оставляем поле, но оно будет null
+    // Окончательная генерация произойдет в processProductDocument
+    productObj.url = null;
+  }
+}
+
+// Функция для проверки, нужно ли обрабатывать URL файлов
 const shouldProcessUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   
@@ -330,16 +382,16 @@ const shouldProcessUrl = (url) => {
   return url.startsWith('/uploads/');
 };
 
-// Функция для обработки одного документа
+// Основная функция обработки документа
 const processProductDocument = (doc) => {
   if (!doc || typeof doc !== 'object') return doc;
   
-  // Обработка mainImage (если есть)
+  // 1. Обработка изображений
   if (doc.mainImage && shouldProcessUrl(doc.mainImage)) {
     doc.mainImage = fileService.getFileUrl(doc.mainImage);
   }
   
-  // Обработка массива images
+  // 2. Обработка массива images
   if (doc.images && Array.isArray(doc.images)) {
     doc.images = doc.images.map(image => {
       if (image && image.url && shouldProcessUrl(image.url)) {
@@ -352,7 +404,7 @@ const processProductDocument = (doc) => {
     });
   }
   
-  // Обработка инструкции
+  // 3. Обработка инструкции
   if (doc.instruction && doc.instruction !== null && doc.instruction.url && shouldProcessUrl(doc.instruction.url)) {
     doc.instruction = {
       ...doc.instruction,
@@ -360,7 +412,7 @@ const processProductDocument = (doc) => {
     };
   }
   
-  // Дополнительно: обработка specifications если там есть изображения
+  // 4. Обработка specifications если там есть изображения
   if (doc.specifications && Array.isArray(doc.specifications)) {
     doc.specifications = doc.specifications.map(spec => {
       if (spec.value && typeof spec.value === 'string' && shouldProcessUrl(spec.value)) {
@@ -373,8 +425,82 @@ const processProductDocument = (doc) => {
     });
   }
   
+  // 5. ГАРАНТИРОВАННАЯ ГЕНЕРАЦИЯ URL для продукта
+  if (doc.sku) {
+    // Проверяем, может быть категория уже популирована middleware
+    if (!doc.url && doc.category && typeof doc.category === 'object' && doc.category.slug) {
+      const BASE_URL = 'https://npo-polet.ru';
+      doc.url = `${BASE_URL}/categories/${doc.category.slug}/products/${doc.sku}`;
+    }
+    // Если url все еще не установлен, но есть данные для его генерации
+    else if (!doc.url && doc.category && doc.sku) {
+      // URL будет null, но это ожидаемо если нет slug категории
+      doc.url = null;
+    }
+  }
+  
   return doc;
 };
+
+// ========== MIDDLEWARE ДЛЯ АВТОМАТИЧЕСКОГО POPULATE ==========
+
+// Middleware для автоматического populate категории
+ProductSchema.pre(/^find/, function(next) {
+  // Автоматически популируем категорию при ЛЮБОМ find запросе
+  // Проверяем, не был ли уже установлен populate
+  const hasCategoryPopulate = this._mongooseOptions.populate && 
+    (Array.isArray(this._mongooseOptions.populate) 
+      ? this._mongooseOptions.populate.some(p => p.path === 'category')
+      : this._mongooseOptions.populate.path === 'category');
+  
+  if (!hasCategoryPopulate) {
+    this.populate({
+      path: 'category',
+      select: 'slug name _id',
+      options: { 
+        lean: true,
+        // Не строго - если категория удалена, все равно возвращаем продукт
+        strictPopulate: false 
+      }
+    });
+  }
+  
+  next();
+});
+
+// Middleware для aggregate запросов
+ProductSchema.pre('aggregate', function(next) {
+  // Автоматически добавляем lookup для категории в агрегацию
+  const hasCategoryLookup = this.pipeline().some(stage => 
+    stage.$lookup && stage.$lookup.as === 'category'
+  );
+  
+  if (!hasCategoryLookup) {
+    this.pipeline().unshift(
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category',
+          foreignField: '_id',
+          as: 'category',
+          pipeline: [
+            { $project: { slug: 1, name: 1, _id: 1 } }
+          ]
+        }
+      },
+      {
+        $unwind: {
+          path: '$category',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    );
+  }
+  
+  next();
+});
+
+// ========== POST MIDDLEWARE ДЛЯ ОБРАБОТКИ РЕЗУЛЬТАТОВ ==========
 
 // Middleware для обработки результатов запросов
 ProductSchema.post(['find', 'findOne', 'findById'], function(docs) {
@@ -387,7 +513,7 @@ ProductSchema.post(['find', 'findOne', 'findById'], function(docs) {
   return processProductDocument(docs);
 });
 
-// Middleware для агрегации (чтобы работало с aggregate)
+// Middleware для агрегации
 ProductSchema.post('aggregate', function(docs) {
   if (!docs || !Array.isArray(docs)) return docs;
   
@@ -400,8 +526,8 @@ ProductSchema.methods.toJSON = function() {
   return processProductDocument(obj);
 };
 
+// ========== ИНДЕКСЫ ==========
 
-// Индексы
 ProductSchema.index({ sku: 1 }, { unique: true });
 ProductSchema.index({ status: 1, isVisible: 1 });
 ProductSchema.index({ category: 1, status: 1, isVisible: 1 });
@@ -410,7 +536,8 @@ ProductSchema.index({ priceForIndividual: 1 });
 ProductSchema.index({ createdAt: -1 });
 ProductSchema.index({ showOnMainPage: 1, isVisible: 1 });
 
-// Middleware
+// ========== MIDDLEWARE ДЛЯ SAVE ==========
+
 ProductSchema.pre("save", function (next) {
   // Автоматическое обновление publishedAt при публикации
   if (this.isModified('isVisible') && this.isVisible && !this.publishedAt) {
@@ -420,7 +547,8 @@ ProductSchema.pre("save", function (next) {
   next();
 });
 
-// Статические методы
+// ========== СТАТИЧЕСКИЕ МЕТОДЫ ==========
+
 ProductSchema.statics.findAvailable = function() {
   return this.find({
     status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
@@ -428,7 +556,29 @@ ProductSchema.statics.findAvailable = function() {
   });
 };
 
-// Методы экземпляра
+// Статический метод который гарантированно возвращает URL
+ProductSchema.statics.findWithUrls = function(...args) {
+  return this.find(...args)
+    .populate({
+      path: 'category',
+      select: 'slug name _id',
+      options: { lean: true, strictPopulate: false }
+    })
+    .lean({ virtuals: true });
+};
+
+ProductSchema.statics.findOneWithUrl = function(...args) {
+  return this.findOne(...args)
+    .populate({
+      path: 'category',
+      select: 'slug name _id',
+      options: { lean: true, strictPopulate: false }
+    })
+    .lean({ virtuals: true });
+};
+
+// ========== МЕТОДЫ ЭКЗЕМПЛЯРА ==========
+
 ProductSchema.methods.incrementViews = function() {
   this.viewsCount += 1;
   return this.save();
@@ -439,7 +589,20 @@ ProductSchema.methods.incrementPurchases = function(quantity = 1) {
   return this.save();
 };
 
-// Дополнительные статические методы с автоматической обработкой
+// Метод для получения URL (гарантированный)
+ProductSchema.methods.getProductUrl = function() {
+  // Если категория уже загружена
+  if (this.category && typeof this.category === 'object' && this.category.slug) {
+    const BASE_URL = 'https://npo-polet.ru';
+    return `${BASE_URL}/categories/${this.category.slug}/products/${this.sku}`;
+  }
+  
+  // Если нет, возвращаем паттерн
+  return `/categories/[category]/products/${this.sku}`;
+};
+
+// ========== ДОПОЛНИТЕЛЬНЫЕ СТАТИЧЕСКИЕ МЕТОДЫ ==========
+
 ProductSchema.statics.findWithProcessedUrls = async function(...args) {
   const docs = await this.find(...args);
   return Array.isArray(docs) ? docs.map(processProductDocument) : processProductDocument(docs);
@@ -454,7 +617,6 @@ ProductSchema.statics.findByIdWithProcessedUrls = async function(id, ...args) {
   const doc = await this.findById(id, ...args);
   return processProductDocument(doc);
 };
-
 
 module.exports = model("Product", ProductSchema);
 module.exports.ProductStatus = ProductStatus;

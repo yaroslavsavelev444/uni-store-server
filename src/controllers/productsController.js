@@ -4,8 +4,7 @@ const { ProductStatus } = require('../models/product-model');
 const fs = require('fs').promises;
 const path = require('path');
 const { 
-  processProductFiles, 
-  cleanupOldProductFiles 
+  processProductFiles,
 } = require('../utils/productFileProcessor');
 
 const productController = {
@@ -60,7 +59,7 @@ const productController = {
   async getProductBySku(req, res, next) {
     try {
       const { sku } = req.params;
-      const { populate = 'none' } = req.query;
+      const { populate = 'true' } = req.query;
       const isAdmin = req.user && req.user.role === 'admin';
       const userId = req.user && req.user.id;
       const product = await productService.getProductBySku(sku, { populate, isAdmin, userId });

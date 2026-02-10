@@ -57,15 +57,13 @@ class OrdersController {
     const { deliveryMethod, paymentMethod } = orderData;
     
     if (deliveryMethod === DeliveryMethod.DOOR_TO_DOOR) {
-      if (paymentMethod !== PaymentMethod.INVOICE && 
-          paymentMethod !== PaymentMethod.COURIER_CASH) {
+      if (paymentMethod !== PaymentMethod.INVOICE) {
         throw ApiError.BadRequest(
-          'Для доставки до двери доступна только оплата по счету или курьеру'
+          'Для доставки до двери доступна только оплата по счету'
         );
       }
     } else if (deliveryMethod === DeliveryMethod.PICKUP_POINT) {
-      if (paymentMethod !== PaymentMethod.INVOICE && 
-          paymentMethod !== PaymentMethod.PICKUP_POINT_CASH) {
+      if (paymentMethod !== PaymentMethod.INVOICE) {
         throw ApiError.BadRequest(
           'Для доставки в ПВЗ доступна только оплата по счету или при получении в ПВЗ'
         );

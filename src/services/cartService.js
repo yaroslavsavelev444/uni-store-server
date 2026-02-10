@@ -92,6 +92,7 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
           title: product.title,
           sku: product.sku,
           price: price,
+          url: product.url,
           finalPrice: finalPrice,
           minOrderQuantity: product.minOrderQuantity || 1,
           maxOrderQuantity: product.maxOrderQuantity,
