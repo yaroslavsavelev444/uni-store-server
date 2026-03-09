@@ -742,12 +742,12 @@ async submitFeedback(data) {
       if (!feedback.userEmail) return;
       
       const statusMessages = {
-        'new': 'получен и ожидает рассмотрения',
-        'in_progress': 'взяли в работу',
-        'resolved': 'решен',
-        'closed': 'закрыт',
-        'duplicate': 'помечен как дубликат',
-        'wont_fix': 'не будет исправлен'
+        'new': 'Получен и ожидает рассмотрения',
+        'in_progress': 'Взяли в работу',
+        'resolved': 'Решен',
+        'closed': 'Закрыт',
+        'duplicate': 'Помечен как дубликат',
+        'wont_fix': 'Не будет исправлен'
       };
       
       await sendEmailNotification(feedback.userEmail, 'feedbackStatusChanged', {
