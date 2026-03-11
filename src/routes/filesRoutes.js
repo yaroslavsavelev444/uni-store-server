@@ -1,30 +1,30 @@
-const express = require("express");
-const router = express.Router();
-const filesController = require("../controllers/filesController");
-const multerMiddleware = require("../middlewares/multerMiddleware");
-const imageCompressor = require("../middlewares/imageCompressor");
-const authMiddleware = require("../middlewares/auth-middleware");
-const rateLimit = require("express-rate-limit");
+import { Router } from "express";
+
+const router = Router();
+
+import rateLimit from "express-rate-limit";
+import filesController from "../controllers/filesController";
+import authMiddleware from "../middlewares/auth-middleware";
+import imageCompressor from "../middlewares/imageCompressor";
+import multerMiddleware from "../middlewares/multerMiddleware";
+import quotaChecker from "../middlewares/quotaChecker";
 
 const uploadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 20, 
-  message: "Слишком много запросов на загрузку файлов. Попробуйте позже.",
-  skipSuccessfulRequests: false,
-  skip: (req, res) => {
-    return req.user && req.user.role === 'admin';
-  }
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Слишком много запросов",
+  skip: (req) => req.user && req.user.role === "admin",
 });
 
-// Настройки сжатия
 const compressionOptions = {
-  maxWidth: 1920,     // Максимальная ширина
-  maxHeight: 1080,    // Максимальная высота
-  quality: 80,        // Качество для JPEG
-  webpQuality: 80,    // Качество для WebP
-  convertToWebp: true // Конвертировать все в WebP (меньший размер)
+  maxWidth: 1920,
+  maxHeight: 1080,
+  quality: 80,
+  webpQuality: 80,
+  convertToWebp: true,
 };
 
+// Защищённые маршруты (требуют авторизации)
 router.post(
   "/upload",
   authMiddleware(["all"]),
@@ -35,15 +35,30 @@ router.post(
     imagesOnly: false,
     useTemp: true,
   }),
-  imageCompressor.middleware(compressionOptions), // Добавляем сжатие
-  filesController.uploadFiles
+  quotaChecker({ maxTotalSizeMB: 100 }),
+  imageCompressor.middleware(compressionOptions),
+  filesController.uploadFiles,
 );
 
-// Остальные роуты без изменений
-router.post(
-  "/delete",
+router.post("/delete", authMiddleware(["all"]), filesController.deleteFiles);
+
+router.post("/confirm", authMiddleware(["all"]), filesController.confirmFiles);
+
+router.get("/files/:id", authMiddleware(["all"]), filesController.downloadFile);
+
+router.get(
+  "/user-files",
   authMiddleware(["all"]),
-  filesController.deleteFiles
+  filesController.getUserFiles,
 );
 
-module.exports = router;
+router.get(
+  "/entity/:entityType/:entityId",
+  authMiddleware(["all"]),
+  filesController.getEntityFiles,
+);
+
+// Публичный маршрут (без авторизации)
+router.get("/public/files/:token", filesController.publicDownloadFile);
+
+export default router;

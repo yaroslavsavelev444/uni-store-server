@@ -1,9 +1,9 @@
 // src/controllers/sitemapController.js
-const sitemapService = require("../services/sitemapService");
+import { getXml } from "../services/sitemapService";
 
-exports.getSitemap = async (req, res, next) => {
+export async function getSitemap(req, res, next) {
   try {
-    const xml = await sitemapService.getXml();
+    const xml = await getXml();
 
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=300"); // браузерный кеш
@@ -11,4 +11,4 @@ exports.getSitemap = async (req, res, next) => {
   } catch (e) {
     next(e);
   }
-};
+}

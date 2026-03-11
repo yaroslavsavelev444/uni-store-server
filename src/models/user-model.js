@@ -1,22 +1,23 @@
 // models/user-model.js
-const { Schema, model } = require("mongoose");
-const cartModel = require("./cart-model");
-const { normalizeEmail } = require("../utils/normalizers");
+import { model, Schema } from "mongoose";
+import { normalizeEmail } from "../utils/normalizers";
+import cartModel from "./cart-model";
 
 const UserSchema = new Schema(
   {
-    email: { 
-      type: String, 
-      required: true, 
+    email: {
+      type: String,
+      required: true,
       unique: true,
       set: normalizeEmail,
       validate: {
-        validator: function(v) {
+        validator: (v) => {
           // Простая проверка формата email
           return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
         },
-        message: props => `${props.value} не является корректным email адресом!`
-      }
+        message: (props) =>
+          `${props.value} не является корректным email адресом!`,
+      },
     },
     password: { type: String, required: true },
     role: {
@@ -64,12 +65,11 @@ const UserSchema = new Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-
 // Middleware для создания корзины
-UserSchema.post("save", async function (doc) {
+UserSchema.post("save", async (doc) => {
   const cartExists = await cartModel.exists({ user: doc._id });
   if (!cartExists) {
     const newCart = new cartModel({ user: doc._id, items: [] });
@@ -78,23 +78,23 @@ UserSchema.post("save", async function (doc) {
 });
 
 // Статический метод для проверки, заблокирован ли пользователь
-UserSchema.statics.isUserBlocked = async function(userId) {
-  const user = await this.findById(userId).select('status blockedUntil');
-  
+UserSchema.statics.isUserBlocked = async function (userId) {
+  const user = await this.findById(userId).select("status blockedUntil");
+
   if (!user) return false;
-  
-  if (user.status === 'active') return false;
-  
+
+  if (user.status === "active") return false;
+
   if (user.blockedUntil && user.blockedUntil < new Date()) {
     // Срок блокировки истёк, разблокируем пользователя
-    user.status = 'active';
+    user.status = "active";
     user.blockedUntil = null;
     user.lastSanction = null;
     await user.save();
     return false;
   }
-  
-  return user.status === 'blocked';
+
+  return user.status === "blocked";
 };
 
-module.exports = model("User", UserSchema);
+export default model("User", UserSchema);

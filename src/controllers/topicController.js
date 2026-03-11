@@ -1,6 +1,7 @@
-const ApiError = require("../exceptions/api-error");
-const TopicService = require("../services/topicService");
-const auditLogger = require("../logger/auditLogger");
+import ApiError from "../exceptions/api-error";
+import auditLogger from "../logger/auditLogger";
+import logger from "../logger/logger";
+import TopicService from "../services/topicService";
 
 class TopicController {
   constructor() {
@@ -10,6 +11,10 @@ class TopicController {
   async getAll(req, res, next) {
     try {
       const items = await this.topicService.getAll();
+      logger.info({
+        message: items,
+        count: items.length,
+      });
       res.status(200).json(items);
     } catch (err) {
       next(err);
@@ -20,7 +25,9 @@ class TopicController {
     try {
       const { slug } = req.params;
       if (!slug) {
-        return next(ApiError.BadRequest("Недостаточно данных для получения записи."));
+        return next(
+          ApiError.BadRequest("Недостаточно данных для получения записи."),
+        );
       }
       const item = await this.topicService.getBySlugWithRelated(slug);
       if (!item) {
@@ -35,70 +42,78 @@ class TopicController {
   async create(req, res, next) {
     try {
       const data = req.body;
-      
+
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'CREATE_TOPIC_START',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "CREATE_TOPIC_START",
         null,
         [
-          { field: 'title', old: null, new: data.title || 'без названия' },
-          { field: 'slug', old: null, new: data.slug || 'без slug' },
-          { field: 'filesCount', old: null, new: req.files ? Object.keys(req.files).length : 0 }
+          { field: "title", old: null, new: data.title || "без названия" },
+          { field: "slug", old: null, new: data.slug || "без slug" },
+          {
+            field: "filesCount",
+            old: null,
+            new: req.files ? Object.keys(req.files).length : 0,
+          },
         ],
-        `Начало создания темы`
+        `Начало создания темы`,
       );
-      
+
       const item = await this.topicService.create(data, req.files);
-      
+
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'CREATE_TOPIC_SUCCESS',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "CREATE_TOPIC_SUCCESS",
         {
           id: item._id.toString(),
-          email: 'system@topic'
+          email: "system@topic",
         },
         [
-          { 
-            field: 'contentBlocksCount', 
-            old: null, 
-            new: item.contentBlocks?.length || 0 
+          {
+            field: "contentBlocksCount",
+            old: null,
+            new: item.contentBlocks?.length || 0,
           },
-          { 
-            field: 'createdAt', 
-            old: null, 
-            new: item.createdAt 
+          {
+            field: "createdAt",
+            old: null,
+            new: item.createdAt,
           },
-          { 
-            field: 'hasCover', 
-            old: null, 
-            new: !!item.imageUrl 
-          }
+          {
+            field: "hasCover",
+            old: null,
+            new: !!item.imageUrl,
+          },
         ],
-        `Создана тема "${item.title}". ID: ${item._id}, slug: ${item.slug}`
+        `Создана тема "${item.title}". ID: ${item._id}, slug: ${item.slug}`,
       );
-      
+
       res.status(201).json(item);
     } catch (err) {
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'CREATE_TOPIC_FAILED',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "CREATE_TOPIC_FAILED",
         null,
         [
-          { field: 'error', old: null, new: err.message },
-          { field: 'requestData', old: null, new: JSON.stringify(req.body).slice(0, 500) }
+          { field: "error", old: null, new: err.message },
+          {
+            field: "requestData",
+            old: null,
+            new: JSON.stringify(req.body).slice(0, 500),
+          },
         ],
-        `Ошибка при создании темы: ${err.message}`
+        `Ошибка при создании темы: ${err.message}`,
       );
-      
+
       next(err);
     }
   }
@@ -107,12 +122,15 @@ class TopicController {
     try {
       const { id } = req.params;
       const data = req.body;
-      
+
       let itemBefore = null;
       try {
         itemBefore = await this.topicService.getItemById(id);
       } catch (err) {
-        console.warn(`Не удалось получить данные элемента ${id} для аудита:`, err.message);
+        console.warn(
+          `Не удалось получить данные элемента ${id} для аудита:`,
+          err.message,
+        );
       }
 
       if (typeof data.contentBlocks === "string") {
@@ -123,14 +141,14 @@ class TopicController {
             req.user.id,
             req.user.email,
             req.user.role,
-            'TOPIC_CONTENT_MANAGEMENT',
-            'UPDATE_TOPIC_INVALID_FORMAT',
+            "TOPIC_CONTENT_MANAGEMENT",
+            "UPDATE_TOPIC_INVALID_FORMAT",
             {
               id: id,
-              email: 'system@topic'
+              email: "system@topic",
             },
             [],
-            `Неверный формат contentBlocks при обновлении элемента ${id}`
+            `Неверный формат contentBlocks при обновлении элемента ${id}`,
           );
           return next(ApiError.BadRequest("Неверный формат contentBlocks"));
         }
@@ -143,13 +161,16 @@ class TopicController {
 
       if (req.files?.contentImages) {
         const uploadedImages = req.files.contentImages.map(
-          f => `/uploads/topics/${data.slug}/${f.filename}`
+          (f) => `/uploads/topics/${data.slug}/${f.filename}`,
         );
 
         if (data.contentBlocks && Array.isArray(data.contentBlocks)) {
           let imgIndex = 0;
-          data.contentBlocks = data.contentBlocks.map(block => {
-            if (block.type === "image" && block.value === "upload_placeholder") {
+          data.contentBlocks = data.contentBlocks.map((block) => {
+            if (
+              block.type === "image" &&
+              block.value === "upload_placeholder"
+            ) {
               block.value = uploadedImages[imgIndex] || block.value;
               imgIndex++;
             }
@@ -162,111 +183,113 @@ class TopicController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'UPDATE_TOPIC_START',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "UPDATE_TOPIC_START",
         {
           id: id,
-          email: 'system@topic'
+          email: "system@topic",
         },
         [
-          { 
-            field: 'oldTitle', 
-            old: null, 
-            new: itemBefore?.title || 'неизвестно' 
+          {
+            field: "oldTitle",
+            old: null,
+            new: itemBefore?.title || "неизвестно",
           },
-          { 
-            field: 'newTitle', 
-            old: null, 
-            new: data.title || itemBefore?.title || 'без названия' 
+          {
+            field: "newTitle",
+            old: null,
+            new: data.title || itemBefore?.title || "без названия",
           },
-          { 
-            field: 'filesCount', 
-            old: null, 
-            new: req.files ? Object.keys(req.files).length : 0 
-          }
+          {
+            field: "filesCount",
+            old: null,
+            new: req.files ? Object.keys(req.files).length : 0,
+          },
         ],
-        `Начало обновления темы ${id}`
+        `Начало обновления темы ${id}`,
       );
 
       const updated = await this.topicService.update(id, data);
-      
+
       const changes = [];
-      
+
       if (itemBefore) {
         if (itemBefore.title !== updated.title) {
           changes.push({
-            field: 'title',
+            field: "title",
             old: itemBefore.title,
-            new: updated.title
+            new: updated.title,
           });
         }
-        
+
         if (itemBefore.slug !== updated.slug) {
           changes.push({
-            field: 'slug',
+            field: "slug",
             old: itemBefore.slug,
-            new: updated.slug
+            new: updated.slug,
           });
         }
-        
+
         if (itemBefore.imageUrl !== updated.imageUrl) {
           changes.push({
-            field: 'coverImage',
-            old: itemBefore.imageUrl ? 'есть' : 'нет',
-            new: updated.imageUrl ? 'обновлена' : 'удалена'
+            field: "coverImage",
+            old: itemBefore.imageUrl ? "есть" : "нет",
+            new: updated.imageUrl ? "обновлена" : "удалена",
           });
         }
-        
+
         const oldBlocksCount = itemBefore.contentBlocks?.length || 0;
         const newBlocksCount = updated.contentBlocks?.length || 0;
         if (oldBlocksCount !== newBlocksCount) {
           changes.push({
-            field: 'contentBlocksCount',
+            field: "contentBlocksCount",
             old: oldBlocksCount,
-            new: newBlocksCount
+            new: newBlocksCount,
           });
         }
       }
-      
+
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'UPDATE_TOPIC_SUCCESS',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "UPDATE_TOPIC_SUCCESS",
         {
           id: id,
-          email: 'system@topic'
+          email: "system@topic",
         },
-        changes.length > 0 ? changes : [
-          { 
-            field: 'updatedAt', 
-            old: itemBefore?.updatedAt, 
-            new: updated.updatedAt 
-          }
-        ],
-        `Обновлена тема "${updated.title}" (ID: ${id}). Изменений: ${changes.length}`
+        changes.length > 0
+          ? changes
+          : [
+              {
+                field: "updatedAt",
+                old: itemBefore?.updatedAt,
+                new: updated.updatedAt,
+              },
+            ],
+        `Обновлена тема "${updated.title}" (ID: ${id}). Изменений: ${changes.length}`,
       );
-      
+
       res.status(200).json(updated);
     } catch (err) {
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'UPDATE_TOPIC_FAILED',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "UPDATE_TOPIC_FAILED",
         {
           id: req.params.id,
-          email: 'system@topic'
+          email: "system@topic",
         },
         [
-          { field: 'error', old: null, new: err.message },
-          { field: 'params', old: null, new: JSON.stringify(req.params) }
+          { field: "error", old: null, new: err.message },
+          { field: "params", old: null, new: JSON.stringify(req.params) },
         ],
-        `Ошибка при обновлении темы ${req.params.id}: ${err.message}`
+        `Ошибка при обновлении темы ${req.params.id}: ${err.message}`,
       );
-      
+
       next(err);
     }
   }
@@ -274,98 +297,101 @@ class TopicController {
   async delete(req, res, next) {
     try {
       const { id } = req.params;
-      
+
       let itemBefore = null;
       try {
         itemBefore = await this.topicService.getItemById(id);
       } catch (err) {
-        console.warn(`Не удалось получить данные элемента ${id} для аудита:`, err.message);
+        console.warn(
+          `Не удалось получить данные элемента ${id} для аудита:`,
+          err.message,
+        );
       }
 
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'DELETE_TOPIC_START',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "DELETE_TOPIC_START",
         {
           id: id,
-          email: 'system@topic'
+          email: "system@topic",
         },
         [
-          { 
-            field: 'itemTitle', 
-            old: null, 
-            new: itemBefore?.title || 'неизвестно' 
+          {
+            field: "itemTitle",
+            old: null,
+            new: itemBefore?.title || "неизвестно",
           },
-          { 
-            field: 'itemSlug', 
-            old: null, 
-            new: itemBefore?.slug || 'неизвестно' 
+          {
+            field: "itemSlug",
+            old: null,
+            new: itemBefore?.slug || "неизвестно",
           },
-          { 
-            field: 'contentBlocksCount', 
-            old: null, 
-            new: itemBefore?.contentBlocks?.length || 0 
-          }
+          {
+            field: "contentBlocksCount",
+            old: null,
+            new: itemBefore?.contentBlocks?.length || 0,
+          },
         ],
-        `Начало удаления темы ${id}`
+        `Начало удаления темы ${id}`,
       );
 
       await this.topicService.deleteItem(id);
-      
+
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'DELETE_TOPIC_SUCCESS',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "DELETE_TOPIC_SUCCESS",
         {
           id: id,
-          email: 'system@topic'
+          email: "system@topic",
         },
         [
-          { 
-            field: 'status', 
-            old: 'активен', 
-            new: 'удален' 
+          {
+            field: "status",
+            old: "активен",
+            new: "удален",
           },
-          { 
-            field: 'deletedBy', 
-            old: null, 
-            new: req.user.id 
+          {
+            field: "deletedBy",
+            old: null,
+            new: req.user.id,
           },
-          { 
-            field: 'deletedAt', 
-            old: null, 
-            new: new Date().toISOString() 
-          }
+          {
+            field: "deletedAt",
+            old: null,
+            new: new Date().toISOString(),
+          },
         ],
-        `Удалена тема "${itemBefore?.title || 'неизвестно'}" (ID: ${id})`
+        `Удалена тема "${itemBefore?.title || "неизвестно"}" (ID: ${id})`,
       );
-      
+
       res.status(204).send();
     } catch (err) {
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'TOPIC_CONTENT_MANAGEMENT',
-        'DELETE_TOPIC_FAILED',
+        "TOPIC_CONTENT_MANAGEMENT",
+        "DELETE_TOPIC_FAILED",
         {
           id: req.params.id,
-          email: 'system@topic'
+          email: "system@topic",
         },
         [
-          { field: 'error', old: null, new: err.message },
-          { field: 'params', old: null, new: JSON.stringify(req.params) }
+          { field: "error", old: null, new: err.message },
+          { field: "params", old: null, new: JSON.stringify(req.params) },
         ],
-        `Ошибка при удалении темы ${req.params.id}: ${err.message}`
+        `Ошибка при удалении темы ${req.params.id}: ${err.message}`,
       );
-      
+
       next(err);
     }
   }
 }
 
-module.exports = TopicController;
+export default TopicController;

@@ -49,4 +49,4 @@ const calculateReadingTime = (contentBlocks) => {
   return readingTimeMinutes;
 };
 
-module.exports = calculateReadingTime;
+export default calculateReadingTime;

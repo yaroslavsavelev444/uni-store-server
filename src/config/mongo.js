@@ -1,25 +1,24 @@
-const mongoose = require("mongoose");
-const logger = require("../logger/logger");
+import { disconnect as _disconnect, connect, connection } from "mongoose";
+import logger from "../logger/logger";
+
 require("dotenv").config();
 
 // Подключение к базе данных
 const connectDB = async () => {
   console.log("⏳ Подключение к MongoDB через Mongoose...");
   try {
-    await mongoose.connect(
+    await connect(
       "mongodb://mongo1:27017,mongo2:27017,mongo3:27017/polet?replicaSet=rs0",
       {
         serverSelectionTimeoutMS: 30000,
         socketTimeoutMS: 45000,
-      }
+      },
     );
 
     logger.info("✅ Подключено к MongoDB через Mongoose");
 
     // Получение списка коллекций и вывод в консоль
-    const collections = await mongoose.connection.db
-      .listCollections()
-      .toArray();
+    const collections = await connection.db.listCollections().toArray();
     logger.info("📂 Коллекции в базе данных:");
     collections.forEach((collection) => logger.info(`- ${collection.name}`));
   } catch (err) {
@@ -28,32 +27,31 @@ const connectDB = async () => {
   }
 };
 
-
-mongoose.connection.on("connected", () => {
+connection.on("connected", () => {
   console.log("🟢 MONGO CONNECTED " + new Date().toISOString());
 });
 
-mongoose.connection.on("disconnected", () => {
+connection.on("disconnected", () => {
   console.log("🔴 MONGO DISCONNECTED " + new Date().toISOString());
 });
 
-mongoose.connection.on("error", (err) => {
+connection.on("error", (err) => {
   console.log("❌ MONGO ERROR", err);
 });
 
 // Получение экземпляра базы данных через Mongoose
 const getDB = () => {
-  if (!mongoose.connection.readyState) {
+  if (!connection.readyState) {
     throw new Error(
-      "❌ База данных не инициализирована. Вызовите connectDB() сначала."
+      "❌ База данных не инициализирована. Вызовите connectDB() сначала.",
     );
   }
-  return mongoose.connection;
+  return connection;
 };
 
 const disconnect = async () => {
-  await mongoose.disconnect();
+  await _disconnect();
   logger.info("✅ Отключено от MongoDB");
 };
 
-module.exports = { connectDB, getDB, disconnect };
+export default { connectDB, getDB, disconnect };

@@ -1,54 +1,37 @@
-const Joi = require('joi');
+import { array, boolean, object, string } from "joi";
 
 const slugRegex = /^[a-z0-9_-]+$/i;
-const versionRegex = /^\d+\.\d+\.\d+$/;
 const urlRegex = /^(https?:\/\/)[^\s$.?#].[^\s]*$/;
 
-const createConsentSchema = Joi.object({
-  title: Joi.string().min(3).max(255).required(),
-  slug: Joi.string()
-    .pattern(slugRegex)
-    .min(3)
-    .max(100)
-    .required(),
-  description: Joi.string()
-    .allow('')
-    .max(1000),
-  content: Joi.string()
-    .min(10)
-    .required(),
-  documentUrl: Joi.string()
-    .pattern(urlRegex)
-    .allow(null, ''),
-  isRequired: Joi.boolean().default(true),
-  needsAcceptance: Joi.boolean().default(true)
+const createConsentSchema = object({
+  title: string().min(3).max(255).required(),
+  slug: string().pattern(slugRegex).min(3).max(100).required(),
+  description: string().allow("").max(1000),
+  content: string().min(10).required(),
+  documentUrl: string().pattern(urlRegex).allow(null, ""),
+  isRequired: boolean().default(true),
+  needsAcceptance: boolean().default(true),
 });
 
-const updateConsentSchema = Joi.object({
-  title: Joi.string().min(3).max(255),
-  description: Joi.string()
-    .allow('')
-    .max(1000),
-  content: Joi.string().min(10),
-  documentUrl: Joi.string()
-    .pattern(urlRegex)
-    .allow(null, ''),
-  isRequired: Joi.boolean(),
-  needsAcceptance: Joi.boolean(),
-  changeDescription: Joi.string()
-    .max(500)
-    .allow(''),
-  notifyUsers: Joi.boolean().default(false),
-  notificationTypes: Joi.array()
-    .items(Joi.string().valid('email', 'sms', 'site', 'personal_account', 'push'))
-    .when('notifyUsers', {
+const updateConsentSchema = object({
+  title: string().min(3).max(255),
+  description: string().allow("").max(1000),
+  content: string().min(10),
+  documentUrl: string().pattern(urlRegex).allow(null, ""),
+  isRequired: boolean(),
+  needsAcceptance: boolean(),
+  changeDescription: string().max(500).allow(""),
+  notifyUsers: boolean().default(false),
+  notificationTypes: array()
+    .items(string().valid("email", "sms", "site", "personal_account", "push"))
+    .when("notifyUsers", {
       is: true,
-      then: Joi.array().min(1).required(),
-      otherwise: Joi.array().optional()
-    })
+      then: array().min(1).required(),
+      otherwise: array().optional(),
+    }),
 }).min(1); // запрещаем пустой update
 
-module.exports = {
+export default {
   createConsentSchema,
-  updateConsentSchema
+  updateConsentSchema,
 };

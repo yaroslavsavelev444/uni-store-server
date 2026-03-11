@@ -1,6 +1,7 @@
-const mongoose = require("mongoose");
-const { sanitizeHtml } = require("../utils/sanitizer");
-const VersionHistorySchema = new mongoose.Schema(
+import { model, Schema } from "mongoose";
+import { sanitizeHtml } from "../utils/sanitizer";
+
+const VersionHistorySchema = new Schema(
   {
     version: {
       type: String,
@@ -11,21 +12,21 @@ const VersionHistorySchema = new mongoose.Schema(
     documentUrl: {
       type: String,
       validate: {
-        validator: function (v) {
+        validator: (v) => {
           if (!v) return true;
           return /^(https?:\/\/)[^\s$.?#].[^\s]*$/.test(v);
         },
         message: (props) => `${props.value} не является валидным URL`,
       },
     },
-    author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    author: { type: Schema.Types.ObjectId, ref: "User" },
     changeDescription: String,
     createdAt: { type: Date, default: Date.now },
   },
-  { _id: true }
+  { _id: true },
 );
 
-const ConsentSchema = new mongoose.Schema(
+const ConsentSchema = new Schema(
   {
     title: { type: String, required: true },
     slug: {
@@ -39,7 +40,7 @@ const ConsentSchema = new mongoose.Schema(
     documentUrl: {
       type: String,
       validate: {
-        validator: function (v) {
+        validator: (v) => {
           if (!v) return true;
           return /^(https?:\/\/)[^\s$.?#].[^\s]*$/.test(v);
         },
@@ -66,10 +67,10 @@ const ConsentSchema = new mongoose.Schema(
       match: /^\d+\.\d+\.\d+$/,
     },
     history: [VersionHistorySchema],
-    lastUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    lastUpdatedBy: { type: Schema.Types.ObjectId, ref: "User" },
     lastUpdatedAt: { type: Date, default: Date.now },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 ConsentSchema.pre("validate", function (next) {
@@ -139,4 +140,4 @@ ConsentSchema.virtual("isPublished").get(function () {
   return this.isActive;
 });
 
-module.exports = mongoose.model("Consent", ConsentSchema);
+export default model("Consent", ConsentSchema);

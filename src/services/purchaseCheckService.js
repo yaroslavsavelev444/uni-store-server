@@ -1,5 +1,5 @@
 // services/purchaseCheckService.js или utils/purchaseChecker.js
-const { OrderModel, OrderStatus } = require('../models/order-model');
+import { OrderModel, OrderStatus } from "../models/order-model";
 
 class PurchaseCheckService {
   /**
@@ -20,14 +20,14 @@ class PurchaseCheckService {
           $in: [
             OrderStatus.DELIVERED,
             OrderStatus.READY_FOR_PICKUP,
-            OrderStatus.SHIPPED 
-          ]
+            OrderStatus.SHIPPED,
+          ],
         },
       });
 
       return !!completedOrders;
     } catch (error) {
-      console.error('Error checking user purchase:', error);
+      console.error("Error checking user purchase:", error);
       return false;
     }
   }
@@ -47,17 +47,14 @@ class PurchaseCheckService {
       const completedOrders = await OrderModel.exists({
         user: userId,
         status: {
-          $in: [
-            OrderStatus.DELIVERED,
-            OrderStatus.READY_FOR_PICKUP
-          ]
+          $in: [OrderStatus.DELIVERED, OrderStatus.READY_FOR_PICKUP],
         },
-        'items.sku': sku
+        "items.sku": sku,
       });
 
       return !!completedOrders;
     } catch (error) {
-      console.error('Error checking user purchase by SKU:', error);
+      console.error("Error checking user purchase by SKU:", error);
       return false;
     }
   }
@@ -70,23 +67,26 @@ class PurchaseCheckService {
    */
   static async hasUserPurchasedProducts(userId, productIds) {
     if (!userId || !Array.isArray(productIds) || productIds.length === 0) {
-          console.log('SOSALLLL');
+      console.log("SOSALLLL");
       return {};
     }
 
     try {
       const result = {};
-      
+
       // Для каждого товара создаем обещание проверки
       const purchasePromises = productIds.map(async (productId) => {
-        const hasPurchased = await this.hasUserPurchasedProduct(userId, productId);
+        const hasPurchased = await PurchaseCheckService.hasUserPurchasedProduct(
+          userId,
+          productId,
+        );
         result[productId] = hasPurchased;
       });
 
       await Promise.all(purchasePromises);
       return result;
     } catch (error) {
-      console.error('Error checking multiple purchases:', error);
+      console.error("Error checking multiple purchases:", error);
       return productIds.reduce((acc, id) => ({ ...acc, [id]: false }), {});
     }
   }
@@ -99,7 +99,7 @@ class PurchaseCheckService {
    */
   static async getUserOrdersWithProduct(userId, productId) {
     if (!userId || !productId) {
-          console.log('SOSALLLL');
+      console.log("SOSALLLL");
       return [];
     }
 
@@ -107,22 +107,19 @@ class PurchaseCheckService {
       const orders = await OrderModel.find({
         user: userId,
         status: {
-          $in: [
-            OrderStatus.DELIVERED,
-            OrderStatus.READY_FOR_PICKUP
-          ]
+          $in: [OrderStatus.DELIVERED, OrderStatus.READY_FOR_PICKUP],
         },
-        'items.product': productId
+        "items.product": productId,
       })
-      .select('orderNumber status createdAt items')
-      .lean();
+        .select("orderNumber status createdAt items")
+        .lean();
 
       return orders;
     } catch (error) {
-      console.error('Error fetching user orders with product:', error);
+      console.error("Error fetching user orders with product:", error);
       return [];
     }
   }
 }
 
-module.exports = PurchaseCheckService;
+export default PurchaseCheckService;

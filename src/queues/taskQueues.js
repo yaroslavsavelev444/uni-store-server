@@ -1,19 +1,20 @@
-const ApiError = require("../exceptions/api-error");
-const logger = require("../logger/logger");
-require("../models/index.models");
-const {
-  taskQueues,
-  moderateQueues,
-  pushNotificationsQueues,
-} = require("./bull");
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import "../models/index.models.js"; // импорт для побочных эффектов (регистрация моделей)
+import bull from "./bull.js";
 
-async function sendEmailNotification(email, type, data) {
+const { taskQueues, moderateQueues, pushNotificationsQueues } = bull;
+
+/**
+ * Отправка email-уведомления через очередь
+ */
+export async function sendEmailNotification(email, type, data) {
   logger.info(
     `sendEmailNotificationLetter: ${JSON.stringify(
       { email, type, data },
       null,
-      2
-    )}`
+      2,
+    )}`,
   );
 
   if (!email || !type || !data) {
@@ -34,7 +35,10 @@ async function sendEmailNotification(email, type, data) {
   }
 }
 
-async function sendPushNotification({
+/**
+ * Отправка push-уведомления через очередь
+ */
+export async function sendPushNotification({
   title,
   body,
   data = {},
@@ -44,16 +48,7 @@ async function sendPushNotification({
   delay = 0,
   jobId = null,
 }) {
-  console.log(
-    title,
-    body,
-    data,
-    options,
-    dbSave,
-    userId,
-    delay,
-    jobId
-  );
+  console.log(title, body, data, options, dbSave, userId, delay, jobId);
 
   try {
     const jobOptions = {
@@ -71,8 +66,8 @@ async function sendPushNotification({
 
     await pushNotificationsQueues.add(
       "sendPushNotification",
-      {  title, body, data, options, dbSave, userId },
-      jobOptions
+      { title, body, data, options, dbSave, userId },
+      jobOptions,
     );
   } catch (error) {
     console.log("Ошибка при отправке пуш-уведомления:", error);
@@ -80,7 +75,10 @@ async function sendPushNotification({
   }
 }
 
-async function reviewModerate(reviewId) {
+/**
+ * Постановка задачи на модерацию отзыва
+ */
+export async function reviewModerate(reviewId) {
   if (!reviewId) {
     throw ApiError.BadRequest("userId and reviewId are required");
   }
@@ -94,11 +92,14 @@ async function reviewModerate(reviewId) {
   }
 }
 
-async function sendTelegramNotification(
+/**
+ * Отправка уведомления в Telegram через очередь
+ */
+export async function sendTelegramNotification(
   message,
   level = "error",
   metadata = {},
-  options = {}
+  options = {},
 ) {
   try {
     const job = await taskQueues.add("sendTelegramNotification", {
@@ -114,10 +115,3 @@ async function sendTelegramNotification(
     return null;
   }
 }
-
-module.exports = {
-  sendEmailNotification,
-  sendPushNotification,
-  reviewModerate,
-  sendTelegramNotification,
-};

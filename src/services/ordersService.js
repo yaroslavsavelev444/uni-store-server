@@ -1,35 +1,51 @@
 // services/orders.service.js
-const mongoose = require("mongoose");
-const ApiError = require("../exceptions/api-error");
-const CartService = require("./cartService");
-const ProductService = require("./productService");
-const OrderCacheService = require("./OrderCacheService");
-const redisClient = require("../redis/redis.client");
-const DiscountService = require("./discountService"); // Добавляем импорт
-const logger = require("../logger/logger");
-const {
-  sendEmailNotification,
-  sendPushNotification,
-} = require("../queues/taskQueues");
-const {
-  ProductModel,
-  CompanyModel,
+
+import { promises as fs } from "node:fs";
+import { basename, dirname } from "node:path";
+import { startSession } from "mongoose";
+import ApiError, {
+  BadRequest,
+  DatabaseError,
+  InternalError,
+  NotFound,
+} from "../exceptions/api-error";
+import { error as _error, info } from "../logger/logger";
+import {
+  DeliveryMethod,
   OrderModel,
   OrderStatus,
-  DeliveryMethod,
+  ProductModel,
   UserModel,
-} = require("../models/index.models");
-const fileService = require("../utils/fileManager");
-const path = require("path");
-const CompanyService = require("./companyService");
-const fs = require("fs").promises;
+} from "../models/index.models";
+import {
+  sendEmailNotification,
+  sendPushNotification,
+} from "../queues/taskQueues";
+import {
+  deleteFile,
+  getAbsolutePath,
+  getFileInfo,
+  getFileUrl,
+  getMimeTypeFromName,
+  validateFileExists,
+} from "../utils/fileManager";
+import CartService from "./cartService";
+import {
+  createCompany,
+  getCompanyById,
+  getCompanyByTaxNumber,
+  invalidateUserCompaniesCache,
+} from "./companyService";
+import DiscountService from "./discountService"; // Добавляем импорт
+import OrderCacheService from "./OrderCacheService";
+import ProductService from "./productService";
+
 class OrderService {
   constructor() {
     this.cartService = CartService;
     this.productService = ProductService;
     this.cache = OrderCacheService;
-        this.discountService = DiscountService; // Добавляем
-
+    this.discountService = DiscountService; // Добавляем
   }
 
   // ========== PUBLIC METHODS (для пользователей) ==========
@@ -39,26 +55,22 @@ class OrderService {
    */
 
   async createOrder(user, orderData) {
-    const session = await mongoose.startSession();
+    const session = await startSession();
 
     try {
       session.startTransaction();
 
-            // 1. Получаем корзину пользователя с рассчитанными скидками
+      // 1. Получаем корзину пользователя с рассчитанными скидками
       const cart = await this.cartService.getCart(user.id);
 
       if (!cart.items || cart.items.length === 0) {
-        throw ApiError.BadRequest("Корзина пуста");
+        throw BadRequest("Корзина пуста");
       }
 
       // 2. Проверяем валидность корзины
       if (!cart.validation.isValid) {
-        throw ApiError.BadRequest(
-          "Корзина содержит ошибки",
-          cart.validation.issues
-        );
+        throw BadRequest("Корзина содержит ошибки", cart.validation.issues);
       }
-
 
       // 3. Проверяем доступность товаров и резервируем
       const productUpdates = [];
@@ -66,17 +78,15 @@ class OrderService {
 
       for (const item of cart.items) {
         const product = await ProductModel.findById(item.product._id).session(
-          session
+          session,
         );
 
         if (!product) {
-          throw ApiError.NotFound(`Товар ${item.product.sku} не найден`);
+          throw NotFound(`Товар ${item.product.sku} не найден`);
         }
 
         if (product.status !== "available" && product.status !== "preorder") {
-          throw ApiError.BadRequest(
-            `Товар ${product.title} недоступен для заказа`
-          );
+          throw BadRequest(`Товар ${product.title} недоступен для заказа`);
         }
 
         // Резервируем товар
@@ -99,12 +109,12 @@ class OrderService {
 
       // 4. Используем расчеты из корзины для финансовых показателей
       const {
-  priceWithoutDiscount = 0,
-  totalPrice = 0,
-  productDiscountAmount = 0,        // ← исправлено
-  centralDiscountAmount = 0,
-  centralDiscountPercent = 0
-} = cart.summary;
+        priceWithoutDiscount = 0,
+        totalPrice = 0,
+        productDiscountAmount = 0, // ← исправлено
+        centralDiscountAmount = 0,
+        centralDiscountPercent = 0,
+      } = cart.summary;
 
       // Рассчитываем стоимость доставки (ИСКЛЮЧАЕМ ДОСТАВКУ)
       const shippingCost = 0;
@@ -113,16 +123,15 @@ class OrderService {
       const total = totalPrice + shippingCost + tax;
 
       // 5. Формируем информацию о примененных скидках
-      const appliedDiscounts = cart.discounts.applied.map(discount => ({
+      const appliedDiscounts = cart.discounts.applied.map((discount) => ({
         discountId: discount._id,
         name: discount.name,
         type: discount.type,
         discountPercent: discount.discountPercent,
         discountAmount: discount.amount,
         condition: discount.condition || {},
-        appliedAt: new Date()
+        appliedAt: new Date(),
       }));
-
 
       let companyInfo = null;
       let createdCompany = null;
@@ -130,9 +139,9 @@ class OrderService {
       if (orderData.isCompany) {
         if (orderData.existingCompanyId) {
           try {
-            const existingCompany = await CompanyService.getCompanyById(
+            const existingCompany = await getCompanyById(
               user.id,
-              orderData.existingCompanyId
+              orderData.existingCompanyId,
             );
 
             companyInfo = {
@@ -144,13 +153,13 @@ class OrderService {
               contactPerson: existingCompany.contactPerson,
             };
 
-            logger.info(
-              `[OrderService] Использована существующая компания ${existingCompany._id} для заказа`
+            info(
+              `[OrderService] Использована существующая компания ${existingCompany._id} для заказа`,
             );
           } catch (error) {
             if (error instanceof ApiError && error.status === 404) {
-              throw ApiError.BadRequest(
-                "Указанная компания не найдена или у вас нет к ней доступа"
+              throw BadRequest(
+                "Указанная компания не найдена или у вас нет к ней доступа",
               );
             }
             throw error;
@@ -166,13 +175,11 @@ class OrderService {
             ];
             for (const field of requiredFields) {
               if (!orderData.newCompanyData[field]) {
-                throw ApiError.BadRequest(
-                  `Для создания компании укажите ${field}`
-                );
+                throw BadRequest(`Для создания компании укажите ${field}`);
               }
             }
 
-            createdCompany = await CompanyService.createCompany(user.id, {
+            createdCompany = await createCompany(user.id, {
               companyName: orderData.newCompanyData.companyName,
               legalAddress:
                 orderData.newCompanyData.legalAddress ||
@@ -195,8 +202,8 @@ class OrderService {
               contactPerson: createdCompany.contactPerson,
             };
 
-            logger.info(
-              `[OrderService] Создана новая компания ${createdCompany._id} для заказа`
+            info(
+              `[OrderService] Создана новая компания ${createdCompany._id} для заказа`,
             );
           } catch (error) {
             if (
@@ -205,11 +212,10 @@ class OrderService {
             ) {
               // Пробуем найти существующую компанию с таким ИНН
               try {
-                const existingCompany =
-                  await CompanyService.getCompanyByTaxNumber(
-                    user.id,
-                    orderData.newCompanyData.taxNumber.replace(/\s/g, "")
-                  );
+                const existingCompany = await getCompanyByTaxNumber(
+                  user.id,
+                  orderData.newCompanyData.taxNumber.replace(/\s/g, ""),
+                );
 
                 companyInfo = {
                   companyId: existingCompany._id,
@@ -220,10 +226,10 @@ class OrderService {
                   contactPerson: existingCompany.contactPerson,
                 };
 
-                logger.info(
-                  `[OrderService] Найдена существующая компания с ИНН ${existingCompany.taxNumber}, использована для заказа`
+                info(
+                  `[OrderService] Найдена существующая компания с ИНН ${existingCompany.taxNumber}, использована для заказа`,
                 );
-              } catch (searchError) {
+              } catch (error) {
                 throw error; // Если не нашли, возвращаем исходную ошибку
               }
             } else {
@@ -231,8 +237,8 @@ class OrderService {
             }
           }
         } else {
-          throw ApiError.BadRequest(
-            "Для оформления заказа от компании укажите либо ID существующей компании, либо данные новой компании"
+          throw BadRequest(
+            "Для оформления заказа от компании укажите либо ID существующей компании, либо данные новой компании",
           );
         }
       }
@@ -244,35 +250,38 @@ class OrderService {
         delivery: {
           method: orderData.deliveryMethod,
           address: orderData.deliveryAddress,
-          pickupPoint: orderData.deliveryMethod === DeliveryMethod.SELF_PICKUP 
-            ? orderData.pickupPointId 
-            : undefined,
-          transportCompany: (orderData.deliveryMethod === DeliveryMethod.DOOR_TO_DOOR || 
-                            orderData.deliveryMethod === DeliveryMethod.PICKUP_POINT)
-            ? orderData.transportCompanyId 
-            : undefined,
+          pickupPoint:
+            orderData.deliveryMethod === DeliveryMethod.SELF_PICKUP
+              ? orderData.pickupPointId
+              : undefined,
+          transportCompany:
+            orderData.deliveryMethod === DeliveryMethod.DOOR_TO_DOOR ||
+            orderData.deliveryMethod === DeliveryMethod.PICKUP_POINT
+              ? orderData.transportCompanyId
+              : undefined,
           notes: orderData.deliveryNotes,
         },
         recipient: {
           fullName: orderData.recipientName,
           phone: orderData.recipientPhone,
           email: orderData.recipientEmail || user.email,
-          contactPerson: orderData.newCompanyData?.contactPerson || orderData.recipientName,
+          contactPerson:
+            orderData.newCompanyData?.contactPerson || orderData.recipientName,
         },
         companyInfo: companyInfo,
         items: orderItems,
         pricing: {
-  subtotal: priceWithoutDiscount,
-  discount: productDiscountAmount + centralDiscountAmount,   // ← тоже обнови
-  shippingCost: shippingCost,
-  tax: tax,
-  total: total,
-  currency: "RUB",
-  productDiscountAmount: productDiscountAmount,              // ← новое поле
-  centralDiscountAmount: centralDiscountAmount,
-  priceWithoutDiscount: priceWithoutDiscount,
-  centralDiscountPercent: centralDiscountPercent
-},
+          subtotal: priceWithoutDiscount,
+          discount: productDiscountAmount + centralDiscountAmount, // ← тоже обнови
+          shippingCost: shippingCost,
+          tax: tax,
+          total: total,
+          currency: "RUB",
+          productDiscountAmount: productDiscountAmount, // ← новое поле
+          centralDiscountAmount: centralDiscountAmount,
+          priceWithoutDiscount: priceWithoutDiscount,
+          centralDiscountPercent: centralDiscountPercent,
+        },
         appliedDiscounts: appliedDiscounts,
         payment: {
           method: orderData.paymentMethod,
@@ -284,8 +293,8 @@ class OrderService {
             status: OrderStatus.PENDING,
             changedAt: new Date(),
             changedBy: user.id,
-            comment: orderData.awaitingInvoice 
-              ? "Заказ создан, ожидает выставления счета" 
+            comment: orderData.awaitingInvoice
+              ? "Заказ создан, ожидает выставления счета"
               : "Заказ создан",
           },
         ],
@@ -297,11 +306,9 @@ class OrderService {
         companySelection: orderData.existingCompanyId
           ? { type: "existing", companyId: orderData.existingCompanyId }
           : orderData.newCompanyData
-          ? { type: "new", taxNumber: orderData.newCompanyData.taxNumber }
-          : null,
+            ? { type: "new", taxNumber: orderData.newCompanyData.taxNumber }
+            : null,
       });
-
-
 
       // 7. Сохраняем все изменения в транзакции
       await Promise.all(productUpdates);
@@ -316,16 +323,20 @@ class OrderService {
       for (const discount of cart.discounts.applied) {
         try {
           await this.discountService.incrementDiscountUsage(
-            discount._id, 
-            discount.amount
+            discount._id,
+            discount.amount,
           );
-          logger.info(`[OrderService] Увеличен счетчик использования скидки ${discount._id} на ${discount.amount}`);
+          info(
+            `[OrderService] Увеличен счетчик использования скидки ${discount._id} на ${discount.amount}`,
+          );
         } catch (error) {
-          logger.error(`[OrderService] Ошибка увеличения счетчика скидки ${discount._id}:`, error);
+          _error(
+            `[OrderService] Ошибка увеличения счетчика скидки ${discount._id}:`,
+            error,
+          );
           // Не прерываем выполнение при ошибке увеличения счетчика
         }
       }
-
 
       // 10. Отправляем уведомления (вне транзакции)
       await this.sendOrderNotifications(order, user);
@@ -336,17 +347,17 @@ class OrderService {
 
       // 12. Инвалидируем кеш компаний, если была создана новая
       if (createdCompany) {
-        await CompanyService.invalidateUserCompaniesCache(user.id);
+        await invalidateUserCompaniesCache(user.id);
       }
 
-      logger.info(
-        `[OrderService] Заказ создан: ${order.orderNumber} для пользователя ${user.id}`
+      info(
+        `[OrderService] Заказ создан: ${order.orderNumber} для пользователя ${user.id}`,
       );
 
       return order;
     } catch (error) {
       await session.abortTransaction();
-      logger.error(`[OrderService] Ошибка создания заказа:`, error);
+      _error(`[OrderService] Ошибка создания заказа:`, error);
       throw error;
     } finally {
       session.endSession();
@@ -372,7 +383,7 @@ class OrderService {
     return baseCost + extraWeight * 50;
   }
 
-   /**
+  /**
    * Получение заказов пользователя с информацией о скидках
    */
   async getUserOrders(userId, filters = {}) {
@@ -457,8 +468,8 @@ class OrderService {
               productDiscounts: order.pricing.productDiscounts || 0,
               centralDiscounts: order.pricing.centralDiscountAmount || 0,
               totalDiscount: order.pricing.discount || 0,
-              priceWithoutDiscount: order.pricing.priceWithoutDiscount || 0
-            }
+              priceWithoutDiscount: order.pricing.priceWithoutDiscount || 0,
+            },
           };
         }
 
@@ -466,7 +477,7 @@ class OrderService {
         if (order.attachments && order.attachments.length > 0) {
           processedOrder.attachments = order.attachments.map((attachment) => ({
             ...attachment,
-            downloadUrl: fileService.getFileUrl(attachment.path),
+            downloadUrl: getFileUrl(attachment.path),
           }));
         }
 
@@ -475,11 +486,11 @@ class OrderService {
 
       return processedOrders;
     } catch (error) {
-      logger.error(
+      _error(
         `[OrderService] Ошибка получения заказов пользователя ${userId}:`,
-        error
+        error,
       );
-      throw ApiError.DatabaseError("Ошибка при получении заказов");
+      throw DatabaseError("Ошибка при получении заказов");
     }
   }
 
@@ -505,7 +516,7 @@ class OrderService {
         .lean();
 
       if (!order) {
-        throw ApiError.NotFound("Заказ не найден");
+        throw NotFound("Заказ не найден");
       }
 
       // Обработка данных компании
@@ -540,7 +551,7 @@ class OrderService {
       if (order.attachments && order.attachments.length > 0) {
         order.attachments = order.attachments.map((attachment) => ({
           ...attachment,
-          downloadUrl: fileService.getFileUrl(attachment.path),
+          downloadUrl: getFileUrl(attachment.path),
         }));
       }
 
@@ -553,25 +564,24 @@ class OrderService {
             centralDiscounts: order.pricing.centralDiscountAmount || 0,
             totalDiscount: order.pricing.discount || 0,
             priceWithoutDiscount: order.pricing.priceWithoutDiscount || 0,
-            finalPrice: order.pricing.total || 0
-          }
+            finalPrice: order.pricing.total || 0,
+          },
         };
       }
 
       return order;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error(`[OrderService] Ошибка получения заказа ${orderId}:`, error);
-      throw ApiError.DatabaseError("Ошибка при получении заказа");
+      _error(`[OrderService] Ошибка получения заказа ${orderId}:`, error);
+      throw DatabaseError("Ошибка при получении заказа");
     }
   }
-
 
   /**
    * Отмена заказа пользователем
    */
   async cancelOrderByUser(orderId, userId, reason) {
-    const session = await mongoose.startSession();
+    const session = await startSession();
 
     try {
       session.startTransaction();
@@ -582,12 +592,12 @@ class OrderService {
       }).session(session);
 
       if (!order) {
-        throw ApiError.NotFound("Заказ не найден");
+        throw NotFound("Заказ не найден");
       }
 
       // Проверяем возможность отмены
       if (!this.canCancelOrder(order)) {
-        throw ApiError.BadRequest("Заказ нельзя отменить в текущем статусе");
+        throw BadRequest("Заказ нельзя отменить в текущем статусе");
       }
 
       // Освобождаем зарезервированные товары
@@ -619,7 +629,7 @@ class OrderService {
       await sendEmailNotification(
         process.env.SMTP_USER,
         "orderCancelledByUser",
-        { orderData: order.toObject() }
+        { orderData: order.toObject() },
       );
 
       await sendPushNotification({
@@ -631,14 +641,12 @@ class OrderService {
         },
       });
 
-      logger.info(
-        `[OrderService] Заказ ${orderId} отменен пользователем ${userId}`
-      );
+      info(`[OrderService] Заказ ${orderId} отменен пользователем ${userId}`);
 
       return order;
     } catch (error) {
       await session.abortTransaction();
-      logger.error(`[OrderService] Ошибка отмены заказа ${orderId}:`, error);
+      _error(`[OrderService] Ошибка отмены заказа ${orderId}:`, error);
       throw error;
     } finally {
       session.endSession();
@@ -720,8 +728,8 @@ class OrderService {
 
       return result;
     } catch (error) {
-      logger.error(`[OrderService] Ошибка получения заказов админа:`, error);
-      throw ApiError.DatabaseError("Ошибка при получении заказов");
+      _error(`[OrderService] Ошибка получения заказов админа:`, error);
+      throw DatabaseError("Ошибка при получении заказов");
     }
   }
 
@@ -745,7 +753,7 @@ class OrderService {
         .lean();
 
       if (!order) {
-        throw ApiError.NotFound("Заказ не найден");
+        throw NotFound("Заказ не найден");
       }
 
       // Сохраняем в кеш
@@ -754,8 +762,8 @@ class OrderService {
       return order;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error(`[OrderService] Ошибка получения заказа ${orderId}:`, error);
-      throw ApiError.DatabaseError("Ошибка при получении заказа");
+      _error(`[OrderService] Ошибка получения заказа ${orderId}:`, error);
+      throw DatabaseError("Ошибка при получении заказа");
     }
   }
 
@@ -763,7 +771,7 @@ class OrderService {
    * Обновление статуса заказа (админом)
    */
   async updateOrderStatus(orderId, status, userId, comment = "") {
-    const session = await mongoose.startSession();
+    const session = await startSession();
 
     try {
       session.startTransaction();
@@ -771,13 +779,13 @@ class OrderService {
       const order = await OrderModel.findById(orderId).session(session);
 
       if (!order) {
-        throw ApiError.NotFound("Заказ не найден");
+        throw NotFound("Заказ не найден");
       }
 
       // Проверяем валидность перехода статусов
       if (!this.isValidStatusTransition(order.status, status)) {
-        throw ApiError.BadRequest(
-          `Невозможно сменить статус с ${order.status} на ${status}`
+        throw BadRequest(
+          `Невозможно сменить статус с ${order.status} на ${status}`,
         );
       }
 
@@ -820,16 +828,16 @@ class OrderService {
       await this.cache.invalidateOrderCache(orderId);
       await this.cache.invalidateUserCache(order.user.toString());
 
-      logger.info(
-        `[OrderService] Статус заказа ${orderId} изменен: ${previousStatus} -> ${status}`
+      info(
+        `[OrderService] Статус заказа ${orderId} изменен: ${previousStatus} -> ${status}`,
       );
 
       return order;
     } catch (error) {
       await session.abortTransaction();
-      logger.error(
+      _error(
         `[OrderService] Ошибка обновления статуса заказа ${orderId}:`,
-        error
+        error,
       );
       throw error;
     } finally {
@@ -841,7 +849,7 @@ class OrderService {
    * Отмена заказа админом
    */
   async cancelOrderByAdmin(orderId, adminId, reason, refundAmount = null) {
-    const session = await mongoose.startSession();
+    const session = await startSession();
 
     try {
       session.startTransaction();
@@ -849,7 +857,7 @@ class OrderService {
       const order = await OrderModel.findById(orderId).session(session);
 
       if (!order) {
-        throw ApiError.NotFound("Заказ не найден");
+        throw NotFound("Заказ не найден");
       }
 
       // Освобождаем зарезервированные товары
@@ -887,16 +895,16 @@ class OrderService {
       // Отправляем уведомления
       await this.sendOrderCancelledNotification(order, reason, refundAmount);
 
-      logger.info(
-        `[OrderService] Заказ ${orderId} отменен администратором ${adminId}`
+      info(
+        `[OrderService] Заказ ${orderId} отменен администратором ${adminId}`,
       );
 
       return order;
     } catch (error) {
       await session.abortTransaction();
-      logger.error(
+      _error(
         `[OrderService] Ошибка отмены заказа администратором ${orderId}:`,
-        error
+        error,
       );
       throw error;
     } finally {
@@ -965,7 +973,7 @@ class OrderService {
 
     for (const item of items) {
       const product = await ProductModel.findById(item.product).session(
-        session
+        session,
       );
       if (product) {
         updates.push(product.save({ session }));
@@ -975,68 +983,66 @@ class OrderService {
     await Promise.all(updates);
   }
 
- /**
- * Отправка уведомлений о создании заказа
- */
-async sendOrderNotifications(order, user) {
-  try {
-    // Получаем ВСЕХ администраторов
-    const admins = await UserModel.find({ role: "admin" });
-    
-    if (admins && admins.length > 0) {
-      // Отправляем уведомления каждому администратору
-      for (const admin of admins) {
-        try {
-          // Email уведомление администратору
-          await sendEmailNotification(
-            admin.email,
-            "newOrderAdmin",
-            {
-              orderNumber: order.orderNumber,
-              orderData: order.toObject(),
-              customer: user,
-            },
-            true
-          );
+  /**
+   * Отправка уведомлений о создании заказа
+   */
+  async sendOrderNotifications(order, user) {
+    try {
+      // Получаем ВСЕХ администраторов
+      const admins = await UserModel.find({ role: "admin" });
 
-          // Push уведомление администратору
-          await sendPushNotification({
-            userId: admin._id,
-            title: "Новый заказ",
-            body: `Новый заказ No${order.orderNumber}`,
-          });
+      if (admins && admins.length > 0) {
+        // Отправляем уведомления каждому администратору
+        for (const admin of admins) {
+          try {
+            // Email уведомление администратору
+            await sendEmailNotification(
+              admin.email,
+              "newOrderAdmin",
+              {
+                orderNumber: order.orderNumber,
+                orderData: order.toObject(),
+                customer: user,
+              },
+              true,
+            );
 
-          
-        } catch (error) {
-          logger.error(
-            `[OrderService] Ошибка отправки уведомления админу ${admin.email}:`,
-            error
-          );
-          // Продолжаем отправку другим админам даже при ошибке
+            // Push уведомление администратору
+            await sendPushNotification({
+              userId: admin._id,
+              title: "Новый заказ",
+              body: `Новый заказ No${order.orderNumber}`,
+            });
+          } catch (error) {
+            _error(
+              `[OrderService] Ошибка отправки уведомления админу ${admin.email}:`,
+              error,
+            );
+            // Продолжаем отправку другим админам даже при ошибке
+          }
         }
       }
+
+      // Пользователю
+      await sendEmailNotification(user.email, "newOrderUser", {
+        orderNumber: order.orderNumber,
+        orderData: order.toObject(),
+        customer: user,
+      });
+
+      await sendPushNotification({
+        userId: user._id,
+        title: "Новый заказ",
+        body: `Новый заказ No${order.orderNumber}`,
+      });
+    } catch (error) {
+      _error(
+        `[OrderService] Ошибка отправки уведомлений для заказа ${order.orderNumber}:`,
+        error,
+      );
+      // Не прерываем выполнение при ошибке отправки email
     }
-
-    // Пользователю
-    await sendEmailNotification(user.email, "newOrderUser", {
-      orderNumber: order.orderNumber,
-      orderData: order.toObject(),
-      customer: user,
-    });
-
-    await sendPushNotification({
-      userId: user._id,
-      title: "Новый заказ",
-      body: `Новый заказ No${order.orderNumber}`,
-    });
-  } catch (error) {
-    logger.error(
-      `[OrderService] Ошибка отправки уведомлений для заказа ${order.orderNumber}:`,
-      error
-    );
-    // Не прерываем выполнение при ошибке отправки email
   }
-}
 
   /**
    * Отправка уведомления об отправке
@@ -1045,7 +1051,7 @@ async sendOrderNotifications(order, user) {
     try {
       const populatedOrder = await OrderModel.findById(order._id).populate(
         "user",
-        "email name"
+        "email name",
       );
 
       if (populatedOrder && populatedOrder.user) {
@@ -1057,9 +1063,9 @@ async sendOrderNotifications(order, user) {
         });
       }
     } catch (error) {
-      logger.error(
+      _error(
         `[OrderService] Ошибка отправки уведомления об отправке ${order.orderNumber}:`,
-        error
+        error,
       );
     }
   }
@@ -1071,7 +1077,7 @@ async sendOrderNotifications(order, user) {
     try {
       const populatedOrder = await OrderModel.findById(order._id).populate(
         "user",
-        "email name"
+        "email name",
       );
 
       if (populatedOrder && populatedOrder.user) {
@@ -1082,7 +1088,7 @@ async sendOrderNotifications(order, user) {
             orderNumber: order.orderNumber,
             pickupPoint: order.delivery.pickupPoint,
             orderData: order.toObject(),
-          }
+          },
         );
 
         await sendPushNotification({
@@ -1092,9 +1098,9 @@ async sendOrderNotifications(order, user) {
         });
       }
     } catch (error) {
-      logger.error(
+      _error(
         `[OrderService] Ошибка отправки уведомления о готовности ${order.orderNumber}:`,
-        error
+        error,
       );
     }
   }
@@ -1103,7 +1109,7 @@ async sendOrderNotifications(order, user) {
     // Проверяем существование заказа
     const order = await OrderModel.findById(orderId);
     if (!order) {
-      throw ApiError.NotFound("Заказ не найден");
+      throw NotFound("Заказ не найден");
     }
 
     // Проверяем права пользователя (админ)
@@ -1111,7 +1117,7 @@ async sendOrderNotifications(order, user) {
 
     // Обрабатываем файл
     if (!filePath) {
-      throw ApiError.BadRequest("Путь к файлу не указан");
+      throw BadRequest("Путь к файлу не указан");
     }
 
     // Извлекаем путь из URL если это полный URL
@@ -1123,36 +1129,34 @@ async sendOrderNotifications(order, user) {
       // Декодируем URL-encoded символы (например, %20 -> пробел)
       cleanPath = decodeURIComponent(cleanPath);
       console.log(
-        `[OrderService] Извлечен и декодирован путь из URL: ${cleanPath}`
+        `[OrderService] Извлечен и декодирован путь из URL: ${cleanPath}`,
       );
     }
 
     // Проверяем существование файла
-    await fileService.validateFileExists(cleanPath);
+    await validateFileExists(cleanPath);
 
     // Если файл из временной папки, перемещаем его
     if (cleanPath.includes("/temp/")) {
       const newPath = await this.moveAttachmentFromTemp(
         cleanPath,
-        order.orderNumber
+        order.orderNumber,
       );
       cleanPath = newPath;
     } else {
       // Если уже постоянный путь, просто проверяем существование
-      await fileService.validateFileExists(cleanPath);
+      await validateFileExists(cleanPath);
     }
 
     // Получаем информацию о файле
-    const fileInfo = await fileService.getFileInfo(
-      fileService.getAbsolutePath(cleanPath)
-    );
+    const fileInfo = await getFileInfo(getAbsolutePath(cleanPath));
 
     // Создаем объект вложения
     const attachment = {
-      name: path.basename(cleanPath),
+      name: basename(cleanPath),
       path: cleanPath,
       size: fileInfo.size,
-      mimeType: fileService.getMimeTypeFromName(cleanPath),
+      mimeType: getMimeTypeFromName(cleanPath),
       uploadedAt: new Date(),
       uploadedBy: userId,
     };
@@ -1168,7 +1172,7 @@ async sendOrderNotifications(order, user) {
     // Получаем обновленный заказ
     const updatedOrder = await OrderModel.findById(orderId).populate(
       "attachments.uploadedBy",
-      "name email"
+      "name email",
     );
 
     //Отправляем уведоление юзеру
@@ -1195,7 +1199,7 @@ async sendOrderNotifications(order, user) {
    */
   async moveAttachmentFromTemp(tempPath, orderNumber) {
     console.log(
-      `[OrderService] moveAttachmentFromTemp вызван с путем: ${tempPath}`
+      `[OrderService] moveAttachmentFromTemp вызван с путем: ${tempPath}`,
     );
 
     // Извлекаем путь из URL если это полный URL
@@ -1207,34 +1211,34 @@ async sendOrderNotifications(order, user) {
       // Декодируем URL-encoded символы
       cleanPath = decodeURIComponent(cleanPath);
       console.log(
-        `[OrderService] Извлечен и декодирован путь из URL: ${cleanPath}`
+        `[OrderService] Извлечен и декодирован путь из URL: ${cleanPath}`,
       );
     }
 
     // Проверяем, что путь ведет в temp
     if (!cleanPath.includes("/temp/")) {
       console.log(
-        `[OrderService] Путь не из temp, возвращаем как есть: ${cleanPath}`
+        `[OrderService] Путь не из temp, возвращаем как есть: ${cleanPath}`,
       );
       return cleanPath; // Если уже не из temp, возвращаем как есть
     }
 
     // Проверяем существование файла
-    await fileService.validateFileExists(cleanPath);
+    await validateFileExists(cleanPath);
 
     // Генерируем новый путь
-    const filename = path.basename(cleanPath);
+    const filename = basename(cleanPath);
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 10);
     const safeFilename = `${timestamp}_${randomString}_${filename}`;
     const newWebPath = `/uploads/orders/${orderNumber}/${safeFilename}`;
 
     // Получаем абсолютные пути файловой системы
-    const sourceAbsolute = fileService.getAbsolutePath(cleanPath);
-    const targetAbsolute = fileService.getAbsolutePath(newWebPath);
+    const sourceAbsolute = getAbsolutePath(cleanPath);
+    const targetAbsolute = getAbsolutePath(newWebPath);
 
     // Создаем папку назначения если нет
-    const targetDir = path.dirname(targetAbsolute);
+    const targetDir = dirname(targetAbsolute);
     await fs.mkdir(targetDir, { recursive: true });
 
     console.log(`[OrderService] Перемещение файла вложения:`);
@@ -1249,9 +1253,9 @@ async sendOrderNotifications(order, user) {
     } catch (error) {
       console.error(
         `[OrderService] Исходный файл не найден: ${sourceAbsolute}`,
-        error
+        error,
       );
-      throw ApiError.BadRequest(`Исходный файл не найден: ${tempPath}`);
+      throw BadRequest(`Исходный файл не найден: ${tempPath}`);
     }
 
     // Перемещаем файл
@@ -1269,10 +1273,10 @@ async sendOrderNotifications(order, user) {
       } catch (copyError) {
         console.error(
           `[OrderService] Ошибка при копировании файла:`,
-          copyError
+          copyError,
         );
-        throw ApiError.InternalError(
-          `Ошибка при перемещении файла: ${copyError.message}`
+        throw InternalError(
+          `Ошибка при перемещении файла: ${copyError.message}`,
         );
       }
     }
@@ -1289,21 +1293,21 @@ async sendOrderNotifications(order, user) {
    */
   async deleteAttachment(orderId, fileId, userId) {
     console.log(
-      `[OrderService] Удаление вложения ${fileId} из заказа ${orderId}`
+      `[OrderService] Удаление вложения ${fileId} из заказа ${orderId}`,
     );
 
     // Проверяем существование заказа
     const order = await OrderModel.findById(orderId);
     if (!order) {
-      throw ApiError.NotFound("Заказ не найден");
+      throw NotFound("Заказ не найден");
     }
 
     // Находим вложение
     const attachmentIndex = order.attachments.findIndex(
-      (a) => a._id.toString() === fileId
+      (a) => a._id.toString() === fileId,
     );
     if (attachmentIndex === -1) {
-      throw ApiError.NotFound("Файл не найден в заказе");
+      throw NotFound("Файл не найден в заказе");
     }
 
     const attachment = order.attachments[attachmentIndex];
@@ -1311,13 +1315,13 @@ async sendOrderNotifications(order, user) {
     // Удаляем физический файл (если он существует)
     if (attachment.path) {
       try {
-        await fileService.deleteFile(attachment.path);
+        await deleteFile(attachment.path);
         console.log(
-          `[OrderService] Физический файл удален: ${attachment.path}`
+          `[OrderService] Физический файл удален: ${attachment.path}`,
         );
       } catch (error) {
         console.warn(
-          `[OrderService] Не удалось удалить физический файл: ${error.message}`
+          `[OrderService] Не удалось удалить физический файл: ${error.message}`,
         );
         // Не прерываем выполнение если файл уже был удален
       }
@@ -1343,7 +1347,7 @@ async sendOrderNotifications(order, user) {
     try {
       const populatedOrder = await OrderModel.findById(order._id).populate(
         "user",
-        "email name"
+        "email name",
       );
 
       if (populatedOrder && populatedOrder.user) {
@@ -1355,7 +1359,7 @@ async sendOrderNotifications(order, user) {
             reason,
             refundAmount,
             orderData: order.toObject(),
-          }
+          },
         );
 
         await sendPushNotification({
@@ -1365,12 +1369,12 @@ async sendOrderNotifications(order, user) {
         });
       }
     } catch (error) {
-      logger.error(
+      _error(
         `[OrderService] Ошибка отправки уведомления об отмене ${order.orderNumber}:`,
-        error
+        error,
       );
     }
   }
 }
 
-module.exports = new OrderService();
+export default new OrderService();

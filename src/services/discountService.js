@@ -1,6 +1,7 @@
-const { DiscountModel } = require("../models/index.models");
-const ApiError = require("../exceptions/api-error");
-const mongoose = require("mongoose");
+import { Types } from "mongoose";
+import { BadRequest, NotFoundError } from "../exceptions/api-error";
+import { DiscountModel } from "../models/index.models";
+
 class DiscountService {
   /**
    * Создание новой скидки
@@ -14,7 +15,7 @@ class DiscountService {
         });
 
         if (existingDiscount) {
-          throw ApiError.BadRequest("Скидка с таким кодом уже существует");
+          throw BadRequest("Скидка с таким кодом уже существует");
         }
       }
 
@@ -26,9 +27,7 @@ class DiscountService {
         const endAt = new Date(discountData.endAt);
 
         if (endAt <= startAt) {
-          throw ApiError.BadRequest(
-            "Дата окончания должна быть позже даты начала",
-          );
+          throw BadRequest("Дата окончания должна быть позже даты начала");
         }
       }
 
@@ -54,7 +53,7 @@ class DiscountService {
     try {
       const discount = await DiscountModel.findById(id);
       if (!discount) {
-        throw ApiError.NotFoundError("Скидка не найдена");
+        throw NotFoundError("Скидка не найдена");
       }
 
       // Если меняется код, проверяем уникальность
@@ -65,7 +64,7 @@ class DiscountService {
         });
 
         if (existingDiscount) {
-          throw ApiError.BadRequest("Скидка с таким кодом уже существует");
+          throw BadRequest("Скидка с таким кодом уже существует");
         }
       }
 
@@ -89,9 +88,7 @@ class DiscountService {
             : discount.endAt;
 
           if (endAt && startAt && endAt <= startAt) {
-            throw ApiError.BadRequest(
-              "Дата окончания должна быть позже даты начала",
-            );
+            throw BadRequest("Дата окончания должна быть позже даты начала");
           }
         }
       }
@@ -122,7 +119,7 @@ class DiscountService {
     try {
       const discount = await DiscountModel.findById(id);
       if (!discount) {
-        throw ApiError.NotFoundError("Скидка не найдена");
+        throw NotFoundError("Скидка не найдена");
       }
       return discount;
     } catch (error) {
@@ -219,12 +216,12 @@ class DiscountService {
     try {
       const discount = await DiscountModel.findById(id);
       if (!discount) {
-        throw ApiError.NotFoundError("Скидка не найдена");
+        throw NotFoundError("Скидка не найдена");
       }
 
       // Проверяем, использовалась ли скидка
       if (discount.totalUses > 0) {
-        throw ApiError.BadRequest(
+        throw BadRequest(
           "Невозможно удалить скидку, которая уже использовалась. Деактивируйте её вместо удаления.",
         );
       }
@@ -245,7 +242,7 @@ class DiscountService {
     try {
       const discount = await DiscountModel.findById(id);
       if (!discount) {
-        throw ApiError.NotFoundError("Скидка не найдена");
+        throw NotFoundError("Скидка не найдена");
       }
 
       discount.isActive = isActive;
@@ -307,7 +304,7 @@ class DiscountService {
    */
   async incrementDiscountUsage(discountId, discountAmount) {
     try {
-      if (!discountId || !mongoose.Types.ObjectId.isValid(discountId)) {
+      if (!discountId || !Types.ObjectId.isValid(discountId)) {
         console.warn(
           `[DISCOUNT_SERVICE] Некорректный ID скидки: ${discountId}`,
         );
@@ -348,4 +345,4 @@ class DiscountService {
   }
 }
 
-module.exports = new DiscountService();
+export default new DiscountService();

@@ -1,6 +1,7 @@
-const Bull = require("bull");
-const logger = require("../logger/logger");
-const redis = require("../redis/redisConfig");
+import Bull from "bull";
+import logger from "../logger/logger";
+import redis from "../redis/redisConfig";
+
 const defaultJobOptions = {
   removeOnComplete: 1000, // Удалять после 1000 задач
   removeOnFail: 5000, // Оставлять последние 5000 ошибок для анализа
@@ -28,7 +29,6 @@ const taskQueues = new Bull("taskQueues", {
   limiter,
 });
 
-
 const moderateQueues = new Bull("moderateQueues", {
   redis,
   defaultJobOptions,
@@ -43,26 +43,33 @@ const pushNotificationsQueues = new Bull("pushNotificationsQueues", {
   limiter,
 });
 
-
 taskQueues
-  .on('completed', job => logger.debug(`Job ${job.id} completed`))
-  .on('failed', (job, err) => logger.error(`Job ${job.id} failed: ${err.message}`));
+  .on("completed", (job) => logger.debug(`Job ${job.id} completed`))
+  .on("failed", (job, err) =>
+    logger.error(`Job ${job.id} failed: ${err.message}`),
+  );
 
 moderateQueues
-  .on('completed', job => logger.debug(`Job ${job.id} completed`))
-  .on('failed', (job, err) => logger.error(`Job ${job.id} failed: ${err.message}`));
+  .on("completed", (job) => logger.debug(`Job ${job.id} completed`))
+  .on("failed", (job, err) =>
+    logger.error(`Job ${job.id} failed: ${err.message}`),
+  );
 
 pushNotificationsQueues
-  .on('completed', job => logger.debug(`Job ${job.id} completed`))
-  .on('failed', (job, err) => logger.error(`Job ${job.id} failed: ${err.message}`));
+  .on("completed", (job) => logger.debug(`Job ${job.id} completed`))
+  .on("failed", (job, err) =>
+    logger.error(`Job ${job.id} failed: ${err.message}`),
+  );
 
-process.on('SIGTERM', async () => {
+process.on("SIGTERM", async () => {
   await taskQueues.close();
   await moderateQueues.close();
   await pushNotificationsQueues.close();
-  logger.info('Task queue closed');
+  logger.info("Task queue closed");
 });
 
-logger.info("Queues initialized: taskQueues, moderateQueues, pushNotificationsQueues");
+logger.info(
+  "Queues initialized: taskQueues, moderateQueues, pushNotificationsQueues",
+);
 
-module.exports = { taskQueues, moderateQueues, pushNotificationsQueues };
+export default { taskQueues, moderateQueues, pushNotificationsQueues };

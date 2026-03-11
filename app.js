@@ -1,15 +1,14 @@
-const express = require("express");
-const path = require("path");
+import express from "express";
 
-const loadMiddlewares = require("./loaders/middlewares");
-const loadRoutes = require("./loaders/routes");
-const errorHandler = require("./src/error/error");
+import loadMiddlewares from "./loaders/middlewares";
+import loadRoutes from "./loaders/routes";
+import errorHandler from "./src/error/error";
 
 const app = express();
 
 loadMiddlewares(app);
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 loadRoutes(app);
 
@@ -25,4 +24,4 @@ app.get("/api/test", (_, res) => {
 
 app.use(errorHandler);
 
-module.exports = app;
+export default app;

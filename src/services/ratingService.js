@@ -1,6 +1,6 @@
 // services/rating.service.js
-const { ProductModel, ProductReviewModel } = require("../models/index.models");
-const redisClient = require("../redis/redis.client");
+import { ProductModel, ProductReviewModel } from "../models/index.models";
+import { del, deletePattern, get, set } from "../redis/redis.client";
 
 class RatingService {
   constructor() {
@@ -15,12 +15,17 @@ class RatingService {
    * @param {number} oldRating - Старый рейтинг (если обновление, иначе null)
    * @param {boolean} isDelete - Удаление отзыва
    */
-  async updateProductRating(productId, newRating = null, oldRating = null, isDelete = false) {
+  async updateProductRating(
+    productId,
+    newRating = null,
+    oldRating = null,
+    isDelete = false,
+  ) {
     try {
       // Получаем все одобренные отзывы продукта
       const reviews = await ProductReviewModel.find({
         product: productId,
-        status: "approved"
+        status: "approved",
       }).select("rating");
 
       if (reviews.length === 0) {
@@ -32,7 +37,7 @@ class RatingService {
       let totalRating = 0;
       let count = 0;
 
-      reviews.forEach(review => {
+      reviews.forEach((review) => {
         totalRating += review.rating;
         count++;
       });
@@ -73,11 +78,11 @@ class RatingService {
       // Обновляем продукт
       const product = await ProductModel.findByIdAndUpdate(
         productId,
-        { 
+        {
           rating: rating,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         },
-        { new: true }
+        { new: true },
       );
 
       if (!product) {
@@ -88,8 +93,8 @@ class RatingService {
       await this.invalidateRatingCache(productId);
 
       // Инвалидируем кэш продукта
-      await redisClient.deletePattern(`product:${productId}:*`);
-      await redisClient.deletePattern("products:*");
+      await deletePattern(`product:${productId}:*`);
+      await deletePattern("products:*");
 
       return rating;
     } catch (error) {
@@ -104,9 +109,9 @@ class RatingService {
   async getProductRating(productId) {
     try {
       const cacheKey = `${this.PRODUCT_RATING_CACHE_PREFIX}${productId}`;
-      
+
       // Пробуем получить из кэша
-      const cached = await redisClient.get(cacheKey);
+      const cached = await get(cacheKey);
       if (cached) {
         return parseFloat(cached);
       }
@@ -118,10 +123,10 @@ class RatingService {
       }
 
       const rating = product.rating || 0;
-      
+
       // Кэшируем
-      await redisClient.set(cacheKey, rating.toString(), this.CACHE_TTL);
-      
+      await set(cacheKey, rating.toString(), this.CACHE_TTL);
+
       return rating;
     } catch (error) {
       console.error("Error getting product rating:", error);
@@ -134,11 +139,11 @@ class RatingService {
    */
   async invalidateRatingCache(productId) {
     try {
-      await redisClient.del(`${this.PRODUCT_RATING_CACHE_PREFIX}${productId}`);
+      await del(`${this.PRODUCT_RATING_CACHE_PREFIX}${productId}`);
     } catch (error) {
       console.error("Error invalidating rating cache:", error);
     }
   }
 }
 
-module.exports = RatingService;
+export default RatingService;

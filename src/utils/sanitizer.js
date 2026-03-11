@@ -1,4 +1,4 @@
-const xss = require("xss");
+import xss from "xss";
 
 const sanitizeHtml = (value) => {
   if (typeof value !== "string") return value;
@@ -10,4 +10,4 @@ const sanitizeHtml = (value) => {
   });
 };
 
-module.exports = { sanitizeHtml };
+export default { sanitizeHtml };

@@ -1,4 +1,4 @@
-const { Schema, model } = require("mongoose");
+import { model, Schema } from "mongoose";
 
 const UserSecuritySchema = new Schema(
   {
@@ -8,14 +8,14 @@ const UserSecuritySchema = new Schema(
     twoFAAttempts: { type: Number, default: 0 },
     resetTokenExpiration: { type: Date, default: null },
     resetTokenHash: { type: String, default: null },
-    resetTokenStatus: { type: String, default: 'pending' },
+    resetTokenStatus: { type: String, default: "pending" },
   },
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 UserSecuritySchema.index({ userId: 1 }, { unique: true });
 
-module.exports = model("UserSecurity", UserSecuritySchema);
+export default model("UserSecurity", UserSecuritySchema);

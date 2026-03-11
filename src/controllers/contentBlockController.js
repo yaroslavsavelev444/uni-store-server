@@ -1,6 +1,6 @@
-const ApiError = require('../exceptions/api-error');
-const ContentBlockService = require('../services/contentBlockService');
-const auditLogger = require('../logger/auditLogger');
+import ApiError from "../exceptions/api-error";
+import auditLogger from "../logger/auditLogger";
+import ContentBlockService from "../services/contentBlockService";
 
 class ContentBlockController {
   constructor() {
@@ -11,9 +11,11 @@ class ContentBlockController {
   async getAll(req, res, next) {
     try {
       const { includeInactive } = req.query;
-      const items = await this.contentBlockService.getAll(includeInactive === 'true');
-      console.log('items', items);
-      
+      const items = await this.contentBlockService.getAll(
+        includeInactive === "true",
+      );
+      console.log("items", items);
+
       res.status(200).json(items);
     } catch (err) {
       next(err);
@@ -64,14 +66,14 @@ class ContentBlockController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'CREATE_BLOCK_START',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "CREATE_BLOCK_START",
         null,
         [
-          { field: 'title', old: null, new: data.title || 'без названия' },
-          { field: 'hasImage', old: null, new: !!tempImagePath }
+          { field: "title", old: null, new: data.title || "без названия" },
+          { field: "hasImage", old: null, new: !!tempImagePath },
         ],
-        `Начало создания контент-блока`
+        `Начало создания контент-блока`,
       );
 
       const item = await this.contentBlockService.create(data, req.user.id);
@@ -80,19 +82,19 @@ class ContentBlockController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'CREATE_BLOCK_SUCCESS',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "CREATE_BLOCK_SUCCESS",
         {
           id: item._id.toString(),
-          email: 'system@contentblock'
+          email: "system@contentblock",
         },
         [
-          { field: 'id', old: null, new: item._id.toString() },
-          { field: 'hasButton', old: null, new: !!item.button?.text },
-          { field: 'isActive', old: null, new: item.isActive },
-          { field: 'position', old: null, new: item.position }
+          { field: "id", old: null, new: item._id.toString() },
+          { field: "hasButton", old: null, new: !!item.button?.text },
+          { field: "isActive", old: null, new: item.isActive },
+          { field: "position", old: null, new: item.position },
         ],
-        `Создан контент-блок "${item.title}". ID: ${item._id}`
+        `Создан контент-блок "${item.title}". ID: ${item._id}`,
       );
 
       res.status(201).json(item);
@@ -101,14 +103,14 @@ class ContentBlockController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'CREATE_BLOCK_FAILED',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "CREATE_BLOCK_FAILED",
         null,
         [
-          { field: 'error', old: null, new: err.message },
-          { field: 'title', old: null, new: req.body.title || 'без названия' }
+          { field: "error", old: null, new: err.message },
+          { field: "title", old: null, new: req.body.title || "без названия" },
         ],
-        `Ошибка при создании контент-блока: ${err.message}`
+        `Ошибка при создании контент-блока: ${err.message}`,
       );
 
       next(err);
@@ -127,65 +129,80 @@ class ContentBlockController {
       try {
         itemBefore = await this.contentBlockService.getById(id);
       } catch (err) {
-        console.warn(`Не удалось получить данные блока ${id} для аудита:`, err.message);
+        console.warn(
+          `Не удалось получить данные блока ${id} для аудита:`,
+          err.message,
+        );
       }
 
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'UPDATE_BLOCK_START',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "UPDATE_BLOCK_START",
         {
           id: id,
-          email: 'system@contentblock'
+          email: "system@contentblock",
         },
         [
-          { field: 'oldTitle', old: null, new: itemBefore?.title || 'неизвестно' },
-          { field: 'newTitle', old: null, new: data.title || itemBefore?.title || 'без названия' },
-          { field: 'hasNewImage', old: null, new: !!tempImagePath }
+          {
+            field: "oldTitle",
+            old: null,
+            new: itemBefore?.title || "неизвестно",
+          },
+          {
+            field: "newTitle",
+            old: null,
+            new: data.title || itemBefore?.title || "без названия",
+          },
+          { field: "hasNewImage", old: null, new: !!tempImagePath },
         ],
-        `Начало обновления контент-блока ${id}`
+        `Начало обновления контент-блока ${id}`,
       );
 
-      const updated = await this.contentBlockService.update(id, data, req.user.id);
+      const updated = await this.contentBlockService.update(
+        id,
+        data,
+        req.user.id,
+      );
 
       // Логируем изменения
       const changes = [];
       if (itemBefore) {
         if (itemBefore.title !== updated.title) {
           changes.push({
-            field: 'title',
+            field: "title",
             old: itemBefore.title,
-            new: updated.title
+            new: updated.title,
           });
         }
         if (itemBefore.subtitle !== updated.subtitle) {
           changes.push({
-            field: 'subtitle',
+            field: "subtitle",
             old: itemBefore.subtitle,
-            new: updated.subtitle
+            new: updated.subtitle,
           });
         }
         if (itemBefore.isActive !== updated.isActive) {
           changes.push({
-            field: 'isActive',
+            field: "isActive",
             old: itemBefore.isActive,
-            new: updated.isActive
+            new: updated.isActive,
           });
         }
         if (itemBefore.position !== updated.position) {
           changes.push({
-            field: 'position',
+            field: "position",
             old: itemBefore.position,
-            new: updated.position
+            new: updated.position,
           });
         }
         if (itemBefore.imageUrl !== updated.imageUrl) {
           changes.push({
-            field: 'image',
-            old: itemBefore.imageUrl ? 'есть' : 'нет',
-            new: updated.imageUrl ? 'обновлено' : 'удалено'
+            field: "image",
+            old: itemBefore.imageUrl ? "есть" : "нет",
+            new: updated.imageUrl ? "обновлено" : "удалено",
           });
         }
       }
@@ -194,16 +211,22 @@ class ContentBlockController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'UPDATE_BLOCK_SUCCESS',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "UPDATE_BLOCK_SUCCESS",
         {
           id: id,
-          email: 'system@contentblock'
+          email: "system@contentblock",
         },
-        changes.length > 0 ? changes : [
-          { field: 'updatedAt', old: itemBefore?.updatedAt, new: updated.updatedAt }
-        ],
-        `Обновлен контент-блок "${updated.title}" (ID: ${id}). Изменений: ${changes.length}`
+        changes.length > 0
+          ? changes
+          : [
+              {
+                field: "updatedAt",
+                old: itemBefore?.updatedAt,
+                new: updated.updatedAt,
+              },
+            ],
+        `Обновлен контент-блок "${updated.title}" (ID: ${id}). Изменений: ${changes.length}`,
       );
 
       res.status(200).json(updated);
@@ -212,17 +235,17 @@ class ContentBlockController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'UPDATE_BLOCK_FAILED',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "UPDATE_BLOCK_FAILED",
         {
           id: req.params.id,
-          email: 'system@contentblock'
+          email: "system@contentblock",
         },
         [
-          { field: 'error', old: null, new: err.message },
-          { field: 'params', old: null, new: JSON.stringify(req.params) }
+          { field: "error", old: null, new: err.message },
+          { field: "params", old: null, new: JSON.stringify(req.params) },
         ],
-        `Ошибка при обновлении контент-блока ${req.params.id}: ${err.message}`
+        `Ошибка при обновлении контент-блока ${req.params.id}: ${err.message}`,
       );
 
       next(err);
@@ -239,25 +262,28 @@ class ContentBlockController {
       try {
         itemBefore = await this.contentBlockService.getById(id);
       } catch (err) {
-        console.warn(`Не удалось получить данные блока ${id} для аудита:`, err.message);
+        console.warn(
+          `Не удалось получить данные блока ${id} для аудита:`,
+          err.message,
+        );
       }
 
       await auditLogger.logAdminEvent(
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'DELETE_BLOCK_START',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "DELETE_BLOCK_START",
         {
           id: id,
-          email: 'system@contentblock'
+          email: "system@contentblock",
         },
         [
-          { field: 'title', old: null, new: itemBefore?.title || 'неизвестно' },
-          { field: 'hasImage', old: null, new: !!(itemBefore?.imageUrl) },
-          { field: 'hasButton', old: null, new: !!(itemBefore?.button?.text) }
+          { field: "title", old: null, new: itemBefore?.title || "неизвестно" },
+          { field: "hasImage", old: null, new: !!itemBefore?.imageUrl },
+          { field: "hasButton", old: null, new: !!itemBefore?.button?.text },
         ],
-        `Начало удаления контент-блока ${id}`
+        `Начало удаления контент-блока ${id}`,
       );
 
       await this.contentBlockService.delete(id);
@@ -266,18 +292,18 @@ class ContentBlockController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'DELETE_BLOCK_SUCCESS',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "DELETE_BLOCK_SUCCESS",
         {
           id: id,
-          email: 'system@contentblock'
+          email: "system@contentblock",
         },
         [
-          { field: 'status', old: 'активен', new: 'удален' },
-          { field: 'deletedBy', old: null, new: req.user.id },
-          { field: 'deletedAt', old: null, new: new Date().toISOString() }
+          { field: "status", old: "активен", new: "удален" },
+          { field: "deletedBy", old: null, new: req.user.id },
+          { field: "deletedAt", old: null, new: new Date().toISOString() },
         ],
-        `Удален контент-блок "${itemBefore?.title || 'неизвестно'}" (ID: ${id})`
+        `Удален контент-блок "${itemBefore?.title || "неизвестно"}" (ID: ${id})`,
       );
 
       res.status(204).send();
@@ -286,17 +312,17 @@ class ContentBlockController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        'DELETE_BLOCK_FAILED',
+        "CONTENT_BLOCK_MANAGEMENT",
+        "DELETE_BLOCK_FAILED",
         {
           id: req.params.id,
-          email: 'system@contentblock'
+          email: "system@contentblock",
         },
         [
-          { field: 'error', old: null, new: err.message },
-          { field: 'params', old: null, new: JSON.stringify(req.params) }
+          { field: "error", old: null, new: err.message },
+          { field: "params", old: null, new: JSON.stringify(req.params) },
         ],
-        `Ошибка при удалении контент-блока ${req.params.id}: ${err.message}`
+        `Ошибка при удалении контент-блока ${req.params.id}: ${err.message}`,
       );
 
       next(err);
@@ -309,7 +335,7 @@ class ContentBlockController {
       const { id } = req.params;
       const { isActive } = req.body;
 
-      if (typeof isActive !== 'boolean') {
+      if (typeof isActive !== "boolean") {
         return next(ApiError.BadRequest("Поле isActive должно быть boolean"));
       }
 
@@ -319,16 +345,14 @@ class ContentBlockController {
         req.user.id,
         req.user.email,
         req.user.role,
-        'CONTENT_BLOCK_MANAGEMENT',
-        isActive ? 'ACTIVATE_BLOCK' : 'DEACTIVATE_BLOCK',
+        "CONTENT_BLOCK_MANAGEMENT",
+        isActive ? "ACTIVATE_BLOCK" : "DEACTIVATE_BLOCK",
         {
           id: id,
-          email: 'system@contentblock'
+          email: "system@contentblock",
         },
-        [
-          { field: 'status', old: !isActive, new: isActive }
-        ],
-        `Контент-блок "${updated.title}" ${isActive ? 'активирован' : 'деактивирован'}`
+        [{ field: "status", old: !isActive, new: isActive }],
+        `Контент-блок "${updated.title}" ${isActive ? "активирован" : "деактивирован"}`,
       );
 
       res.status(200).json(updated);
@@ -348,4 +372,4 @@ class ContentBlockController {
   }
 }
 
-module.exports = ContentBlockController;
+export default ContentBlockController;

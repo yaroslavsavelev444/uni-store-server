@@ -1,34 +1,38 @@
-const fs = require("fs");
-const path = require("path");
-const handlebars = require("handlebars");
-const layouts = require("handlebars-layouts");
-const juice = require("juice");
+import { readdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
+import handlebars, {
+  compile,
+  registerHelper,
+  registerPartial,
+} from "handlebars";
+import layouts from "handlebars-layouts";
+import juice from "juice";
 
 // Регистрация хелперов
-handlebars.registerHelper(layouts(handlebars));
+registerHelper(layouts(handlebars));
 
 // Чтение CSS
-const styles = fs.readFileSync(path.join(__dirname, "styles", "email.css"), "utf8");
+const styles = readFileSync(join(__dirname, "styles", "email.css"), "utf8");
 
 // Регистрация partials
-const partialsDir = path.join(__dirname, "partials");
-fs.readdirSync(partialsDir).forEach(file => {
-  const name = path.basename(file, ".hbs");
-  const content = fs.readFileSync(path.join(partialsDir, file), "utf8");
-  handlebars.registerPartial(name, content);
+const partialsDir = join(__dirname, "partials");
+readdirSync(partialsDir).forEach((file) => {
+  const name = basename(file, ".hbs");
+  const content = readFileSync(join(partialsDir, file), "utf8");
+  registerPartial(name, content);
 });
 
 // Регистрация baseLayout как partial
-const layoutPath = path.join(__dirname, "templates", "baseLayout.hbs");
-const layoutContent = fs.readFileSync(layoutPath, "utf8");
-handlebars.registerPartial("baseLayout", layoutContent);
+const layoutPath = join(__dirname, "templates", "baseLayout.hbs");
+const layoutContent = readFileSync(layoutPath, "utf8");
+registerPartial("baseLayout", layoutContent);
 
 // Рендер шаблона
 const renderTemplate = (templateName, data = {}) => {
-  const filePath = path.join(__dirname, "templates", `${templateName}.hbs`);
-  const source = fs.readFileSync(filePath, "utf8");
+  const filePath = join(__dirname, "templates", `${templateName}.hbs`);
+  const source = readFileSync(filePath, "utf8");
 
-  const template = handlebars.compile(source);
+  const template = compile(source);
   const htmlWithStyles = template({
     ...data,
     inlineStyles: styles,
@@ -38,4 +42,4 @@ const renderTemplate = (templateName, data = {}) => {
   return juice(htmlWithStyles);
 };
 
-module.exports = renderTemplate;
+export default renderTemplate;

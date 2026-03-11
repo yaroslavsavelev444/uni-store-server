@@ -10,7 +10,7 @@
  * @returns {string|null} - Возвращает сообщение об ошибке или null если пароль валиден
  */
 const validatePassword = (password) => {
-  if (!password || typeof password !== 'string') {
+  if (!password || typeof password !== "string") {
     return "Пароль не указан";
   }
 
@@ -40,16 +40,16 @@ const validatePassword = (password) => {
   }
 
   if (!passwordValidation.hasSpecialChar) {
-    return "Пароль должен содержать хотя бы один специальный символ (!@#$%^&*(),.?\":{}|<>-)";
+    return 'Пароль должен содержать хотя бы один специальный символ (!@#$%^&*(),.?":{}|<>-)';
   }
 
   // Проверяем, что используются только допустимые символы
   const allowedCharsRegex = /^[a-zA-Z\d!@#$%^&*(),.?":{}|<>-]+$/;
   if (!allowedCharsRegex.test(password)) {
-    return "Пароль содержит недопустимые символы. Разрешены только буквы, цифры и специальные символы: !@#$%^&*(),.?\":{}|<>-";
+    return 'Пароль содержит недопустимые символы. Разрешены только буквы, цифры и специальные символы: !@#$%^&*(),.?":{}|<>-';
   }
 
   return null; // Пароль валиден
 };
 
-module.exports = { validatePassword };
+export default { validatePassword };

@@ -1,5 +1,5 @@
 // models/pickup-point.model.js
-const { Schema, model } = require("mongoose");
+import { model, Schema } from "mongoose";
 
 const PickupPointSchema = new Schema(
   {
@@ -7,76 +7,76 @@ const PickupPointSchema = new Schema(
     name: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
     },
-    
+
     // Упрощенный адрес
     address: {
       street: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
       },
       city: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
       },
       postalCode: {
         type: String,
-        trim: true
+        trim: true,
       },
       country: {
         type: String,
         default: "Россия",
-        trim: true
-      }
+        trim: true,
+      },
     },
-    
+
     // Координаты (опционально)
     coordinates: {
       lat: Number,
-      lng: Number
+      lng: Number,
     },
-    
+
     // Рабочее время
     workingHours: {
       type: String,
-      default: "Пн-Пт: 9:00-18:00"
+      default: "Пн-Пт: 9:00-18:00",
     },
-    
+
     // Контактная информация
     contact: {
       phone: String,
-      email: String
+      email: String,
     },
-    
+
     // Описание/комментарий
     description: String,
-    
+
     // Статус и флаги
     isActive: {
       type: Boolean,
       default: true,
-      index: true
+      index: true,
     },
     isMain: {
       type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
-    
+
     // Метаданные
     orderIndex: {
       type: Number,
-      default: 0
-    }
+      default: 0,
+    },
   },
   {
     timestamps: true,
     toJSON: { virtuals: true },
-    toObject: { virtuals: true }
-  }
+    toObject: { virtuals: true },
+  },
 );
 
 // Индекс для поиска
@@ -84,13 +84,13 @@ PickupPointSchema.index({ "address.city": 1, isActive: 1 });
 PickupPointSchema.index({ isMain: 1, isActive: 1 });
 
 // Предварительная валидация: только один главный пункт
-PickupPointSchema.pre("save", async function(next) {
+PickupPointSchema.pre("save", async function (next) {
   if (this.isMain && this.isModified("isMain")) {
     try {
       // Сбрасываем isMain у других пунктов
       await this.constructor.updateMany(
         { _id: { $ne: this._id }, isMain: true },
-        { isMain: false }
+        { isMain: false },
       );
     } catch (error) {
       return next(error);
@@ -99,4 +99,4 @@ PickupPointSchema.pre("save", async function(next) {
   next();
 });
 
-module.exports = model("PickupPoint", PickupPointSchema);
+export default model("PickupPoint", PickupPointSchema);

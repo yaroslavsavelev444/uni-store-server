@@ -1,10 +1,14 @@
 // services/reviews.service.js
-const ApiError = require("../exceptions/api-error");
-const { ProductModel, ProductReviewModel } = require("../models/index.models");
-const redisClient = require("../redis/redis.client");
-const { sendEmailNotification } = require("../queues/taskQueues");
-const PurchaseCheckService = require("./purchaseCheckService");
-const RatingService = require("./ratingService");
+import { BadRequest, NotFound } from "../exceptions/api-error";
+import { ProductModel, ProductReviewModel } from "../models/index.models";
+import { sendEmailNotification } from "../queues/taskQueues";
+import { del, deletePattern, getJson, setJson } from "../redis/redis.client";
+import {
+  hasUserPurchasedProduct,
+  hasUserPurchasedProductBySku,
+  hasUserPurchasedProducts,
+} from "./purchaseCheckService";
+import RatingService from "./ratingService";
 
 class ReviewsService {
   constructor() {
@@ -12,79 +16,79 @@ class ReviewsService {
     this.PRODUCT_REVIEWS_CACHE_PREFIX = "product:reviews:";
     this.PRODUCT_STATS_CACHE_PREFIX = "product:stats:";
     this.USER_REVIEWS_CACHE_PREFIX = "user:reviews:";
-        this.ratingService = new RatingService();
-
+    this.ratingService = new RatingService();
   }
 
   async getProductReviewsCount(productId) {
-    const count = await ProductReviewModel.countDocuments({ product: productId });
+    const count = await ProductReviewModel.countDocuments({
+      product: productId,
+    });
     return count;
   }
   async getProductReviews(productId, userId = null, options = {}) {
-  const { status = "approved", sort = "-createdAt" } = options;
+    const { status = "approved", sort = "-createdAt" } = options;
 
-  const cacheKey = `${this.PRODUCT_REVIEWS_CACHE_PREFIX}${productId}:${status}:${sort}`;
+    const cacheKey = `${this.PRODUCT_REVIEWS_CACHE_PREFIX}${productId}:${status}:${sort}`;
 
-  let reviews;
-  try {
-    const cached = await redisClient.getJson(cacheKey);
-    if (cached) {
-      reviews = cached;
-    }
-  } catch (error) {
-    console.error("Redis cache error:", error);
-  }
-
-  if (!reviews) {
-    const query = { product: productId, status };
-
-    reviews = await ProductReviewModel.find(query)
-      .populate("user", "firstName lastName avatar")
-      .sort(sort);
-
+    let reviews;
     try {
-      await redisClient.setJson(cacheKey, reviews, this.CACHE_TTL);
+      const cached = await getJson(cacheKey);
+      if (cached) {
+        reviews = cached;
+      }
     } catch (error) {
-      console.error("Redis cache set error:", error);
+      console.error("Redis cache error:", error);
     }
-  }
 
+    if (!reviews) {
+      const query = { product: productId, status };
 
-  if (userId) { 
-    try {
-      const [hasPurchased, hasReviewed] = await Promise.all([
-        this.checkIfUserBoughtProduct(userId, productId),
-        this.checkIfUserHasReviewed(userId, productId)
-      ]);
+      reviews = await ProductReviewModel.find(query)
+        .populate("user", "firstName lastName avatar")
+        .sort(sort);
 
-      return {
-        reviews,
-        userInfo: {
-          hasPurchased,
-          hasReviewed
-        }
-      };
-    } catch (error) {
-      console.error("Error getting user info for reviews:", error);
-      return {
-        reviews,
-        userInfo: {
-          hasPurchased : false,
-          hasReviewed : false
-        }
-      };
+      try {
+        await setJson(cacheKey, reviews, this.CACHE_TTL);
+      } catch (error) {
+        console.error("Redis cache set error:", error);
+      }
     }
-  }
 
-  return { reviews };
-}
+    if (userId) {
+      try {
+        const [hasPurchased, hasReviewed] = await Promise.all([
+          this.checkIfUserBoughtProduct(userId, productId),
+          this.checkIfUserHasReviewed(userId, productId),
+        ]);
+
+        return {
+          reviews,
+          userInfo: {
+            hasPurchased,
+            hasReviewed,
+          },
+        };
+      } catch (error) {
+        console.error("Error getting user info for reviews:", error);
+        return {
+          reviews,
+          userInfo: {
+            hasPurchased: false,
+            hasReviewed: false,
+          },
+        };
+      }
+    }
+
+    return { reviews };
+  }
 
   async getProductReviewsStats(productId, userId = null) {
     const cacheKey = `${this.PRODUCT_STATS_CACHE_PREFIX}${productId}`;
 
     let stats;
     try {
-      const cached = await redisClient.getJson(cacheKey);
+      const cached = await getJson(cacheKey);
       if (cached) {
         stats = cached;
       }
@@ -130,7 +134,7 @@ class ReviewsService {
       };
 
       try {
-        await redisClient.setJson(cacheKey, stats, this.CACHE_TTL);
+        await setJson(cacheKey, stats, this.CACHE_TTL);
       } catch (error) {
         console.error("Redis cache set error:", error);
       }
@@ -140,15 +144,15 @@ class ReviewsService {
     if (userId) {
       const [hasPurchased, hasReviewed] = await Promise.all([
         this.checkIfUserBoughtProduct(userId, productId),
-        this.checkIfUserHasReviewed(userId, productId) // Убрали static из метода
+        this.checkIfUserHasReviewed(userId, productId), // Убрали static из метода
       ]);
 
       return {
         ...stats,
         userInfo: {
           hasPurchased,
-          hasReviewed
-        }
+          hasReviewed,
+        },
       };
     }
 
@@ -158,16 +162,16 @@ class ReviewsService {
   async getProductWithUserInfo(productId, userId = null) {
     // Получаем информацию о товаре
     const product = await ProductModel.findById(productId)
-      .select('-__v')
+      .select("-__v")
       .lean();
 
     if (!product) {
-      throw ApiError.NotFound("Товар не найден");
+      throw NotFound("Товар не найден");
     }
 
     // Получаем статистику отзывов
     const reviewsStats = await this.getProductReviewsStats(productId);
-    
+
     // Инициализируем объект для userInfo
     let userInfo = null;
 
@@ -175,19 +179,19 @@ class ReviewsService {
     if (userId) {
       const [hasPurchased, hasReviewed] = await Promise.all([
         this.checkIfUserBoughtProduct(userId, productId),
-        this.checkIfUserHasReviewed(userId, productId) // Исправлено: было this.chec
+        this.checkIfUserHasReviewed(userId, productId), // Исправлено: было this.chec
       ]);
 
       userInfo = {
         hasPurchased,
-        hasReviewed
+        hasReviewed,
       };
     }
 
     // Собираем итоговый объект
     const result = {
       ...product,
-      reviewsStats
+      reviewsStats,
     };
 
     if (userInfo) {
@@ -204,10 +208,10 @@ class ReviewsService {
 
     // Получаем все товары
     const products = await ProductModel.find({
-      _id: { $in: productIds }
+      _id: { $in: productIds },
     })
-    .select('-__v')
-    .lean();
+      .select("-__v")
+      .lean();
 
     // Получаем статистику отзывов для всех товаров
     const productsWithStats = await Promise.all(
@@ -215,9 +219,9 @@ class ReviewsService {
         const reviewsStats = await this.getProductReviewsStats(product._id);
         return {
           ...product,
-          reviewsStats
+          reviewsStats,
         };
-      })
+      }),
     );
 
     // Если пользователь не передан, возвращаем товары без userInfo
@@ -227,17 +231,17 @@ class ReviewsService {
 
     // Получаем информацию о покупках и отзывах для пользователя
     const [purchaseStatus, reviewStatus] = await Promise.all([
-      PurchaseCheckService.hasUserPurchasedProducts(userId, productIds),
-      this.checkIfUserHasReviewedMultiple(userId, productIds)
+      hasUserPurchasedProducts(userId, productIds),
+      this.checkIfUserHasReviewedMultiple(userId, productIds),
     ]);
 
     // Добавляем userInfo к каждому товару
-    const productsWithUserInfo = productsWithStats.map(product => ({
+    const productsWithUserInfo = productsWithStats.map((product) => ({
       ...product,
       userInfo: {
         hasPurchased: purchaseStatus[product._id] || false,
-        hasReviewed: reviewStatus[product._id] || false
-      }
+        hasReviewed: reviewStatus[product._id] || false,
+      },
     }));
 
     return productsWithUserInfo;
@@ -250,7 +254,7 @@ class ReviewsService {
     }:${sort}`;
 
     try {
-      const cached = await redisClient.getJson(cacheKey);
+      const cached = await getJson(cacheKey);
       if (cached) {
         return cached;
       }
@@ -268,7 +272,7 @@ class ReviewsService {
       .sort(sort);
 
     try {
-      await redisClient.setJson(cacheKey, reviews, 1800); // 30 минут для пользовательских данных
+      await setJson(cacheKey, reviews, 1800); // 30 минут для пользовательских данных
     } catch (error) {
       console.error("Redis cache set error:", error);
     }
@@ -281,9 +285,9 @@ class ReviewsService {
 
     const product = await ProductModel.findById(productId);
     if (!product) {
-      throw ApiError.BadRequest("Товар не найден");
+      throw BadRequest("Товар не найден");
     }
-    
+
     // Проверяем, оставлял ли пользователь уже отзыв
     const existingReview = await ProductReviewModel.findOne({
       user: userId,
@@ -291,17 +295,14 @@ class ReviewsService {
     });
 
     if (existingReview) {
-      throw ApiError.BadRequest("Вы уже оставили отзыв на этот товар");
+      throw BadRequest("Вы уже оставили отзыв на этот товар");
     }
 
     // Проверяем, покупал ли пользователь товар (если требуется)
-    const hasBought = await PurchaseCheckService.hasUserPurchasedProductBySku(
-      userId,
-      product.sku
-    )
+    const hasBought = await hasUserPurchasedProductBySku(userId, product.sku);
 
     if (!hasBought) {
-      throw ApiError.BadRequest("Вы не купили этот товар");
+      throw BadRequest("Вы не купили этот товар");
     }
 
     const review = await ProductReviewModel.create({
@@ -329,7 +330,7 @@ class ReviewsService {
         userName: "Пользователь",
         rating,
         comment,
-      }
+      },
     );
 
     return review;
@@ -338,11 +339,11 @@ class ReviewsService {
   async updateReviewStatus(reviewId, status) {
     const review = await ProductReviewModel.findById(reviewId).populate(
       "product",
-      "_id"
+      "_id",
     );
 
     if (!review) {
-      throw ApiError.NotFound("Отзыв не найден");
+      throw NotFound("Отзыв не найден");
     }
 
     const oldStatus = review.status;
@@ -355,7 +356,7 @@ class ReviewsService {
         // Добавляем рейтинг при одобрении
         await this.ratingService.updateProductRating(
           review.product._id,
-          review.rating
+          review.rating,
         );
       } else if (oldStatus === "approved" && status === "rejected") {
         // Удаляем рейтинг при отклонении ранее одобренного отзыва
@@ -363,22 +364,20 @@ class ReviewsService {
           review.product._id,
           null,
           review.rating,
-          true
+          true,
         );
       } else if (oldStatus === "rejected" && status === "approved") {
         // Добавляем рейтинг при одобрении ранее отклоненного отзыва
         await this.ratingService.updateProductRating(
           review.product._id,
-          review.rating
+          review.rating,
         );
       }
 
       await this.invalidateCache(review.product._id, review.user);
 
       try {
-        await redisClient.del(
-          `${this.PRODUCT_STATS_CACHE_PREFIX}${review.product._id}`
-        );
+        await del(`${this.PRODUCT_STATS_CACHE_PREFIX}${review.product._id}`);
       } catch (error) {
         console.error("Redis cache delete error:", error);
       }
@@ -387,10 +386,9 @@ class ReviewsService {
     return review;
   }
 
-
   async getAllReviews(filters = {}) {
     const { productId, userId, status, sort = "-createdAt" } = filters;
-    
+
     const query = {};
 
     if (status) query.status = status;
@@ -411,7 +409,7 @@ class ReviewsService {
       .populate("product", "title images");
 
     if (!review) {
-      throw ApiError.NotFound("Отзыв не найден");
+      throw NotFound("Отзыв не найден");
     }
 
     return review;
@@ -422,11 +420,12 @@ class ReviewsService {
     if (!userId || !productId) {
       return false;
     }
-    return await PurchaseCheckService.hasUserPurchasedProduct(userId, productId);
+    return await hasUserPurchasedProduct(userId, productId);
   }
 
   // Проверка, оставлял ли пользователь отзыв на товар
-  async checkIfUserHasReviewed(userId, productId) { // УБРАЛИ static
+  async checkIfUserHasReviewed(userId, productId) {
+    // УБРАЛИ static
     if (!userId || !productId) {
       return false;
     }
@@ -434,7 +433,7 @@ class ReviewsService {
     try {
       const review = await ProductReviewModel.exists({
         user: userId,
-        product: productId
+        product: productId,
       });
       return !!review;
     } catch (error) {
@@ -452,13 +451,13 @@ class ReviewsService {
     try {
       const reviews = await ProductReviewModel.find({
         user: userId,
-        product: { $in: productIds }
-      }).select('product');
+        product: { $in: productIds },
+      }).select("product");
 
       const reviewStatus = {};
-      productIds.forEach(productId => {
+      productIds.forEach((productId) => {
         reviewStatus[productId] = reviews.some(
-          review => review.product.toString() === productId.toString()
+          (review) => review.product.toString() === productId.toString(),
         );
       });
 
@@ -472,16 +471,12 @@ class ReviewsService {
   // Инвалидация кэша
   async invalidateCache(productId, userId) {
     try {
-      await redisClient.deletePattern(
-        `${this.PRODUCT_REVIEWS_CACHE_PREFIX}${productId}:*`
-      );
+      await deletePattern(`${this.PRODUCT_REVIEWS_CACHE_PREFIX}${productId}:*`);
 
-      await redisClient.del(`${this.PRODUCT_STATS_CACHE_PREFIX}${productId}`);
+      await del(`${this.PRODUCT_STATS_CACHE_PREFIX}${productId}`);
 
       if (userId) {
-        await redisClient.deletePattern(
-          `${this.USER_REVIEWS_CACHE_PREFIX}${userId}:*`
-        );
+        await deletePattern(`${this.USER_REVIEWS_CACHE_PREFIX}${userId}:*`);
       }
     } catch (error) {
       console.error("Cache invalidation error:", error);
@@ -490,9 +485,7 @@ class ReviewsService {
 
   async invalidateProductReviewsCache(productId) {
     try {
-      await redisClient.deletePattern(
-        `${this.PRODUCT_REVIEWS_CACHE_PREFIX}${productId}:*`
-      );
+      await deletePattern(`${this.PRODUCT_REVIEWS_CACHE_PREFIX}${productId}:*`);
     } catch (error) {
       console.error("Product reviews cache invalidation error:", error);
     }
@@ -515,4 +508,4 @@ class ReviewsService {
   }
 }
 
-module.exports = ReviewsService;
+export default ReviewsService;

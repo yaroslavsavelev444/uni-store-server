@@ -1,20 +1,30 @@
-const refundService = require('../services/refundService');
+import {
+  addAdminNote as _addAdminNote,
+  assignRefundToAdmin as _assignRefundToAdmin,
+  createRefund as _createRefund,
+  getAllRefunds as _getAllRefunds,
+  getRefundById as _getRefundById,
+  getRefundReasons as _getRefundReasons,
+  getRefundStats as _getRefundStats,
+  getRefundStatuses as _getRefundStatuses,
+  getUserRefunds as _getUserRefunds,
+  updateRefundStatus as _updateRefundStatus,
+} from "../services/refundService";
 
 const refundController = {
-  
   // Пользовательские методы
 
   async createRefund(req, res, next) {
     try {
       const refundData = req.validatedData;
       const userId = req.user.id;
-      
-      const refund = await refundService.createRefund(refundData, userId);
-      
+
+      const refund = await _createRefund(refundData, userId);
+
       res.status(201).json({
         success: true,
-        message: 'Заявка на возврат успешно создана',
-        data: refund
+        message: "Заявка на возврат успешно создана",
+        data: refund,
       });
     } catch (error) {
       next(error);
@@ -25,13 +35,13 @@ const refundController = {
     try {
       const userId = req.user.id;
       const query = req.validatedQuery || {};
-      
-      const result = await refundService.getUserRefunds(userId, query);
-      
+
+      const result = await _getUserRefunds(userId, query);
+
       res.json({
         success: true,
         data: result.refunds,
-        pagination: result.pagination
+        pagination: result.pagination,
       });
     } catch (error) {
       next(error);
@@ -42,13 +52,13 @@ const refundController = {
     try {
       const { id } = req.params;
       const userId = req.user.id;
-      const isAdmin = req.user.role === 'admin';
-      
-      const refund = await refundService.getRefundById(id, userId, isAdmin);
-      
+      const isAdmin = req.user.role === "admin";
+
+      const refund = await _getRefundById(id, userId, isAdmin);
+
       res.json({
         success: true,
-        data: refund
+        data: refund,
       });
     } catch (error) {
       next(error);
@@ -60,12 +70,12 @@ const refundController = {
   async getAllRefunds(req, res, next) {
     try {
       const query = req.validatedQuery || {};
-      const result = await refundService.getAllRefunds(query);
-      
+      const result = await _getAllRefunds(query);
+
       res.json({
         success: true,
         data: result.refunds,
-        pagination: result.pagination
+        pagination: result.pagination,
       });
     } catch (error) {
       next(error);
@@ -78,18 +88,18 @@ const refundController = {
       const statusData = req.validatedData;
       const adminId = req.user.id;
       const adminName = `${req.user.firstName} ${req.user.lastName}`;
-      
-      const refund = await refundService.updateRefundStatus(
-        id, 
-        statusData, 
-        adminId, 
-        adminName
+
+      const refund = await _updateRefundStatus(
+        id,
+        statusData,
+        adminId,
+        adminName,
       );
-      
+
       res.json({
         success: true,
-        message: 'Статус заявки успешно обновлен',
-        data: refund
+        message: "Статус заявки успешно обновлен",
+        data: refund,
       });
     } catch (error) {
       next(error);
@@ -101,18 +111,18 @@ const refundController = {
       const { id } = req.params;
       const { adminId, adminName } = req.validatedData;
       const assignerId = req.user.id;
-      
-      const refund = await refundService.assignRefundToAdmin(
-        id, 
-        adminId, 
-        adminName, 
-        assignerId
+
+      const refund = await _assignRefundToAdmin(
+        id,
+        adminId,
+        adminName,
+        assignerId,
       );
-      
+
       res.json({
         success: true,
-        message: 'Заявка успешно назначена',
-        data: refund
+        message: "Заявка успешно назначена",
+        data: refund,
       });
     } catch (error) {
       next(error);
@@ -125,18 +135,13 @@ const refundController = {
       const noteData = req.validatedData;
       const adminId = req.user.id;
       const adminName = `${req.user.firstName} ${req.user.lastName}`;
-      
-      const refund = await refundService.addAdminNote(
-        id, 
-        noteData, 
-        adminId, 
-        adminName
-      );
-      
+
+      const refund = await _addAdminNote(id, noteData, adminId, adminName);
+
       res.json({
         success: true,
-        message: 'Заметка успешно добавлена',
-        data: refund
+        message: "Заметка успешно добавлена",
+        data: refund,
       });
     } catch (error) {
       next(error);
@@ -145,13 +150,13 @@ const refundController = {
 
   async getRefundStats(req, res, next) {
     try {
-      const { timeframe = 'month' } = req.query;
-      
-      const stats = await refundService.getRefundStats(timeframe);
-      
+      const { timeframe = "month" } = req.query;
+
+      const stats = await _getRefundStats(timeframe);
+
       res.json({
         success: true,
-        data: stats
+        data: stats,
       });
     } catch (error) {
       next(error);
@@ -162,11 +167,11 @@ const refundController = {
 
   async getRefundReasons(req, res, next) {
     try {
-      const reasons = await refundService.getRefundReasons();
-      
+      const reasons = await _getRefundReasons();
+
       res.json({
         success: true,
-        data: reasons
+        data: reasons,
       });
     } catch (error) {
       next(error);
@@ -175,16 +180,16 @@ const refundController = {
 
   async getRefundStatuses(req, res, next) {
     try {
-      const statuses = await refundService.getRefundStatuses();
-      
+      const statuses = await _getRefundStatuses();
+
       res.json({
         success: true,
-        data: statuses
+        data: statuses,
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 };
 
-module.exports = refundController;
+export default refundController;

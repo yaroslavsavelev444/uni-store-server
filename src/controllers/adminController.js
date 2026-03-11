@@ -1,14 +1,47 @@
-const ApiError = require("../exceptions/api-error");
-const productService = require("../services/productService");
-const userService = require("../services/userService");
-const reviewService = require("../services/reviewService");
-const companyService = require("../services/companyService");
-const ordersService = require("../services/ordersService");
-const categoryService = require("../services/categoryService");
-const contactsService = require("../services/contactsService");
-const promoBlockService =require("../services/promoBlockService");
-const path = require("path");
-const { log } = require("console");
+import { log } from "node:console";
+import { join } from "node:path";
+import ApiError from "../exceptions/api-error";
+import {
+  createCategory as _createCategory,
+  deleteCategory as _deleteCategory,
+  changeCategory,
+  findById,
+  updateCategoryWithImage,
+} from "../services/categoryService";
+import companyService from "../services/companyService";
+import { updateContactStatus as _updateContactStatus } from "../services/contactsService";
+import {
+  deleteOrderFile as _deleteOrderFile,
+  updateOrderStatus as _updateOrderStatus,
+  uploadOrderFile as _uploadOrderFile,
+  cancelOrderAdmin,
+  getOrderAdmin,
+  getOrdersAdmin,
+} from "../services/ordersService";
+import {
+  createProduct as _createProduct,
+  deleteUploadedFile as _deleteUploadedFile,
+} from "../services/productService";
+import {
+  deleteMainMaterial as _deleteMainMaterial,
+  deletePromoBlock as _deletePromoBlock,
+  getPromoBlock as _getPromoBlock,
+  updateMainMaterial as _updateMainMaterial,
+  updatePromoBlock as _updatePromoBlock,
+  createMainMaterial,
+  createPromoBlock,
+} from "../services/promoBlockService";
+import {
+  getProductReviews as _getProductReviews,
+  getProductsReviews as _getProductsReviews,
+  updateReviewStatus as _updateReviewStatus,
+} from "../services/reviewService";
+import {
+  deleteUser as _deleteUser,
+  getUsers as _getUsers,
+  updateUserRole as _updateUserRole,
+} from "../services/userService";
+
 //PRODUCT
 const createProduct = async (req, res, next) => {
   console.log(req);
@@ -16,23 +49,22 @@ const createProduct = async (req, res, next) => {
   try {
     const { productData } = req.body;
     const { files } = req;
-    
+
     if (!productData || !req.files) {
       throw ApiError.BadRequest("Отсутствует productData");
     }
 
-    const result = await productService.createProduct(productData, files);
+    const result = await _createProduct(productData, files);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
-
 //USERS
 const getUsers = async (req, res, next) => {
   try {
-    const result = await userService.getUsers(req.user.id);
+    const result = await _getUsers(req.user.id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -45,8 +77,8 @@ const updateUserRole = async (req, res, next) => {
     if (!id) {
       throw ApiError.BadRequest("Отсутствует userId");
     }
-    
-    const result = await userService.updateUserRole(id);
+
+    const result = await _updateUserRole(id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -59,7 +91,7 @@ const deleteUser = async (req, res, next) => {
     if (!userId) {
       throw ApiError.BadRequest("Отсутствует userId");
     }
-    const result = await userService.deleteUser(userId);
+    const result = await _deleteUser(userId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -70,7 +102,7 @@ const deleteUser = async (req, res, next) => {
 
 const getOrders = async (req, res, next) => {
   try {
-    const result = await ordersService.getOrdersAdmin();
+    const result = await getOrdersAdmin();
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -83,27 +115,27 @@ const getOrder = async (req, res, next) => {
     if (!orderId) {
       throw ApiError.BadRequest("Отсутствует orderId");
     }
-    const result = await ordersService.getOrderAdmin(orderId);
+    const result = await getOrderAdmin(orderId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
-}
+};
 const updateOrderStatus = async (req, res, next) => {
   try {
     const { orderId, status } = req.body;
 
     if (!orderId || !status) {
       throw ApiError.BadRequest("Отсутствует orderId");
-    } 
-    
+    }
+
     const userId = req.user.id;
 
     if (!userId) {
       throw ApiError.UnauthorizedError("Токены не предоставлены");
     }
 
-    const result = await ordersService.updateOrderStatus(orderId, status, userId);
+    const result = await _updateOrderStatus(orderId, status, userId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -120,11 +152,11 @@ const uploadOrderFile = async (req, res, next) => {
     }
 
     const fileData = {
-      path: path.join(req.uploadPath, file.filename).replace(/\\/g, "/"),
+      path: join(req.uploadPath, file.filename).replace(/\\/g, "/"),
       name: req.displayName || file.originalname,
     };
 
-    const result = await ordersService.uploadOrderFile(fileData, orderId);
+    const result = await _uploadOrderFile(fileData, orderId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -139,7 +171,7 @@ const deleteOrderFile = async (req, res, next) => {
       throw ApiError.BadRequest("orderId и filePath обязательны");
     }
 
-    const result = await ordersService.deleteOrderFile(orderId);
+    const result = await _deleteOrderFile(orderId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -152,7 +184,7 @@ const deleteUploadedFile = async (req, res, next) => {
     if (!fileId) {
       throw ApiError.BadRequest("Отсутствует fileId");
     }
-    const result = await productService.deleteUploadedFile(fileId);
+    const result = await _deleteUploadedFile(fileId);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -166,7 +198,7 @@ const cancelOrder = async (req, res, next) => {
     if (!id || !text) {
       throw ApiError.BadRequest("Отсутствует orderId");
     }
-    const result = await ordersService.cancelOrderAdmin(id, text);
+    const result = await cancelOrderAdmin(id, text);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -183,9 +215,10 @@ const createCategory = async (req, res, next) => {
       throw ApiError.BadRequest("Изображение не было загружено");
     }
 
-    const imagePath = path
-      .join(req.uploadPath, req.savedFilename)
-      .replace(/\\/g, "/"); // для Windows
+    const imagePath = join(req.uploadPath, req.savedFilename).replace(
+      /\\/g,
+      "/",
+    ); // для Windows
 
     const categoryData = {
       title,
@@ -194,7 +227,7 @@ const createCategory = async (req, res, next) => {
       image: imagePath,
     };
 
-    const result = await categoryService.createCategory(categoryData);
+    const result = await _createCategory(categoryData);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -206,21 +239,21 @@ const updateCategory = async (req, res, next) => {
     const { id } = req.params;
     const { title, subTitle, description } = req.body;
 
-    const existingCategory = await categoryService.findById(id);
+    const existingCategory = await findById(id);
     if (!existingCategory) {
       throw ApiError.NotFoundError("Категория не найдена");
     }
 
-    let updatedData = { title, subTitle, description };
+    const updatedData = { title, subTitle, description };
 
     // Передаем обновление с удалением старой папки (если изображение обновлено)
-    const updatedCategory = await categoryService.updateCategoryWithImage(
+    const updatedCategory = await updateCategoryWithImage(
       id,
       updatedData,
       req.file,
       req.uploadPath,
       req.savedFilename,
-      existingCategory.image
+      existingCategory.image,
     );
 
     res.status(200).json(updatedCategory);
@@ -235,7 +268,7 @@ const deleteCategory = async (req, res, next) => {
     if (!id) {
       throw ApiError.BadRequest("Отсутствует categoryId");
     }
-    const result = await categoryService.deleteCategory(id);
+    const result = await _deleteCategory(id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -247,26 +280,25 @@ const changeCategoryData = async (req, res, next) => {
     if (!categoryData) {
       throw ApiError.BadRequest("Отсутствует categoryData");
     }
-    const result = await categoryService.changeCategory(categoryData);
+    const result = await changeCategory(categoryData);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
-
 //CONTACTS
 
 const updateContactStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
-    const { contactId} = req.params;
+    const { contactId } = req.params;
 
     if (!contactId || !status) {
       throw ApiError.BadRequest("Отсутствует contactData");
     }
 
-    const result = await contactsService.updateContactStatus(contactId, status);
+    const result = await _updateContactStatus(contactId, status);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -277,10 +309,10 @@ const updateContactStatus = async (req, res, next) => {
 const getProductReviews = async (req, res, next) => {
   try {
     const { id } = req.params;
-    if(!id) {
+    if (!id) {
       throw ApiError.BadRequest("Отсутствует id");
     }
-    const result = await reviewService.getProductReviews(id);
+    const result = await _getProductReviews(id);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -289,12 +321,12 @@ const getProductReviews = async (req, res, next) => {
 
 const getProductsReviews = async (req, res, next) => {
   try {
-    const result = await reviewService.getProductsReviews();
+    const result = await _getProductsReviews();
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
-}
+};
 const updateReviewStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -304,17 +336,15 @@ const updateReviewStatus = async (req, res, next) => {
       throw ApiError.BadRequest("Отсутствует reviewData");
     }
 
-    const result = await reviewService.updateReviewStatus(id, action);
+    const result = await _updateReviewStatus(id, action);
     res.status(200).json(result);
   } catch (e) {
     next(e);
   }
 };
 
-
-
 const addPromoBlock = async (req, res, next) => {
- try {
+  try {
     const { title, subtitle, page, reversed = false, link } = req.body;
     const image = req.file?.filename;
 
@@ -322,17 +352,17 @@ const addPromoBlock = async (req, res, next) => {
       return ApiError.BadRequest("Изображение не было загружено");
     }
 
-    if(!title || !subtitle || !page) {
+    if (!title || !subtitle || !page) {
       return ApiError.BadRequest("Отсутствует title, subtitle или productId");
     }
 
-    const newBlock = await promoBlockService.createPromoBlock({
+    const newBlock = await createPromoBlock({
       title,
       subtitle,
       image: `/uploads/promo-blocks/${image}`, // путь до картинки
       reversed,
       link,
-      page
+      page,
     });
 
     res.status(201).json(newBlock);
@@ -343,9 +373,9 @@ const addPromoBlock = async (req, res, next) => {
 };
 
 const getPromoBlock = async (req, res, next) => {
-  const {page} = req.query
+  const { page } = req.query;
   try {
-    const result = await promoBlockService.getPromoBlock(page);
+    const result = await _getPromoBlock(page);
     res.status(200).json(result);
   } catch (e) {
     next(e);
@@ -370,7 +400,7 @@ const updatePromoBlock = async (req, res, next) => {
       updateData.image = `/uploads/promo-blocks/${image}`;
     }
 
-    const updated = await promoBlockService.updatePromoBlock(id, updateData);
+    const updated = await _updatePromoBlock(id, updateData);
     res.status(200).json(updated);
   } catch (err) {
     next(err);
@@ -380,11 +410,11 @@ const updatePromoBlock = async (req, res, next) => {
 const deletePromoBlock = async (req, res, next) => {
   try {
     const id = req.params.id;
-    if(!id) {
+    if (!id) {
       return ApiError.BadRequest("Отсутствует id");
     }
-    const deleted = await promoBlockService.deletePromoBlock(id);
-    
+    const deleted = await _deletePromoBlock(id);
+
     res.status(200).json(deleted);
   } catch (err) {
     next(err);
@@ -402,7 +432,7 @@ const addMainMaterial = async (req, res, next) => {
 
     const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
 
-    const newMaterial = await promoBlockService.createMainMaterial({
+    const newMaterial = await createMainMaterial({
       caption,
       mediaType,
       mediaUrl: `/uploads/main-materials/${file.filename}`,
@@ -423,11 +453,13 @@ const updateMainMaterial = async (req, res, next) => {
     const updateData = { caption };
 
     if (file) {
-      updateData.mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+      updateData.mediaType = file.mimetype.startsWith("video/")
+        ? "video"
+        : "image";
       updateData.mediaUrl = `/uploads/main-materials/${file.filename}`;
     }
 
-    const updated = await promoBlockService.updateMainMaterial(id, updateData);
+    const updated = await _updateMainMaterial(id, updateData);
     res.status(200).json(updated);
   } catch (e) {
     next(e);
@@ -438,14 +470,14 @@ const deleteMainMaterial = async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!id) return next(ApiError.BadRequest("Не передан ID"));
-    const deleted = await promoBlockService.deleteMainMaterial(id);
+    const deleted = await _deleteMainMaterial(id);
     res.status(200).json(deleted);
   } catch (e) {
     next(e);
   }
 };
 
-module.exports = {
+export default {
   updateReviewStatus,
   createProduct,
   updateUserRole,
@@ -471,5 +503,5 @@ module.exports = {
   addMainMaterial,
   updateMainMaterial,
   deleteMainMaterial,
-  getProductsReviews
+  getProductsReviews,
 };

@@ -1,4 +1,4 @@
-const rateLimit = require('express-rate-limit');
+import rateLimit from "express-rate-limit";
 
 // Ограничение: максимум 5 запросов в час
 const contactFormLimiter = rateLimit({
@@ -16,4 +16,4 @@ const contactFormLimiter = rateLimit({
   },
 });
 
-module.exports = { contactFormLimiter };
+export default { contactFormLimiter };

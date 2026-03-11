@@ -1,13 +1,13 @@
 // services/faqService.js
-const { FaqTopicModel } = require("../models/index.models");
-const redis = require("../redis/redis.client");
+import { FaqTopicModel } from "../models/index.models";
+import { del, getJson, setJson } from "../redis/redis.client";
 
 const FAQ_PUBLIC_CACHE_KEY = "faq:public:v1";
 const FAQ_PUBLIC_TTL = 60 * 60; // 1 hour
 
 class FaqService {
   async getPublicFaq() {
-    const cached = await redis.getJson(FAQ_PUBLIC_CACHE_KEY);
+    const cached = await getJson(FAQ_PUBLIC_CACHE_KEY);
     if (cached) return cached;
 
     const topics = await FaqTopicModel.find({ isActive: true })
@@ -28,12 +28,12 @@ class FaqService {
         })),
     }));
 
-    await redis.setJson(FAQ_PUBLIC_CACHE_KEY, formatted, FAQ_PUBLIC_TTL);
+    await setJson(FAQ_PUBLIC_CACHE_KEY, formatted, FAQ_PUBLIC_TTL);
     return formatted;
   }
 
   async invalidatePublicCache() {
-    await redis.del(FAQ_PUBLIC_CACHE_KEY);
+    await del(FAQ_PUBLIC_CACHE_KEY);
   }
 
   async getAllFaqForAdmin() {
@@ -108,7 +108,7 @@ class FaqService {
           filter: { _id: o.topicId },
           update: { $set: { order: o.order } },
         },
-      }))
+      })),
     );
 
     await this.invalidatePublicCache();
@@ -128,4 +128,4 @@ class FaqService {
   }
 }
 
-module.exports = new FaqService();
+export default new FaqService();

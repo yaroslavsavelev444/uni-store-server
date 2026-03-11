@@ -1,12 +1,12 @@
-const ApiError = require("../exceptions/api-error");
-const { CartModel, ProductModel } = require("../models/index.models");
-const fileService = require("../utils/fileManager");
-const discountService = require("../services/discountService"); // Добавляем импорт
+import { BadRequest, NotFoundError } from "../exceptions/api-error";
+import { CartModel, ProductModel } from "../models/index.models";
+import { getApplicableDiscounts } from "../services/discountService"; // Добавляем импорт
+import { getFileUrl } from "../utils/fileManager";
 
 class CartService {
   async getCart(userId) {
     if (!userId) {
-      throw ApiError.BadRequest("ID пользователя обязателен");
+      throw BadRequest("ID пользователя обязателен");
     }
 
     const cart = await CartModel.findByUser(userId);
@@ -55,10 +55,12 @@ class CartService {
       const finalPrice = product.finalPriceForIndividual || price;
 
       const itemTotal = this.roundMoney(price * quantity);
-const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
+      const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
       const itemDiscount = this.roundMoney(itemTotal - itemTotalWithDiscount);
 
-      totalPriceWithoutDiscount = this.roundMoney(totalPriceWithoutDiscount + itemTotal);
+      totalPriceWithoutDiscount = this.roundMoney(
+        totalPriceWithoutDiscount + itemTotal,
+      );
       totalPrice = this.roundMoney(totalPrice + itemTotalWithDiscount);
 
       let mainImage = null;
@@ -67,7 +69,7 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
           (a, b) => (a.order || 0) - (b.order || 0),
         )[0];
         if (firstImage && firstImage.url) {
-          mainImage = fileService.getFileUrl(firstImage.url);
+          mainImage = getFileUrl(firstImage.url);
         }
       }
 
@@ -79,7 +81,7 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
             if (img && img.url) {
               return {
                 ...img,
-                url: fileService.getFileUrl(img.url),
+                url: getFileUrl(img.url),
               };
             }
             return img;
@@ -113,72 +115,88 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
     }
 
     if (itemsToUpdate) {
-    cart.items = processedItems.map(i => ({ product: i.product._id, quantity: i.quantity, addedAt: i.addedAt }));
-    await cart.save();
+      cart.items = processedItems.map((i) => ({
+        product: i.product._id,
+        quantity: i.quantity,
+        addedAt: i.addedAt,
+      }));
+      await cart.save();
+    }
+
+    // === Расчёт централизованных скидок ===
+    const cartDataForDiscounts = {
+      items: processedItems,
+      totalAmount: totalPrice,
+      totalQuantity: processedItems.reduce((sum, i) => sum + i.quantity, 0),
+    };
+
+    const discountResult = await getApplicableDiscounts(cartDataForDiscounts);
+
+    const appliedDiscount = discountResult.find((d) => d.applicable);
+    const centralDiscountAmount = appliedDiscount
+      ? this.roundMoney(appliedDiscount.discountAmount)
+      : 0;
+
+    const finalTotalPrice = this.roundMoney(totalPrice - centralDiscountAmount);
+    const totalDiscount = this.roundMoney(
+      totalPriceWithoutDiscount - totalPrice + centralDiscountAmount,
+    );
+
+    return {
+      items: processedItems,
+      summary: {
+        totalItems: processedItems.reduce((sum, i) => sum + i.quantity, 0),
+        totalPrice: finalTotalPrice,
+        totalDiscount: totalDiscount,
+        itemsCount: processedItems.length,
+        priceWithoutDiscount: totalPriceWithoutDiscount,
+        productDiscountAmount: this.roundMoney(
+          totalPriceWithoutDiscount - totalPrice,
+        ),
+        centralDiscountAmount: centralDiscountAmount,
+        centralDiscountPercent: appliedDiscount
+          ? appliedDiscount.discount.discountPercent
+          : 0,
+      },
+      validation: { isValid: isCartValid, issues: validationIssues },
+      discounts: {
+        applied: appliedDiscount
+          ? [
+              {
+                _id: appliedDiscount.discount._id,
+                name: appliedDiscount.discount.name,
+                type: appliedDiscount.discount.type,
+                discountPercent: appliedDiscount.discount.discountPercent,
+                amount: centralDiscountAmount,
+                message: appliedDiscount.message,
+              },
+            ]
+          : [],
+        available: [],
+        hints: discountResult
+          .filter((d) => !d.applicable)
+          .map((d) => ({
+            type: "hint",
+            message: d.message,
+            needed: d.needed,
+            current: d.current,
+          })),
+      },
+      cartId: cart._id,
+      updatedAt: cart.updatedAt,
+    };
   }
-
-   // === Расчёт централизованных скидок ===
-  const cartDataForDiscounts = {
-    items: processedItems,
-    totalAmount: totalPrice,
-    totalQuantity: processedItems.reduce((sum, i) => sum + i.quantity, 0)
-  };
-
-  const discountResult = await discountService.getApplicableDiscounts(cartDataForDiscounts);
-
-  const appliedDiscount = discountResult.find(d => d.applicable);
-  const centralDiscountAmount = appliedDiscount ? this.roundMoney(appliedDiscount.discountAmount) : 0;
-
-  const finalTotalPrice = this.roundMoney(totalPrice - centralDiscountAmount);
-  const totalDiscount = this.roundMoney((totalPriceWithoutDiscount - totalPrice) + centralDiscountAmount);
-
-  return {
-    items: processedItems,
-    summary: {
-      totalItems: processedItems.reduce((sum, i) => sum + i.quantity, 0),
-      totalPrice: finalTotalPrice,
-      totalDiscount: totalDiscount,
-      itemsCount: processedItems.length,
-      priceWithoutDiscount: totalPriceWithoutDiscount,
-      productDiscountAmount: this.roundMoney(totalPriceWithoutDiscount - totalPrice),
-      centralDiscountAmount: centralDiscountAmount,
-      centralDiscountPercent: appliedDiscount ? appliedDiscount.discount.discountPercent : 0
-    },
-    validation: { isValid: isCartValid, issues: validationIssues },
-    discounts: {
-      applied: appliedDiscount ? [{
-        _id: appliedDiscount.discount._id,
-        name: appliedDiscount.discount.name,
-        type: appliedDiscount.discount.type,
-        discountPercent: appliedDiscount.discount.discountPercent,
-        amount: centralDiscountAmount,
-        message: appliedDiscount.message
-      }] : [],
-      available: [],
-      hints: discountResult
-        .filter(d => !d.applicable)
-        .map(d => ({
-          type: "hint",
-          message: d.message,
-          needed: d.needed,
-          current: d.current
-        }))
-    },
-    cartId: cart._id,
-    updatedAt: cart.updatedAt
-  };
-}
 
   async addOrUpdateItem(userId, productId, quantity) {
     // Валидация входных данных
     if (!userId || !productId || quantity < 1) {
-      throw ApiError.BadRequest("Некорректные данные");
+      throw BadRequest("Некорректные данные");
     }
 
     // Проверяем существование товара
     const product = await ProductModel.findById(productId);
     if (!product) {
-      throw ApiError.NotFoundError("Товар не найден");
+      throw NotFoundError("Товар не найден");
     }
 
     // Проверяем доступность товара
@@ -186,12 +204,12 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
       !product.isVisible ||
       !["available", "preorder"].includes(product.status)
     ) {
-      throw ApiError.BadRequest("Товар недоступен для заказа");
+      throw BadRequest("Товар недоступен для заказа");
     }
 
     // Проверяем максимальное количество
     if (product.maxOrderQuantity && quantity > product.maxOrderQuantity) {
-      throw ApiError.BadRequest(
+      throw BadRequest(
         `Максимальное количество для заказа: ${product.maxOrderQuantity}`,
       );
     }
@@ -228,12 +246,12 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
 
   async removeItem(userId, productId) {
     if (!userId || !productId) {
-      throw ApiError.BadRequest("Некорректные данные");
+      throw BadRequest("Некорректные данные");
     }
 
     const cart = await CartModel.findOne({ user: userId });
     if (!cart) {
-      throw ApiError.NotFoundError("Корзина не найдена");
+      throw NotFoundError("Корзина не найдена");
     }
 
     const initialLength = cart.items.length;
@@ -242,7 +260,7 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
     );
 
     if (cart.items.length === initialLength) {
-      throw ApiError.NotFoundError("Товар не найден в корзине");
+      throw NotFoundError("Товар не найден в корзине");
     }
 
     await cart.save();
@@ -251,12 +269,12 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
 
   async decreaseQuantity(userId, productId) {
     if (!userId || !productId) {
-      throw ApiError.BadRequest("Некорректные данные");
+      throw BadRequest("Некорректные данные");
     }
 
     const cart = await CartModel.findOne({ user: userId });
     if (!cart) {
-      throw ApiError.NotFoundError("Корзина не найдена");
+      throw NotFoundError("Корзина не найдена");
     }
 
     const itemIndex = cart.items.findIndex(
@@ -264,12 +282,12 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
     );
 
     if (itemIndex === -1) {
-      throw ApiError.NotFoundError("Товар не найден в корзине");
+      throw NotFoundError("Товар не найден в корзине");
     }
 
     const product = await ProductModel.findById(productId);
     if (!product) {
-      throw ApiError.NotFoundError("Товар не найден");
+      throw NotFoundError("Товар не найден");
     }
 
     // Уменьшаем количество на 1, но не ниже 1
@@ -288,12 +306,12 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
 
   async clearCart(userId) {
     if (!userId) {
-      throw ApiError.BadRequest("ID пользователя обязателен");
+      throw BadRequest("ID пользователя обязателен");
     }
 
     const cart = await CartModel.findOne({ user: userId });
     if (!cart) {
-      throw ApiError.NotFoundError("Корзина не найдена");
+      throw NotFoundError("Корзина не найдена");
     }
 
     cart.items = [];
@@ -314,7 +332,7 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
    * Получение расчетов скидок для корзины (для использования в других сервисах)
    */
   async calculateCartDiscounts(cartData) {
-    return await discountService.getApplicableDiscounts(cartData);
+    return await getApplicableDiscounts(cartData);
   }
   // Добавь в класс:
   roundMoney(amount) {
@@ -346,4 +364,4 @@ const itemTotalWithDiscount = this.roundMoney(finalPrice * quantity);
   }
 }
 
-module.exports = new CartService();
+export default new CartService();

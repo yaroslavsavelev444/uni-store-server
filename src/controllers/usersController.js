@@ -1,8 +1,23 @@
 // controllers/user-controller.js
-const userService = require('../services/usersService');
-const ApiError = require('../exceptions/api-error');
-const userSanctionService = require('../services/userSanctionService');
-const { default: mongoose } = require('mongoose');
+
+import { default as mongoose } from "mongoose";
+import ApiError from "../exceptions/api-error";
+import {
+  blockUser as _blockUser,
+  getUserSanctions as _getUserSanctions,
+  unblockUser as _unblockUser,
+  checkUserBlockStatus,
+} from "../services/userSanctionService";
+import {
+  demoteToUser as _demoteToUser,
+  getAllUsers as _getAllUsers,
+  getUserById as _getUserById,
+  promoteToAdmin as _promoteToAdmin,
+  searchUsers as _searchUsers,
+  updateUserRole as _updateUserRole,
+  getUserWithDetails,
+} from "../services/usersService";
+
 class UserController {
   /**
    * Получение списка всех пользователей (только для админов)
@@ -11,19 +26,21 @@ class UserController {
   async getAllUsers(req, res, next) {
     try {
       const currentUser = req.user;
-      
+
       // Дополнительная проверка роли (на всякий случай)
-      if (!['admin', 'superadmin'].includes(currentUser.role)) {
-        return next(ApiError.ForbiddenError('Доступ только для администраторов', req));
+      if (!["admin", "superadmin"].includes(currentUser.role)) {
+        return next(
+          ApiError.ForbiddenError("Доступ только для администраторов", req),
+        );
       }
 
-      const users = await userService.getAllUsers(currentUser);
-      
+      const users = await _getAllUsers(currentUser);
+
       res.status(200).json({
         success: true,
         data: users,
         count: users.length,
-        message: 'Список пользователей успешно получен'
+        message: "Список пользователей успешно получен",
       });
     } catch (error) {
       next(error);
@@ -42,24 +59,32 @@ class UserController {
 
       // Валидация входных данных
       if (!role) {
-        return next(ApiError.BadRequest('Поле "role" обязательно для заполнения', [], req));
+        return next(
+          ApiError.BadRequest(
+            'Поле "role" обязательно для заполнения',
+            [],
+            req,
+          ),
+        );
       }
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       // Проверка формата ID
       if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
-      const updatedUser = await userService.updateUserRole(userId, role, currentUser);
-      
+      const updatedUser = await _updateUserRole(userId, role, currentUser);
+
       res.status(200).json({
         success: true,
         data: updatedUser,
-        message: `Роль пользователя успешно обновлена на "${role}"`
+        message: `Роль пользователя успешно обновлена на "${role}"`,
       });
     } catch (error) {
       next(error);
@@ -76,19 +101,21 @@ class UserController {
       const currentUser = req.user;
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
-      const updatedUser = await userService.promoteToAdmin(userId, currentUser);
-      
+      const updatedUser = await _promoteToAdmin(userId, currentUser);
+
       res.status(200).json({
         success: true,
         data: updatedUser,
-        message: 'Пользователь успешно назначен администратором'
+        message: "Пользователь успешно назначен администратором",
       });
     } catch (error) {
       next(error);
@@ -105,19 +132,21 @@ class UserController {
       const currentUser = req.user;
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
-      const updatedUser = await userService.demoteToUser(userId, currentUser);
-      
+      const updatedUser = await _demoteToUser(userId, currentUser);
+
       res.status(200).json({
         success: true,
         data: updatedUser,
-        message: 'Пользователь успешно лишён админских прав'
+        message: "Пользователь успешно лишён админских прав",
       });
     } catch (error) {
       next(error);
@@ -134,19 +163,21 @@ class UserController {
       const currentUser = req.user;
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
-      const user = await userService.getUserById(userId);
-      
+      const user = await _getUserById(userId);
+
       res.status(200).json({
         success: true,
         data: user,
-        message: 'Данные пользователя успешно получены'
+        message: "Данные пользователя успешно получены",
       });
     } catch (error) {
       next(error);
@@ -154,13 +185,7 @@ class UserController {
   }
   async searchUsers(req, res, next) {
     try {
-      const {
-        query,
-        status,
-        role,
-        page = 1,
-        limit = 50,
-      } = req.query;
+      const { query, status, role, page = 1, limit = 50 } = req.query;
 
       const searchParams = {
         query,
@@ -170,13 +195,13 @@ class UserController {
         limit: Math.min(parseInt(limit), 100), // Ограничиваем максимум 100
       };
 
-      const result = await userService.searchUsers(searchParams);
-      
+      const result = await _searchUsers(searchParams);
+
       res.status(200).json({
         success: true,
         data: result.users,
         pagination: result.pagination,
-        message: 'Поиск пользователей выполнен успешно'
+        message: "Поиск пользователей выполнен успешно",
       });
     } catch (error) {
       next(error);
@@ -190,37 +215,46 @@ class UserController {
   async blockUser(req, res, next) {
     try {
       const { userId } = req.params;
-      const { duration, reason, type = 'block' } = req.body;
+      const { duration, reason, type = "block" } = req.body;
       const currentUser = req.user;
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       if (!mongoose.isValidObjectId(userId)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
       if (duration !== 0 && (!duration || duration < 1)) {
-        return next(ApiError.BadRequest('Длительность блокировки должна быть больше 0 или 0 для бессрочной', [], req));
+        return next(
+          ApiError.BadRequest(
+            "Длительность блокировки должна быть больше 0 или 0 для бессрочной",
+            [],
+            req,
+          ),
+        );
       }
 
-      const sanction = await userSanctionService.blockUser(userId, currentUser, {
+      const sanction = await _blockUser(userId, currentUser, {
         duration: parseInt(duration) || 0,
-        reason: reason || 'Нарушение правил сообщества',
+        reason: reason || "Нарушение правил сообщества",
         type,
         metadata: {
           ip: req.ip,
-          userAgent: req.headers['user-agent'],
+          userAgent: req.headers["user-agent"],
         },
       });
-      
+
       res.status(200).json({
         success: true,
         data: sanction,
-        message: duration === 0 
-          ? 'Пользователь заблокирован бессрочно' 
-          : `Пользователь заблокирован на ${duration} часов`
+        message:
+          duration === 0
+            ? "Пользователь заблокирован бессрочно"
+            : `Пользователь заблокирован на ${duration} часов`,
       });
     } catch (error) {
       next(error);
@@ -237,19 +271,21 @@ class UserController {
       const currentUser = req.user;
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       if (!mongoose.isValidObjectId(userId)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
-      const user = await userSanctionService.unblockUser(userId, currentUser);
-      
+      const user = await _unblockUser(userId, currentUser);
+
       res.status(200).json({
         success: true,
         data: user,
-        message: 'Пользователь успешно разблокирован'
+        message: "Пользователь успешно разблокирован",
       });
     } catch (error) {
       next(error);
@@ -265,20 +301,22 @@ class UserController {
       const { userId } = req.params;
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       if (!mongoose.isValidObjectId(userId)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
-      const sanctions = await userSanctionService.getUserSanctions(userId);
-      
+      const sanctions = await _getUserSanctions(userId);
+
       res.status(200).json({
         success: true,
         data: sanctions,
         count: sanctions.length,
-        message: 'История санкций пользователя успешно получена'
+        message: "История санкций пользователя успешно получена",
       });
     } catch (error) {
       next(error);
@@ -294,19 +332,21 @@ class UserController {
       const { userId } = req.params;
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       if (!mongoose.isValidObjectId(userId)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
-      const status = await userSanctionService.checkUserBlockStatus(userId);
-      
+      const status = await checkUserBlockStatus(userId);
+
       res.status(200).json({
         success: true,
         data: status,
-        message: 'Статус блокировки пользователя успешно получен'
+        message: "Статус блокировки пользователя успешно получен",
       });
     } catch (error) {
       next(error);
@@ -322,25 +362,26 @@ class UserController {
       const { userId } = req.params;
 
       if (!userId) {
-        return next(ApiError.BadRequest('ID пользователя обязателен', [], req));
+        return next(ApiError.BadRequest("ID пользователя обязателен", [], req));
       }
 
       if (!mongoose.isValidObjectId(userId)) {
-        return next(ApiError.BadRequest('Неверный формат ID пользователя', [], req));
+        return next(
+          ApiError.BadRequest("Неверный формат ID пользователя", [], req),
+        );
       }
 
-      const user = await userService.getUserWithDetails(userId);
-      
+      const user = await getUserWithDetails(userId);
+
       res.status(200).json({
         success: true,
         data: user,
-        message: 'Детальная информация о пользователе успешно получена'
+        message: "Детальная информация о пользователе успешно получена",
       });
     } catch (error) {
       next(error);
     }
   }
-
 }
 
-module.exports = new UserController();
+export default new UserController();

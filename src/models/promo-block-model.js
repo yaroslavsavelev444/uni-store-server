@@ -1,15 +1,15 @@
-const mongoose = require("mongoose");
+import { model, Schema } from "mongoose";
 
-const PromoBlockSchema = new mongoose.Schema(
+const PromoBlockSchema = new Schema(
   {
     title: { type: String, required: true },
     subtitle: { type: String },
-    image: { type: String }, 
-    link: { type: String }, 
+    image: { type: String },
+    link: { type: String },
     reversed: { type: Boolean, default: false },
-    page: { type: String, required: true }, 
+    page: { type: String, required: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("PromoBlock", PromoBlockSchema);
+export default model("PromoBlock", PromoBlockSchema);

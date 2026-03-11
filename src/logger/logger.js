@@ -1,49 +1,48 @@
-const fs = require('fs');
-const path = require('path');
-const pino = require('pino');
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import pino, { multistream, stdTimeFunctions, transport } from "pino";
 
-const logDir = path.join(__dirname, '..', 'logs');
+const logDir = join(__dirname, "..", "logs");
 
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir);
+if (!existsSync(logDir)) {
+  mkdirSync(logDir);
 }
 
-const errorLogPath = path.join(logDir, 'error.log');
+const errorLogPath = join(logDir, "error.log");
 
 // Создаём транспорт для красивого вывода в консоль
-const prettyTransport = pino.transport({
-  target: 'pino-pretty',
+const prettyTransport = transport({
+  target: "pino-pretty",
   options: {
     colorize: true,
-    translateTime: 'HH:MM:ss',
-    ignore: 'pid,hostname',
+    translateTime: "HH:MM:ss",
+    ignore: "pid,hostname",
   },
 });
 
 // Создаём транспорт для записи ошибок в файл
-const fileTransport = pino.transport({
-  target: 'pino/file',
+const fileTransport = transport({
+  target: "pino/file",
   options: {
     destination: errorLogPath,
     mkdir: true,
     append: true,
-    level: 'error',
+    level: "error",
   },
 });
 
 const logger = pino(
   {
-    level: 'info',
+    level: "info",
     formatters: {
       level: (label) => ({ level: label.toUpperCase() }),
     },
-    timestamp: pino.stdTimeFunctions.isoTime,
+    timestamp: stdTimeFunctions.isoTime,
   },
-  pino.multistream([
-    { stream: prettyTransport, level: 'info' },
-    { stream: fileTransport, level: 'error' },
-  ])
+  multistream([
+    { stream: prettyTransport, level: "info" },
+    { stream: fileTransport, level: "error" },
+  ]),
 );
 
-
-module.exports = logger;
+export default logger;

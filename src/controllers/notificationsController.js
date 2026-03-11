@@ -1,6 +1,11 @@
-const ApiError = require("../exceptions/api-error");
-const logger = require("../logger/logger");
-const notificationsService = require("../services/notificationsService");
+import ApiError from "../exceptions/api-error";
+import logger from "../logger/logger";
+import {
+  getUnreadCount as _getUnreadCount,
+  deleteNotificationsService,
+  getNotificationsService,
+  markNotificationAsReadService,
+} from "../services/notificationsService";
 
 const getNotifications = async (req, res, next) => {
   const userData = req.user;
@@ -9,10 +14,10 @@ const getNotifications = async (req, res, next) => {
     throw ApiError.BadRequest("Недостаточно данных для запроса.");
   }
   try {
-    const notifications = await notificationsService.getNotificationsService(
+    const notifications = await getNotificationsService(
       userData,
       Number(req.query.limit) || 10,
-      Number(req.query.skip) || 0
+      Number(req.query.skip) || 0,
     );
     logger.info("notifications", notifications);
     res.status(200).json(notifications);
@@ -29,8 +34,7 @@ const markNotificationAsRead = async (req, res, next) => {
     throw ApiError.BadRequest("Недостаточно данных для запроса.");
   }
   try {
-    const notifications =
-      await notificationsService.markNotificationAsReadService(ids, userData);
+    const notifications = await markNotificationAsReadService(ids, userData);
     logger.info("notifications", notifications);
     res.status(200).json(notifications);
   } catch (e) {
@@ -44,9 +48,7 @@ const deleteNotifications = async (req, res, next) => {
     throw ApiError.BadRequest("Недостаточно данных для запроса.");
   }
   try {
-    const notifications = await notificationsService.deleteNotificationsService(
-      userData
-    );
+    const notifications = await deleteNotificationsService(userData);
     res.status(200).json(notifications);
   } catch (e) {
     next(e);
@@ -59,16 +61,16 @@ const getUnreadCount = async (req, res, next) => {
     throw ApiError.BadRequest("Недостаточно данных для запроса.");
   }
   try {
-    const count = await notificationsService.getUnreadCount(userData);
+    const count = await _getUnreadCount(userData);
     res.status(200).json(count);
   } catch (e) {
     next(e);
   }
 };
 
-module.exports = {
+export default {
   getNotifications,
   markNotificationAsRead,
   deleteNotifications,
-  getUnreadCount
+  getUnreadCount,
 };

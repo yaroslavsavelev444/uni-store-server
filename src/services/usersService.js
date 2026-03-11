@@ -1,7 +1,12 @@
 // services/user-service.js
-const { default: mongoose } = require("mongoose");
-const ApiError = require("../exceptions/api-error");
-const { UserModel } = require("../models/index.models");
+import { default as mongoose } from "mongoose";
+import ApiError, {
+  BadRequest,
+  DatabaseError,
+  ForbiddenError,
+  NotFoundError,
+} from "../exceptions/api-error";
+import { UserModel } from "../models/index.models";
 
 class UserService {
   /**
@@ -16,9 +21,9 @@ class UserService {
 
       return users;
     } catch (error) {
-      throw ApiError.DatabaseError(
+      throw DatabaseError(
         `Ошибка при получении списка пользователей: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -35,41 +40,41 @@ class UserService {
       // Валидация новой роли
       const allowedRoles = ["user", "admin", "superadmin"];
       if (!allowedRoles.includes(newRole)) {
-        throw ApiError.BadRequest(
+        throw BadRequest(
           `Недопустимая роль. Допустимые значения: ${allowedRoles.join(", ")}`,
           [],
-          null
+          null,
         );
       }
 
       // Проверка: админ не может изменить свою собственную роль
       if (userId.toString() === currentUser.id.toString()) {
-        throw ApiError.BadRequest(
+        throw BadRequest(
           "Вы не можете изменить свою собственную роль",
           [],
-          null
+          null,
         );
       }
 
       // Поиск пользователя
       const user = await UserModel.findById(userId);
       if (!user) {
-        throw ApiError.NotFoundError("Пользователь не найден", null);
+        throw NotFoundError("Пользователь не найден", null);
       }
 
       // Проверка: суперадмин может всё, обычный админ не может назначать суперадминов
       if (currentUser.role !== "superadmin" && newRole === "superadmin") {
-        throw ApiError.ForbiddenError(
+        throw ForbiddenError(
           "Только суперадмин может назначать роль суперадмина",
-          null
+          null,
         );
       }
 
       // Проверка: нельзя изменить роль другого суперадмина
       if (user.role === "superadmin" && currentUser.role !== "superadmin") {
-        throw ApiError.ForbiddenError(
+        throw ForbiddenError(
           "Только суперадмин может изменять роль другого суперадмина",
-          null
+          null,
         );
       }
 
@@ -85,7 +90,7 @@ class UserService {
 
       // Логирование (опционально)
       console.log(
-        `Пользователь ${currentUser.id} изменил роль пользователя ${userId} с ${oldRole} на ${newRole}`
+        `Пользователь ${currentUser.id} изменил роль пользователя ${userId} с ${oldRole} на ${newRole}`,
       );
 
       return updatedUser;
@@ -95,9 +100,9 @@ class UserService {
         throw error;
       }
 
-      throw ApiError.DatabaseError(
+      throw DatabaseError(
         `Ошибка при обновлении роли пользователя: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -130,18 +135,20 @@ class UserService {
   async getUserById(userId) {
     try {
       const user = await UserModel.findById(userId)
-       .select(`
+        .select(
+          `
   -password
   -tokens.resetToken
   -tokens.resetTokenStatus
   -tokens.resetTokenExpiration
   -passwordChangeHistory
   -__v
-`)
+`,
+        )
         .lean();
 
       if (!user) {
-        throw ApiError.NotFoundError("Пользователь не найден", null);
+        throw NotFoundError("Пользователь не найден", null);
       }
 
       return user;
@@ -149,20 +156,20 @@ class UserService {
       if (error instanceof ApiError) {
         throw error;
       }
-      throw ApiError.DatabaseError(
+      throw DatabaseError(
         `Ошибка при получении пользователя: ${error.message}`,
-        null
+        null,
       );
     }
   }
-// services/user-service.js (исправленный метод searchUsers)
-async searchUsers(searchParams) {
+  // services/user-service.js (исправленный метод searchUsers)
+  async searchUsers(searchParams) {
     try {
       const { query, status, role, page = 1, limit = 50 } = searchParams;
       const skip = (page - 1) * limit;
 
       // Строим базовый запрос
-      let filter = {};
+      const filter = {};
 
       // Обработка поискового запроса
       if (query && query.trim()) {
@@ -201,14 +208,16 @@ async searchUsers(searchParams) {
       // Выполняем поиск с пагинацией, исключая поля с select: false
       const [users, total] = await Promise.all([
         UserModel.find(filter)
-       .select(`
+          .select(
+            `
   -password
   -tokens.resetToken
   -tokens.resetTokenStatus
   -tokens.resetTokenExpiration
   -passwordChangeHistory
   -__v
-`)
+`,
+          )
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit)
@@ -229,7 +238,7 @@ async searchUsers(searchParams) {
           if (timeLeft > 0) {
             const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
             const minutesLeft = Math.floor(
-              (timeLeft % (1000 * 60 * 60)) / (1000 * 60)
+              (timeLeft % (1000 * 60 * 60)) / (1000 * 60),
             );
             blockInfo = {
               blockedUntil: user.blockedUntil,
@@ -255,10 +264,10 @@ async searchUsers(searchParams) {
         },
       };
     } catch (error) {
-      console.error('Search error details:', error);
-      throw ApiError.DatabaseError(
+      console.error("Search error details:", error);
+      throw DatabaseError(
         `Ошибка при поиске пользователей: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -271,14 +280,16 @@ async searchUsers(searchParams) {
   async getUserWithDetails(userId) {
     try {
       const user = await UserModel.findById(userId)
-        .select(`
+        .select(
+          `
   -password
   -tokens.resetToken
   -tokens.resetTokenStatus
   -tokens.resetTokenExpiration
   -passwordChangeHistory
   -__v
-`)
+`,
+        )
         .populate({
           path: "lastSanction",
           select: "reason duration expiresAt createdAt",
@@ -290,7 +301,7 @@ async searchUsers(searchParams) {
         .lean();
 
       if (!user) {
-        throw ApiError.NotFoundError("Пользователь не найден", null);
+        throw NotFoundError("Пользователь не найден", null);
       }
 
       return user;
@@ -298,12 +309,12 @@ async searchUsers(searchParams) {
       if (error instanceof ApiError) {
         throw error;
       }
-      throw ApiError.DatabaseError(
+      throw DatabaseError(
         `Ошибка при получении детальной информации о пользователе: ${error.message}`,
-        null
+        null,
       );
     }
   }
 }
 
-module.exports = new UserService();
+export default new UserService();

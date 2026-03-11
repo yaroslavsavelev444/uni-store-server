@@ -1,7 +1,7 @@
-const sharp = require('sharp');
-const path = require('path');
-const fs = require('fs').promises;
-const logger = require('../logger/logger');
+import { promises as fs } from "node:fs";
+import { dirname, extname, join, parse } from "node:path";
+import sharp, { fit as _fit } from "sharp";
+import logger from "../logger/logger";
 
 class ImageCompressor {
   /**
@@ -12,14 +12,14 @@ class ImageCompressor {
    */
   async compressImages(files, options = {}) {
     const compressedFiles = [];
-    
+
     const compressionOptions = {
-      maxWidth: options.maxWidth || 1920,       // Максимальная ширина
-      maxHeight: options.maxHeight || 1080,     // Максимальная высота
-      quality: options.quality || 80,          // Качество JPEG (0-100)
-      webpQuality: options.webpQuality || 80,  // Качество WebP (0-100)
+      maxWidth: options.maxWidth || 1920, // Максимальная ширина
+      maxHeight: options.maxHeight || 1080, // Максимальная высота
+      quality: options.quality || 80, // Качество JPEG (0-100)
+      webpQuality: options.webpQuality || 80, // Качество WebP (0-100)
       convertToWebp: options.convertToWebp !== false, // Конвертировать в WebP
-      ...options
+      ...options,
     };
 
     for (const file of files) {
@@ -30,9 +30,14 @@ class ImageCompressor {
           continue;
         }
 
-        logger.info(`[IMAGE_COMPRESSOR] Сжатие изображения: ${file.originalname}`);
+        logger.info(
+          `[IMAGE_COMPRESSOR] Сжатие изображения: ${file.originalname}`,
+        );
 
-        const compressedFile = await this.compressSingleImage(file, compressionOptions);
+        const compressedFile = await this.compressSingleImage(
+          file,
+          compressionOptions,
+        );
         compressedFiles.push(compressedFile);
 
         // Удаляем исходный временный файл
@@ -41,9 +46,10 @@ class ImageCompressor {
         } catch (err) {
           logger.warn(`Не удалось удалить временный файл: ${file.path}`);
         }
-
       } catch (error) {
-        logger.error(`[IMAGE_COMPRESSOR] Ошибка сжатия ${file.originalname}: ${error.message}`);
+        logger.error(
+          `[IMAGE_COMPRESSOR] Ошибка сжатия ${file.originalname}: ${error.message}`,
+        );
         // Если ошибка сжатия, используем оригинальный файл
         compressedFiles.push(file);
       }
@@ -57,17 +63,17 @@ class ImageCompressor {
    */
   async compressSingleImage(file, options) {
     const inputPath = file.path;
-    const originalExt = path.extname(file.originalname).toLowerCase();
-    
+    const originalExt = extname(file.originalname).toLowerCase();
+
     // Определяем выходной формат
-    const outputExt = options.convertToWebp ? '.webp' : originalExt;
-    const tempName = `${path.parse(file.filename).name}${outputExt}`;
-    const outputPath = path.join(path.dirname(inputPath), tempName);
+    const outputExt = options.convertToWebp ? ".webp" : originalExt;
+    const tempName = `${parse(file.filename).name}${outputExt}`;
+    const outputPath = join(dirname(inputPath), tempName);
 
     // Настройки для разных форматов
     const sharpOptions = {
-      fit: sharp.fit.inside, // Сохраняем пропорции
-      withoutEnlargement: true // Не увеличиваем маленькие изображения
+      fit: _fit.inside, // Сохраняем пропорции
+      withoutEnlargement: true, // Не увеличиваем маленькие изображения
     };
 
     // Инициализируем sharp
@@ -75,30 +81,30 @@ class ImageCompressor {
       .resize({
         width: options.maxWidth,
         height: options.maxHeight,
-        ...sharpOptions
+        ...sharpOptions,
       })
       .rotate(); // Автоповорот по EXIF
 
     // Применяем настройки в зависимости от формата
     if (options.convertToWebp) {
-      pipeline = pipeline.webp({ 
+      pipeline = pipeline.webp({
         quality: options.webpQuality,
-        effort: 4 // Баланс между скоростью и качеством (0-6)
+        effort: 4, // Баланс между скоростью и качеством (0-6)
       });
-    } else if (originalExt === '.jpeg' || originalExt === '.jpg') {
-      pipeline = pipeline.jpeg({ 
+    } else if (originalExt === ".jpeg" || originalExt === ".jpg") {
+      pipeline = pipeline.jpeg({
         quality: options.quality,
-        mozjpeg: true // Используем оптимизированный MozJPEG
+        mozjpeg: true, // Используем оптимизированный MozJPEG
       });
-    } else if (originalExt === '.png') {
-      pipeline = pipeline.png({ 
+    } else if (originalExt === ".png") {
+      pipeline = pipeline.png({
         compressionLevel: 9, // Максимальное сжатие (0-9)
-        palette: true // Уменьшаем палитру если возможно
+        palette: true, // Уменьшаем палитру если возможно
       });
-    } else if (originalExt === '.webp') {
-      pipeline = pipeline.webp({ 
+    } else if (originalExt === ".webp") {
+      pipeline = pipeline.webp({
         quality: options.webpQuality,
-        effort: 4
+        effort: 4,
       });
     }
 
@@ -115,7 +121,7 @@ class ImageCompressor {
       path: outputPath,
       filename: tempName,
       size: stats.size,
-      mimetype: outputExt === '.webp' ? 'image/webp' : file.mimetype
+      mimetype: outputExt === ".webp" ? "image/webp" : file.mimetype,
     };
   }
 
@@ -124,21 +130,32 @@ class ImageCompressor {
    */
   isImageFile(file) {
     const imageMimeTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/webp',
-      'image/gif',
-      'image/tiff',
-      'image/bmp',
-      'image/svg+xml'
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "image/tiff",
+      "image/bmp",
+      "image/svg+xml",
     ];
-    
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.tiff', '.bmp', '.svg'];
-    const fileExt = path.extname(file.originalname).toLowerCase();
-    
-    return imageMimeTypes.includes(file.mimetype) || 
-           imageExtensions.includes(fileExt);
+
+    const imageExtensions = [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".webp",
+      ".gif",
+      ".tiff",
+      ".bmp",
+      ".svg",
+    ];
+    const fileExt = extname(file.originalname).toLowerCase();
+
+    return (
+      imageMimeTypes.includes(file.mimetype) ||
+      imageExtensions.includes(fileExt)
+    );
   }
 
   /**
@@ -156,15 +173,15 @@ class ImageCompressor {
         }
 
         // Проверяем, есть ли изображения для сжатия
-        const hasImages = fileArray.some(file => this.isImageFile(file));
-        
+        const hasImages = fileArray.some((file) => this.isImageFile(file));
+
         if (!hasImages) {
           return next();
         }
 
         // Сжимаем изображения
         const compressedFiles = await this.compressImages(fileArray, options);
-        
+
         // Заменяем файлы в запросе
         if (req.files) {
           req.files = compressedFiles;
@@ -175,9 +192,10 @@ class ImageCompressor {
         // Также сохраняем в uploadedFiles для совместимости
         req.uploadedFiles = compressedFiles;
 
-        logger.info(`[IMAGE_COMPRESSOR] Сжато ${compressedFiles.length} изображений`);
+        logger.info(
+          `[IMAGE_COMPRESSOR] Сжато ${compressedFiles.length} изображений`,
+        );
         next();
-
       } catch (error) {
         logger.error(`[IMAGE_COMPRESSOR] Ошибка middleware: ${error.message}`);
         // При ошибке пропускаем сжатие
@@ -187,4 +205,4 @@ class ImageCompressor {
   }
 }
 
-module.exports = new ImageCompressor();
+export default new ImageCompressor();

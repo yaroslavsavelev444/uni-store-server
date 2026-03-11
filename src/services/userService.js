@@ -1,20 +1,19 @@
-const ApiError = require("../exceptions/api-error");
-const { UserModel } = require("../models/index.models");
+import { InternalServerError, NotFoundError } from "../exceptions/api-error";
+import { UserModel } from "../models/index.models";
 
 const updateUserRole = async (userId) => {
   try {
     const userData = await UserModel.findById(userId);
     if (!userData) {
-      throw ApiError.NotFoundError("Пользователь не найден");
+      throw NotFoundError("Пользователь не найден");
     }
     userData.role = userData.role === "admin" ? "user" : "admin";
     await userData.save();
     return userData;
   } catch (error) {
-    throw ApiError.InternalServerError(error.message || "Произошла ошибка");
+    throw InternalServerError(error.message || "Произошла ошибка");
   }
 };
-
 
 const getUsers = async (userId) => {
   try {
@@ -22,7 +21,7 @@ const getUsers = async (userId) => {
       .select("-password"); // исключаем пароль
     return users;
   } catch (error) {
-    throw ApiError.InternalServerError(error.message || "Произошла ошибка");
+    throw InternalServerError(error.message || "Произошла ошибка");
   }
 };
 
@@ -31,12 +30,12 @@ const deleteUser = async (userId) => {
     const userData = await UserModel.findByIdAndDelete(userId);
     return userData;
   } catch (error) {
-    throw ApiError.InternalServerError(error.message || "Произошла ошибка");
+    throw InternalServerError(error.message || "Произошла ошибка");
   }
 };
 
-module.exports = {
+export default {
   updateUserRole,
   deleteUser,
-  getUsers
+  getUsers,
 };

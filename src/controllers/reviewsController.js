@@ -1,6 +1,6 @@
 // controllers/reviews.controller.js
-const ApiError = require("../exceptions/api-error");
-const ReviewsService = require("../services/reviewService");
+import ApiError from "../exceptions/api-error";
+import ReviewsService from "../services/reviewService";
 
 class ReviewsController {
   constructor() {
@@ -15,10 +15,14 @@ class ReviewsController {
         throw ApiError.BadRequest("Отсутствует productId");
       }
 
-      const reviews = await this.reviewsService.getProductReviews(productId, userId,  {
-        status,
-        sort,
-      });
+      const reviews = await this.reviewsService.getProductReviews(
+        productId,
+        userId,
+        {
+          status,
+          sort,
+        },
+      );
 
       res.json(reviews);
     } catch (e) {
@@ -103,7 +107,7 @@ class ReviewsController {
 
       const review = await this.reviewsService.updateReviewStatus(
         reviewId,
-        status
+        status,
       );
       res.json(review);
     } catch (e) {
@@ -149,4 +153,4 @@ class ReviewsController {
   }
 }
 
-module.exports = ReviewsController;
+export default ReviewsController;

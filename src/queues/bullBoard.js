@@ -1,19 +1,24 @@
-const express = require('express');
-const { createBullBoard } = require('@bull-board/api');
-const { ExpressAdapter } = require('@bull-board/express');
-const { BullAdapter } = require('@bull-board/api/bullAdapter');
-const { taskQueues, moderateQueues
-, pushNotificationsQueues } = require('./bull');
-const serverAdapter = new ExpressAdapter();
+import { createBullBoard } from "@bull-board/api";
+import { BullAdapter } from "@bull-board/api/bullAdapter";
+import { ExpressAdapter } from "@bull-board/express";
+import express from "express";
+import bull from "./bull"; // предполагается, что файл bull.js экспортирует по умолчанию объект с очередями
 
-serverAdapter.setBasePath('/admin/queues'); // Базовый путь для Bull Board
+const { taskQueues, moderateQueues, pushNotificationsQueues } = bull;
+
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath("/admin/queues");
 
 createBullBoard({
-  queues: [new BullAdapter(taskQueues), new BullAdapter(moderateQueues), new BullAdapter(pushNotificationsQueues)],
+  queues: [
+    new BullAdapter(taskQueues),
+    new BullAdapter(moderateQueues),
+    new BullAdapter(pushNotificationsQueues),
+  ],
   serverAdapter,
 });
 
 const bullBoardRouter = express.Router();
 bullBoardRouter.use(serverAdapter.getRouter());
 
-module.exports = bullBoardRouter;
+export default bullBoardRouter;

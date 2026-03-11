@@ -1,14 +1,14 @@
-const Joi = require("joi");
-const xss = require("xss");
-const validator = require("validator");
+import { array, object, string } from "joi";
+import { isAlpha, isStrongPassword } from "validator";
+import xss from "xss";
 
 const sanitizeString = (value) => {
   if (typeof value !== "string") return value;
   return xss(value.trim());
 };
 
-const acceptedConsentSchema = Joi.object({
-  slug: Joi.string()
+const acceptedConsentSchema = object({
+  slug: string()
     .custom((value, helpers) => {
       return sanitizeString(value);
     }, "Slug sanitization")
@@ -16,21 +16,21 @@ const acceptedConsentSchema = Joi.object({
     .max(100)
     .required(),
 
-  version: Joi.string()
+  version: string()
     .custom((value) => sanitizeString(value))
     .min(1)
     .max(20)
     .required(),
 });
 
-const registerSchema = Joi.object({
-  name: Joi.string()
+const registerSchema = object({
+  name: string()
     .custom((value, helpers) => {
       const clean = sanitizeString(value);
 
       if (
-        !validator.isAlpha(clean, "ru-RU", { ignore: " -" }) &&
-        !validator.isAlpha(clean, "en-US", { ignore: " -" })
+        !isAlpha(clean, "ru-RU", { ignore: " -" }) &&
+        !isAlpha(clean, "en-US", { ignore: " -" })
       ) {
         return helpers.error("string.invalid_chars", {
           label: "name",
@@ -43,15 +43,15 @@ const registerSchema = Joi.object({
     .max(50)
     .required(),
 
-  email: Joi.string()
+  email: string()
     .email({ tlds: { allow: false } })
     .custom((value) => sanitizeString(value))
     .required(),
 
-  password: Joi.string()
+  password: string()
     .custom((value, helpers) => {
       if (
-        !validator.isStrongPassword(value, {
+        !isStrongPassword(value, {
           minSymbols: 0,
         })
       ) {
@@ -63,10 +63,7 @@ const registerSchema = Joi.object({
     .max(64)
     .required(),
 
-  acceptedConsents: Joi.array()
-    .items(acceptedConsentSchema)
-    .min(1)
-    .required(),
+  acceptedConsents: array().items(acceptedConsentSchema).min(1).required(),
 });
 
-module.exports = { registerSchema };
+export default { registerSchema };

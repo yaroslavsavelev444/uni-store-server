@@ -1,15 +1,16 @@
-const events = require("events");
-events.EventEmitter.defaultMaxListeners = 20;
+import { EventEmitter } from "node:events";
 
-const http = require("http");
+EventEmitter.defaultMaxListeners = 20;
 
-const app = require("./app");
-const { connectDB } = require("./src/config/mongo");
-const cronInit = require("./src/cron");
-const logger = require("./src/logger/logger");
-const { PORT, HOST, NODE_ENV } = require("./config/env");
+import { createServer } from "node:http";
 
-const server = http.createServer(app);
+import app from "./app.js";
+import { HOST, NODE_ENV, PORT } from "./config/env";
+import { connectDB } from "./src/config/mongo";
+import cronInit from "./src/cron";
+import logger from "./src/logger/logger";
+
+const server = createServer(app);
 
 (async () => {
   try {

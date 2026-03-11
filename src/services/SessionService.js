@@ -1,41 +1,49 @@
 // services/sessionService.js
-const redisClient = require("../redis/redis.client");
-const logger = require("../logger/logger");
-const ApiError = require("../exceptions/api-error");
-const { UserSessionModel } = require("../models/index.models");
+
+import { InternalError, NotFoundError } from "../exceptions/api-error";
+import { error as _error, debug, info, warn } from "../logger/logger";
+import { UserSessionModel } from "../models/index.models";
+import {
+  exists as _exists,
+  keys as _keys,
+  ttl as _ttl,
+  ping,
+  pipeline,
+  setex,
+} from "../redis/redis.client";
 
 class SessionService {
   async checkRedisHealth() {
     return await this.safeRedisOperation(async () => {
-      await redisClient.ping();
+      await ping();
       return true;
     }, 2);
   }
 
   async safeRedisOperation(operation, maxRetries = 3) {
     let lastError;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         return await operation();
       } catch (error) {
         lastError = error;
-        logger.warn(`Redis operation attempt ${attempt}/${maxRetries} failed`, {
+        warn(`Redis operation attempt ${attempt}/${maxRetries} failed`, {
           error: error.message,
-          operation: operation.name || 'anonymous',
-          attempt
+          operation: operation.name || "anonymous",
+          attempt,
         });
-        
+
         if (attempt < maxRetries) {
-          const delay = Math.min(100 * Math.pow(2, attempt - 1), 2000); // Exponential backoff
-          await new Promise(resolve => setTimeout(resolve, delay));
+          const delay = Math.min(100 * 2 ** (attempt - 1), 2000); // Exponential backoff
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
-    
-    logger.error(`All Redis operation attempts failed`, {
+
+    _error(`All Redis operation attempts failed`, {
       error: lastError.message,
-      operation: lastError.operation || 'unknown'
+      operation: lastError.operation || "unknown",
     });
     throw lastError;
   }
@@ -45,8 +53,8 @@ class SessionService {
    * АТОМАРНАЯ операция: обновляет MongoDB И добавляет в Redis blacklist
    */
   async invalidateAllSessionsExceptCurrent(userId, currentSessionId = null) {
-      const session = await UserSessionModel.db.startSession();
-    
+    const session = await UserSessionModel.db.startSession();
+
     try {
       session.startTransaction();
 
@@ -60,7 +68,8 @@ class SessionService {
         filter._id = { $ne: currentSessionId };
       }
 
-      const sessionsToInvalidate = await UserSessionModel.find(filter).session(session);
+      const sessionsToInvalidate =
+        await UserSessionModel.find(filter).session(session);
 
       if (sessionsToInvalidate.length === 0) {
         await session.commitTransaction();
@@ -79,7 +88,7 @@ class SessionService {
               : "password_changed_all_sessions",
           },
         },
-        { session }
+        { session },
       );
 
       // 3. Добавляем refreshToken'ы в Redis blacklist
@@ -87,7 +96,7 @@ class SessionService {
 
       await session.commitTransaction();
 
-      logger.info("User sessions invalidated after password change", {
+      info("User sessions invalidated after password change", {
         userId,
         currentSessionId,
         invalidatedCount: updateResult.modifiedCount,
@@ -98,15 +107,14 @@ class SessionService {
         invalidatedCount: updateResult.modifiedCount,
         keptCurrent: !!currentSessionId,
       };
-
     } catch (error) {
       await session.abortTransaction();
-      logger.error("Error invalidating user sessions", {
+      _error("Error invalidating user sessions", {
         userId,
         error: error.message,
         stack: error.stack,
       });
-      throw ApiError.InternalError("Ошибка при обновлении сессий");
+      throw InternalError("Ошибка при обновлении сессий");
     } finally {
       session.endSession();
     }
@@ -121,25 +129,25 @@ class SessionService {
       // Находим ВСЕ сессии пользователя (включая уже отозванные)
       const sessions = await UserSessionModel.find({ userId });
 
-      const sessionsToBlacklist = sessions.filter(session => 
-        !currentSessionId || session._id.toString() !== currentSessionId
+      const sessionsToBlacklist = sessions.filter(
+        (session) =>
+          !currentSessionId || session._id.toString() !== currentSessionId,
       );
 
       if (sessionsToBlacklist.length === 0) {
-        logger.debug("No sessions to blacklist", { userId });
+        debug("No sessions to blacklist", { userId });
         return;
       }
 
       await this.bulkAddToBlacklist(sessionsToBlacklist);
 
-      logger.info("Sessions added to Redis blacklist", {
+      info("Sessions added to Redis blacklist", {
         userId,
         totalSessions: sessions.length,
         blacklistedCount: sessionsToBlacklist.length,
       });
-
     } catch (error) {
-      logger.error("Error adding sessions to Redis blacklist", {
+      _error("Error adding sessions to Redis blacklist", {
         userId,
         error: error.message,
       });
@@ -153,19 +161,19 @@ class SessionService {
     if (!sessions.length) return;
 
     return await this.safeRedisOperation(async () => {
-      const operations = sessions.map(session => {
+      const operations = sessions.map((session) => {
         const blacklistKey = `blacklist:refresh:${session.refreshToken}`;
         const ttl = 30 * 24 * 60 * 60; // 30 дней
-        return ['setex', blacklistKey, ttl, "revoked"];
+        return ["setex", blacklistKey, ttl, "revoked"];
       });
 
-      const results = await redisClient.pipeline(operations);
+      const results = await pipeline(operations);
 
       const successCount = results.filter(([err]) => err === null).length;
-      
-      logger.debug("Bulk blacklist addition completed", {
+
+      debug("Bulk blacklist addition completed", {
         sessionsCount: sessions.length,
-        successCount
+        successCount,
       });
 
       return results;
@@ -178,16 +186,16 @@ class SessionService {
   async isSessionRevoked(refreshToken) {
     return await this.safeRedisOperation(async () => {
       const blacklistKey = `blacklist:refresh:${refreshToken}`;
-      const isRevoked = await redisClient.exists(blacklistKey);
-      
+      const isRevoked = await _exists(blacklistKey);
+
       if (isRevoked) {
-        const ttl = await redisClient.ttl(blacklistKey);
-        logger.debug("Session revoked check", {
-          token: refreshToken.substring(0, 10) + '...',
-          ttl
+        const ttl = await _ttl(blacklistKey);
+        debug("Session revoked check", {
+          token: refreshToken.substring(0, 10) + "...",
+          ttl,
         });
       }
-      
+
       return isRevoked;
     }, 2);
   }
@@ -204,11 +212,11 @@ class SessionService {
 
       return sessions;
     } catch (error) {
-      logger.error("Error getting user active sessions", {
+      _error("Error getting user active sessions", {
         userId,
         error: error.message,
       });
-      throw ApiError.InternalError("Ошибка при получении сессий");
+      throw InternalError("Ошибка при получении сессий");
     }
   }
 
@@ -216,15 +224,16 @@ class SessionService {
    * Инвалидирует конкретную сессию по ID
    */
   async invalidateSpecificSession(sessionId, reason = "manually_revoked") {
-    const session = await UserSessionModel.db.startSession()	
-    
+    const session = await UserSessionModel.db.startSession();
+
     try {
       session.startTransaction();
 
       // 1. Находим сессию ДО обновления
-      const sessionToInvalidate = await UserSessionModel.findById(sessionId).session(session);
+      const sessionToInvalidate =
+        await UserSessionModel.findById(sessionId).session(session);
       if (!sessionToInvalidate) {
-        throw ApiError.NotFoundError("Сессия не найдена");
+        throw NotFoundError("Сессия не найдена");
       }
 
       // 2. Атомарно обновляем сессию в MongoDB
@@ -237,29 +246,28 @@ class SessionService {
             revokedReason: reason,
           },
         },
-        { session }
+        { session },
       );
 
       // 3. Добавляем в Redis blacklist
       await this.safeRedisOperation(async () => {
         const blacklistKey = `blacklist:refresh:${sessionToInvalidate.refreshToken}`;
         const ttl = 30 * 24 * 60 * 60;
-        await redisClient.setex(blacklistKey, ttl, "revoked");
+        await setex(blacklistKey, ttl, "revoked");
       }, 2);
 
       await session.commitTransaction();
 
-      logger.info("Specific session invalidated", {
+      info("Specific session invalidated", {
         sessionId,
         userId: sessionToInvalidate.userId,
         reason,
       });
 
       return { success: true };
-
     } catch (error) {
       await session.abortTransaction();
-      logger.error("Error invalidating specific session", {
+      _error("Error invalidating specific session", {
         sessionId,
         error: error.message,
       });
@@ -274,26 +282,26 @@ class SessionService {
    */
   async cleanupRevokedSessions(daysOld = 30) {
     const session = await UserSessionModel.db.startSession();
-    
+
     try {
       session.startTransaction();
-      
+
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
       // Находим сессии для удаления
       const sessionsToDelete = await UserSessionModel.find({
         revoked: true,
-        revokedAt: { $lt: cutoffDate }
+        revokedAt: { $lt: cutoffDate },
       }).session(session);
 
       // Собираем refreshToken'ы для очистки из Redis
-      const refreshTokens = sessionsToDelete.map(s => s.refreshToken);
-      
+      const refreshTokens = sessionsToDelete.map((s) => s.refreshToken);
+
       // Удаляем из MongoDB
       const deleteResult = await UserSessionModel.deleteMany({
         revoked: true,
-        revokedAt: { $lt: cutoffDate }
+        revokedAt: { $lt: cutoffDate },
       }).session(session);
 
       // Удаляем из Redis blacklist
@@ -302,18 +310,19 @@ class SessionService {
       }
 
       await session.commitTransaction();
-      
-      logger.info("Revoked sessions cleanup completed", {
+
+      info("Revoked sessions cleanup completed", {
         deletedCount: deleteResult.deletedCount,
         redisCleaned: refreshTokens.length,
-        cutoffDate: cutoffDate.toISOString()
+        cutoffDate: cutoffDate.toISOString(),
       });
 
       return deleteResult;
-      
     } catch (error) {
       await session.abortTransaction();
-      logger.error("Error cleaning up revoked sessions", { error: error.message });
+      _error("Error cleaning up revoked sessions", {
+        error: error.message,
+      });
       throw error;
     } finally {
       session.endSession();
@@ -325,20 +334,20 @@ class SessionService {
    */
   async bulkRemoveFromBlacklist(refreshTokens) {
     if (!refreshTokens.length) return;
-    
+
     return await this.safeRedisOperation(async () => {
-      const operations = refreshTokens.map(token => {
+      const operations = refreshTokens.map((token) => {
         const blacklistKey = `blacklist:refresh:${token}`;
-        return ['del', blacklistKey];
+        return ["del", blacklistKey];
       });
-      
-      const results = await redisClient.pipeline(operations);
-      
-      logger.debug("Bulk blacklist removal completed", {
+
+      const results = await pipeline(operations);
+
+      debug("Bulk blacklist removal completed", {
         tokensCount: refreshTokens.length,
-        successCount: results.filter(([err]) => err === null).length
+        successCount: results.filter(([err]) => err === null).length,
       });
-      
+
       return results;
     }, 3); // Больше попыток для массовых операций
   }
@@ -349,11 +358,11 @@ class SessionService {
   async addToTempBlacklist(token, ttlSeconds = 60) {
     return await this.safeRedisOperation(async () => {
       const tempBlacklistKey = `temp_blacklist:refresh:${token}`;
-      await redisClient.setex(tempBlacklistKey, ttlSeconds, "temp_revoked");
-      
-      logger.debug("Token added to temp blacklist", {
-        token: token.substring(0, 10) + '...',
-        ttlSeconds
+      await setex(tempBlacklistKey, ttlSeconds, "temp_revoked");
+
+      debug("Token added to temp blacklist", {
+        token: token.substring(0, 10) + "...",
+        ttlSeconds,
       });
     }, 2);
   }
@@ -364,13 +373,13 @@ class SessionService {
   async isInTempBlacklist(token) {
     return await this.safeRedisOperation(async () => {
       const tempBlacklistKey = `temp_blacklist:refresh:${token}`;
-      const exists = await redisClient.exists(tempBlacklistKey);
-      
-      logger.debug("Temp blacklist check", {
-        token: token.substring(0, 10) + '...',
-        exists
+      const exists = await _exists(tempBlacklistKey);
+
+      debug("Temp blacklist check", {
+        token: token.substring(0, 10) + "...",
+        exists,
       });
-      
+
       return exists;
     }, 2);
   }
@@ -381,29 +390,33 @@ class SessionService {
   async getSessionStats() {
     try {
       const totalSessions = await UserSessionModel.countDocuments();
-      const activeSessions = await UserSessionModel.countDocuments({ revoked: false });
-      const revokedSessions = await UserSessionModel.countDocuments({ revoked: true });
-      
+      const activeSessions = await UserSessionModel.countDocuments({
+        revoked: false,
+      });
+      const revokedSessions = await UserSessionModel.countDocuments({
+        revoked: true,
+      });
+
       const blacklistCount = await this.safeRedisOperation(async () => {
-        const keys = await redisClient.keys('blacklist:refresh:*');
+        const keys = await _keys("blacklist:refresh:*");
         return keys.length;
       }, 2);
-      
+
       const tempBlacklistCount = await this.safeRedisOperation(async () => {
-        const keys = await redisClient.keys('temp_blacklist:refresh:*');
+        const keys = await _keys("temp_blacklist:refresh:*");
         return keys.length;
       }, 2);
-      
+
       return {
         totalSessions,
         activeSessions,
         revokedSessions,
         blacklistCount,
         tempBlacklistCount,
-        redisHealth: await this.checkRedisHealth()
+        redisHealth: await this.checkRedisHealth(),
       };
     } catch (error) {
-      logger.error("Error getting session stats", { error: error.message });
+      _error("Error getting session stats", { error: error.message });
       throw error;
     }
   }
@@ -422,7 +435,7 @@ class SessionService {
       const isRevoked = await this.isSessionRevoked(refreshToken);
       return {
         ...session.toObject(),
-        isRevoked
+        isRevoked,
       };
     }, 2);
   }
@@ -434,14 +447,14 @@ class SessionService {
     return await this.safeRedisOperation(async () => {
       const result = await UserSessionModel.updateOne(
         { _id: sessionId },
-        { $set: { lastUsedAt: new Date() } }
+        { $set: { lastUsedAt: new Date() } },
       );
-      
-      logger.debug("Session last used updated", {
+
+      debug("Session last used updated", {
         sessionId,
-        modified: result.modifiedCount
+        modified: result.modifiedCount,
       });
-      
+
       return result;
     }, 2);
   }
@@ -453,14 +466,14 @@ class SessionService {
     return await this.safeRedisOperation(async () => {
       const count = await UserSessionModel.countDocuments({
         userId,
-        revoked: false
+        revoked: false,
       });
-      
-      logger.debug("Active sessions count", {
+
+      debug("Active sessions count", {
         userId,
-        count
+        count,
       });
-      
+
       return count;
     }, 2);
   }
@@ -470,19 +483,23 @@ class SessionService {
    */
   async deleteAllUserSessions(userId) {
     const session = await UserSessionModel.db.startSession();
-    
+
     try {
       session.startTransaction();
 
       // Находим все сессии пользователя
-      const userSessions = await UserSessionModel.find({ userId }).session(session);
-      
+      const userSessions = await UserSessionModel.find({ userId }).session(
+        session,
+      );
+
       // Собираем refresh tokens для удаления из Redis
-      const refreshTokens = userSessions.map(s => s.refreshToken);
-      
+      const refreshTokens = userSessions.map((s) => s.refreshToken);
+
       // Удаляем из MongoDB
-      const deleteResult = await UserSessionModel.deleteMany({ userId }).session(session);
-      
+      const deleteResult = await UserSessionModel.deleteMany({
+        userId,
+      }).session(session);
+
       // Удаляем из Redis blacklist
       if (refreshTokens.length > 0) {
         await this.bulkRemoveFromBlacklist(refreshTokens);
@@ -490,19 +507,18 @@ class SessionService {
 
       await session.commitTransaction();
 
-      logger.info("All user sessions deleted", {
+      info("All user sessions deleted", {
         userId,
         deletedCount: deleteResult.deletedCount,
-        redisCleaned: refreshTokens.length
+        redisCleaned: refreshTokens.length,
       });
 
       return deleteResult;
-
     } catch (error) {
       await session.abortTransaction();
-      logger.error("Error deleting all user sessions", {
+      _error("Error deleting all user sessions", {
         userId,
-        error: error.message
+        error: error.message,
       });
       throw error;
     } finally {
@@ -511,4 +527,4 @@ class SessionService {
   }
 }
 
-module.exports = new SessionService();
+export default new SessionService();

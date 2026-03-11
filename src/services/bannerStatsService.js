@@ -1,5 +1,5 @@
-const ApiError = require("../exceptions/api-error");
-const { BannerViewModel, BannerModel } = require("../models/index.models");
+import { BadRequest, NotFoundError } from "../exceptions/api-error";
+import { BannerModel, BannerViewModel } from "../models/index.models";
 
 class BannerStatsService {
   /**
@@ -7,27 +7,27 @@ class BannerStatsService {
    */
   async getBannerInfo(bannerId) {
     const now = new Date();
-    
+
     const banner = await BannerModel.findOne({
       _id: bannerId,
       $or: [
         { status: "active" },
-        { status: "draft" } // Можно учитывать и черновики для тестирования
+        { status: "draft" }, // Можно учитывать и черновики для тестирования
       ],
       $or: [
         { startAt: { $exists: false } },
         { startAt: null },
-        { startAt: { $lte: now } }
+        { startAt: { $lte: now } },
       ],
       $or: [
         { endAt: { $exists: false } },
         { endAt: null },
-        { endAt: { $gte: now } }
-      ]
+        { endAt: { $gte: now } },
+      ],
     }).lean();
 
     if (!banner) {
-      throw ApiError.NotFoundError("Баннер не найден или не активен");
+      throw NotFoundError("Баннер не найден или не активен");
     }
 
     return banner;
@@ -48,43 +48,43 @@ class BannerStatsService {
     await this.getBannerInfo(bannerId);
 
     const now = new Date();
-    
+
     // Проверяем существующую запись
     const existing = await this.getExistingView(userId, bannerId);
-    
+
     if (existing && existing.viewedAt) {
       // Если уже просмотрено, возвращаем существующую запись
-      return { 
-        action: 'already_viewed', 
-        view: existing 
+      return {
+        action: "already_viewed",
+        view: existing,
       };
     }
 
     // Создаем или обновляем запись
     const result = await BannerViewModel.findOneAndUpdate(
       { userId, bannerId },
-      { 
-        $setOnInsert: { 
-          userId, 
+      {
+        $setOnInsert: {
+          userId,
           bannerId,
           viewedAt: now,
-          createdAt: now
+          createdAt: now,
         },
         $set: {
           // Обновляем viewedAt даже если запись существует
-          viewedAt: now
-        }
+          viewedAt: now,
+        },
       },
-      { 
-        upsert: true, 
+      {
+        upsert: true,
         new: true,
-        setDefaultsOnInsert: true 
-      }
+        setDefaultsOnInsert: true,
+      },
     );
 
-    return { 
-      action: existing ? 'viewed_updated' : 'viewed_created', 
-      view: result 
+    return {
+      action: existing ? "viewed_updated" : "viewed_created",
+      view: result,
     };
   }
 
@@ -96,39 +96,39 @@ class BannerStatsService {
     await this.getBannerInfo(bannerId);
 
     const now = new Date();
-    
+
     // Проверяем существующую запись
     const existing = await this.getExistingView(userId, bannerId);
-    
+
     if (!existing) {
-      throw ApiError.BadRequest("Нельзя кликнуть непросмотренный баннер");
+      throw BadRequest("Нельзя кликнуть непросмотренный баннер");
     }
 
     if (existing.clicked) {
       // Если уже кликнуто, возвращаем существующую запись
-      return { 
-        action: 'already_clicked', 
-        view: existing 
+      return {
+        action: "already_clicked",
+        view: existing,
       };
     }
 
     // Обновляем запись
     const result = await BannerViewModel.findOneAndUpdate(
       { userId, bannerId },
-      { 
-        $set: { 
+      {
+        $set: {
           clicked: true,
           clickedAt: now, // Добавляем время клика
           // Обновляем viewedAt если его нет
-          ...(!existing.viewedAt && { viewedAt: now })
-        }
+          ...(!existing.viewedAt && { viewedAt: now }),
+        },
       },
-      { new: true }
+      { new: true },
     );
 
-    return { 
-      action: 'clicked', 
-      view: result 
+    return {
+      action: "clicked",
+      view: result,
     };
   }
 
@@ -140,39 +140,39 @@ class BannerStatsService {
     await this.getBannerInfo(bannerId);
 
     const now = new Date();
-    
+
     // Проверяем существующую запись
     const existing = await this.getExistingView(userId, bannerId);
-    
+
     if (!existing) {
-      throw ApiError.BadRequest("Нельзя отклонить непросмотренный баннер");
+      throw BadRequest("Нельзя отклонить непросмотренный баннер");
     }
 
     if (existing.dismissed) {
       // Если уже отклонено, возвращаем существующую запись
-      return { 
-        action: 'already_dismissed', 
-        view: existing 
+      return {
+        action: "already_dismissed",
+        view: existing,
       };
     }
 
     // Обновляем запись
     const result = await BannerViewModel.findOneAndUpdate(
       { userId, bannerId },
-      { 
-        $set: { 
+      {
+        $set: {
           dismissed: true,
           dismissedAt: now, // Добавляем время отклонения
           // Обновляем viewedAt если его нет
-          ...(!existing.viewedAt && { viewedAt: now })
-        }
+          ...(!existing.viewedAt && { viewedAt: now }),
+        },
       },
-      { new: true }
+      { new: true },
     );
 
-    return { 
-      action: 'dismissed', 
-      view: result 
+    return {
+      action: "dismissed",
+      view: result,
     };
   }
 
@@ -185,44 +185,44 @@ class BannerStatsService {
     await this.getBannerInfo(bannerId);
 
     const now = new Date();
-    
+
     // Проверяем существующую запись
     const existing = await this.getExistingView(userId, bannerId);
-    
+
     if (existing && existing.clicked) {
-      return { 
-        action: 'already_clicked', 
-        view: existing 
+      return {
+        action: "already_clicked",
+        view: existing,
       };
     }
 
     // Создаем/обновляем запись с просмотром и кликом
     const result = await BannerViewModel.findOneAndUpdate(
       { userId, bannerId },
-      { 
-        $setOnInsert: { 
-          userId, 
+      {
+        $setOnInsert: {
+          userId,
           bannerId,
-          createdAt: now
+          createdAt: now,
         },
-        $set: { 
+        $set: {
           viewedAt: now,
           clicked: true,
-          clickedAt: now
-        }
+          clickedAt: now,
+        },
       },
-      { 
-        upsert: true, 
+      {
+        upsert: true,
         new: true,
-        setDefaultsOnInsert: true 
-      }
+        setDefaultsOnInsert: true,
+      },
     );
 
-    return { 
-      action: existing ? 'viewed_and_clicked' : 'created_viewed_and_clicked', 
-      view: result 
+    return {
+      action: existing ? "viewed_and_clicked" : "created_viewed_and_clicked",
+      view: result,
     };
   }
 }
 
-module.exports = new BannerStatsService();
+export default new BannerStatsService();

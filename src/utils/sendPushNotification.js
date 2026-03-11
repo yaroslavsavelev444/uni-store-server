@@ -1,7 +1,6 @@
-const ApiError = require("../exceptions/api-error");
-const { NotificationModel } = require("../models/index.models");
-const logger = require("../logger/logger");
-const { createNotification } = require("../services/notificationsService");
+import { InternalServerError } from "../exceptions/api-error";
+import { info } from "../logger/logger";
+import { createNotification } from "../services/notificationsService";
 
 /**
  * Отправка пуш-уведомления
@@ -18,15 +17,14 @@ async function sendPushNotificationCustom(
   data = {},
   options = {},
   dbSave = true,
-  userId
+  userId,
 ) {
-
-  logger.info(
+  info(
     `sendPushNotificationCustom: ${JSON.stringify(
       { title, body, data, options, dbSave, userId },
       null,
-      2
-    )}`
+      2,
+    )}`,
   );
   const message = {
     sound: options.sound || "default",
@@ -69,7 +67,7 @@ async function sendPushNotificationCustom(
         console.log("Notification saved");
       } catch (error) {
         console.error("❌ Ошибка при сохранении уведомления:", error);
-        throw ApiError.InternalServerError("Error saving notification");
+        throw InternalServerError("Error saving notification");
       }
     }
 
@@ -80,4 +78,4 @@ async function sendPushNotificationCustom(
   }
 }
 
-module.exports = sendPushNotificationCustom;
+export default sendPushNotificationCustom;

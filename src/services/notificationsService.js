@@ -1,5 +1,5 @@
-const { NotificationModel } = require("../models/index.models");
-const { validateNotification } = require("../utils/validateNotificationData");
+import { NotificationModel } from "../models/index.models";
+import { validateNotification } from "../utils/validateNotificationData";
 
 const getNotificationsService = async (userData, limit = 10, skip = 0) => {
   const notifications = await NotificationModel.find({ userId: userData.id })
@@ -20,7 +20,7 @@ const getUnreadCount = async (userData) => {
 const markNotificationAsReadService = async (ids) => {
   await NotificationModel.updateMany(
     { _id: { $in: ids } },
-    { $set: { isRead: true } }
+    { $set: { isRead: true } },
   );
 
   return { success: true };
@@ -36,7 +36,7 @@ async function createNotification({ userId, type, title, body, data = {} }) {
 
   if (!valid) {
     throw new Error(
-      `Missing required fields for '${type}': ${missing.join(", ")}`
+      `Missing required fields for '${type}': ${missing.join(", ")}`,
     );
   }
 
@@ -52,10 +52,10 @@ async function createNotification({ userId, type, title, body, data = {} }) {
   });
 }
 
-module.exports = {
+export default {
   getNotificationsService,
   markNotificationAsReadService,
   deleteNotificationsService,
   createNotification,
-  getUnreadCount
+  getUnreadCount,
 };

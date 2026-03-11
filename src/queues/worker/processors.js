@@ -1,21 +1,18 @@
-const mailService = require("../../services/mailService");
-const logger = require("../../logger/logger");
-const {
-  taskQueues,
-  moderateQueues,
-  pushNotificationsQueues,
-} = require("../bull");
+import { default as mongoose } from "mongoose";
+import { error as _error, debug, info } from "../../logger/logger";
+import { disconnect } from "../../redis/redis.client";
+import { sendNotification } from "../../services/mailService";
+import { createHealthServer } from "../../utils/workerHealth";
+import { moderateQueues, pushNotificationsQueues, taskQueues } from "../bull";
 
-const { createHealthServer } = require("../../utils/workerHealth");
-const { disconnect } = require("../../redis/redis.client");
-const { default: mongoose } = require("mongoose");
 const healthServer = createHealthServer(4000);
-const sendPushNotificationCustom = require("../../utils/sendPushNotification");
-const { connectDB } = require("../../config/mongo");
-require("axios");
-require("../../models/index.models");
-const { moderateReview } = require("../../services/reviewService");
-const telegramNotifier = require("../../services/telegramNotifierService");
+
+import { connectDB } from "../../config/mongo";
+import sendPushNotificationCustom from "../../utils/sendPushNotification";
+import "axios";
+import "../../models/index.models";
+import { moderateReview } from "../../services/reviewService";
+import { processNotification } from "../../services/telegramNotifierService";
 
 const initProcessors = async () => {
   await connectDB();
@@ -28,19 +25,16 @@ const initProcessors = async () => {
         throw new Error("Missing required email notification data");
       }
 
-      await mailService.sendNotification({
+      await sendNotification({
         email,
         type,
         data,
       });
 
-      logger.info(`Email successfully sent to: ${email}`);
+      info(`Email successfully sent to: ${email}`);
       done();
     } catch (error) {
-      logger.error(
-        `Error processing email notification (Job ID: ${job.id}):`,
-        error
-      );
+      _error(`Error processing email notification (Job ID: ${job.id}):`, error);
       done(error);
     }
   });
@@ -49,25 +43,25 @@ const initProcessors = async () => {
     try {
       const { message, level, metadata, options } = job.data;
 
-      logger.info(`Processing Telegram notification (Job ID: ${job.id})`);
+      info(`Processing Telegram notification (Job ID: ${job.id})`);
 
       // Используем метод processNotification для отправки
-      const result = await telegramNotifier.processNotification(
+      const result = await processNotification(
         message,
         level,
         metadata,
-        options
+        options,
       );
 
       if (result === null) {
-        logger.debug(`Telegram notification ${job.id} was skipped (duplicate)`);
+        debug(`Telegram notification ${job.id} was skipped (duplicate)`);
       } else {
-        logger.info(`Telegram notification ${job.id} sent successfully`);
+        info(`Telegram notification ${job.id} sent successfully`);
       }
     } catch (error) {
-      logger.error(
+      _error(
         `Error processing Telegram notification (Job ID: ${job.id}):`,
-        error.message
+        error.message,
       );
 
       // Для rate limit ошибок делаем повторную попытку
@@ -79,9 +73,9 @@ const initProcessors = async () => {
 
       // Для других ошибок логируем и пропускаем после нескольких попыток
       if (job.attemptsMade >= job.opts.attempts - 1) {
-        logger.error(
+        _error(
           `Telegram notification ${job.id} failed after ${job.attemptsMade} attempts:`,
-          error
+          error,
         );
       } else {
         throw error; // Пробрасываем для повторной попытки
@@ -96,10 +90,7 @@ const initProcessors = async () => {
       await moderateReview(reviewId);
       done();
     } catch (error) {
-      logger.error(
-        `Error processing email notification (Job ID: ${job.id}):`,
-        error
-      );
+      _error(`Error processing email notification (Job ID: ${job.id}):`, error);
       done(error);
     }
   });
@@ -107,8 +98,7 @@ const initProcessors = async () => {
   pushNotificationsQueues.process("sendPushNotification", 10, async (job) => {
     console.log("Mongo readyState:", mongoose.connection.readyState);
 
-    const {  title, body, data, options, dbSave, userId } =
-      job.data;
+    const { title, body, data, options, dbSave, userId } = job.data;
 
     console.log(`Processing push notification job ${job.id}`);
 
@@ -119,7 +109,7 @@ const initProcessors = async () => {
         data,
         options,
         dbSave,
-        userId
+        userId,
       );
 
       console.log(`✅ Push notification job ${job.id} completed`);
@@ -163,4 +153,4 @@ process.on("SIGTERM", shutdown);
   }
 })();
 
-logger.info("Worker: Initialized");
+info("Worker: Initialized");

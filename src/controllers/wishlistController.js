@@ -1,10 +1,20 @@
-const ApiError = require("../exceptions/api-error");
-const wishlistService = require("../services/wishlistService");
+import {
+  addProduct as _addProduct,
+  clearWishlist as _clearWishlist,
+  getWishlist as _getWishlist,
+  isInWishlist as _isInWishlist,
+  removeProduct as _removeProduct,
+  toggleProduct as _toggleProduct,
+  getWishlistCount,
+  getWishlistPaginated,
+  getWishlistProductIds,
+  getWishlistSummary,
+} from "../services/wishlistService";
 
 class WishlistController {
   async getWishlist(req, res, next) {
     try {
-      const products = await wishlistService.getWishlist(req.user.id);
+      const products = await _getWishlist(req.user.id);
       res.json(products);
     } catch (error) {
       next(error);
@@ -14,7 +24,7 @@ class WishlistController {
   async addProduct(req, res, next) {
     try {
       const { productId, notes } = req.body;
-      const products = await wishlistService.addProduct(req.user.id, productId, notes);
+      const products = await _addProduct(req.user.id, productId, notes);
       res.status(200).json(products);
     } catch (error) {
       next(error);
@@ -24,7 +34,7 @@ class WishlistController {
   async removeProduct(req, res, next) {
     try {
       const { productId } = req.params;
-      const products = await wishlistService.removeProduct(req.user.id, productId);
+      const products = await _removeProduct(req.user.id, productId);
       res.status(200).json(products);
     } catch (error) {
       next(error);
@@ -33,7 +43,7 @@ class WishlistController {
 
   async clearWishlist(req, res, next) {
     try {
-      const products = await wishlistService.clearWishlist(req.user.id);
+      const products = await _clearWishlist(req.user.id);
       res.status(200).json(products);
     } catch (error) {
       next(error);
@@ -43,13 +53,15 @@ class WishlistController {
   async toggleProduct(req, res, next) {
     try {
       const { productId, notes } = req.body;
-      const products = await wishlistService.toggleProduct(req.user.id, productId, notes);
-      
-      const exists = products.some(p => p._id.toString() === productId);
+      const products = await _toggleProduct(req.user.id, productId, notes);
+
+      const exists = products.some((p) => p._id.toString() === productId);
       res.status(200).json({
         products,
-        action: exists ? 'added' : 'removed',
-        message: exists ? 'Товар добавлен в избранное' : 'Товар удален из избранного'
+        action: exists ? "added" : "removed",
+        message: exists
+          ? "Товар добавлен в избранное"
+          : "Товар удален из избранного",
       });
     } catch (error) {
       next(error);
@@ -58,7 +70,7 @@ class WishlistController {
 
   async getSummary(req, res, next) {
     try {
-      const summary = await wishlistService.getWishlistSummary(req.user.id);
+      const summary = await getWishlistSummary(req.user.id);
       res.json(summary);
     } catch (error) {
       next(error);
@@ -68,7 +80,7 @@ class WishlistController {
   async isInWishlist(req, res, next) {
     try {
       const { productId } = req.params;
-      const isInWishlist = await wishlistService.isInWishlist(req.user.id, productId);
+      const isInWishlist = await _isInWishlist(req.user.id, productId);
       res.json({ isInWishlist });
     } catch (error) {
       next(error);
@@ -77,7 +89,7 @@ class WishlistController {
 
   async getProductIds(req, res, next) {
     try {
-      const productIds = await wishlistService.getWishlistProductIds(req.user.id);
+      const productIds = await getWishlistProductIds(req.user.id);
       res.json(productIds);
     } catch (error) {
       next(error);
@@ -86,7 +98,7 @@ class WishlistController {
 
   async getCount(req, res, next) {
     try {
-      const count = await wishlistService.getWishlistCount(req.user.id);
+      const count = await getWishlistCount(req.user.id);
       res.json({ count });
     } catch (error) {
       next(error);
@@ -95,15 +107,20 @@ class WishlistController {
 
   async getPaginated(req, res, next) {
     try {
-      const { page = 1, limit = 50, sortBy = 'addedAt', sortOrder = 'desc' } = req.query;
-      
-      const result = await wishlistService.getWishlistPaginated(req.user.id, {
+      const {
+        page = 1,
+        limit = 50,
+        sortBy = "addedAt",
+        sortOrder = "desc",
+      } = req.query;
+
+      const result = await getWishlistPaginated(req.user.id, {
         page: parseInt(page),
         limit: parseInt(limit),
         sortBy,
-        sortOrder
+        sortOrder,
       });
-      
+
       res.json(result);
     } catch (error) {
       next(error);
@@ -111,4 +128,4 @@ class WishlistController {
   }
 }
 
-module.exports = new WishlistController();
+export default new WishlistController();

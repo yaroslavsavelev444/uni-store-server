@@ -1,5 +1,5 @@
-const rateLimit = require('express-rate-limit');
-const slowDown = require('express-slow-down');
+import rateLimit from "express-rate-limit";
+import slowDown from "express-slow-down";
 
 // 🔐 Настройки безопасности
 const logOnly = false;
@@ -18,9 +18,9 @@ const forbiddenPatterns = [
   /\.bash/i,
 
   // WordPress + распространённые сканируемые пути
-  /\/wp\-includes\//i,
-  /\/wp\-content\//i,
-  /\/wp\-admin\//i,
+  /\/wp-includes\//i,
+  /\/wp-content\//i,
+  /\/wp-admin\//i,
   /\/wordpress\//i,
   /\/xmlrpc\.php/i,
   /\/wlwmanifest\.xml/i,
@@ -39,8 +39,8 @@ const forbiddenPatterns = [
 
   // Подозрительные URL-структуры
   /\/\//,
-  /\.\.\//,             // Directory traversal
-  /%2e%2e%2f/i,         // URL-encoded ../
+  /\.\.\//, // Directory traversal
+  /%2e%2e%2f/i, // URL-encoded ../
 ];
 
 // Middleware для блокировки по шаблонам
@@ -89,13 +89,17 @@ const safeAdminPatterns = [
 ];
 
 function forbiddenRequestBlocker(req, res, next) {
-  const isSafeAdminPath = safeAdminPatterns.some(pattern => pattern.test(req.path));
+  const isSafeAdminPath = safeAdminPatterns.some((pattern) =>
+    pattern.test(req.path),
+  );
 
   if (isSafeAdminPath) {
     return next(); // Разрешаем безопасные админские пути
   }
 
-  const isForbidden = forbiddenPatterns.some(pattern => pattern.test(req.url));
+  const isForbidden = forbiddenPatterns.some((pattern) =>
+    pattern.test(req.url),
+  );
 
   if (isForbidden) {
     const log = {
@@ -103,13 +107,13 @@ function forbiddenRequestBlocker(req, res, next) {
       method: req.method,
       url: req.url,
       ip: req.ip,
-      userAgent: req.headers['user-agent'],
+      userAgent: req.headers["user-agent"],
     };
 
-    console.warn('[SECURITY] Forbidden request detected:', log);
+    console.warn("[SECURITY] Forbidden request detected:", log);
 
     if (!logOnly) {
-      return res.status(403).send('Forbidden');
+      return res.status(403).send("Forbidden");
     }
   }
 
@@ -119,20 +123,20 @@ function forbiddenRequestBlocker(req, res, next) {
 // 🚀 Rate limiting — жёсткое ограничение
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 минут
-  max: 100,                 // 100 запросов с одного IP за окно
+  max: 100, // 100 запросов с одного IP за окно
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many requests, please try again later.',
+  message: "Too many requests, please try again later.",
 });
 
 // 🐌 Замедление при превышении лимита
 const speedLimiter = slowDown({
   windowMs: 15 * 60 * 1000, // 15 минут
-  delayAfter: 50,           // После 50 запросов в окне — замедлять
-  delayMs: 500,             // Увеличивать задержку на 500мс за каждый лишний запрос
+  delayAfter: 50, // После 50 запросов в окне — замедлять
+  delayMs: 500, // Увеличивать задержку на 500мс за каждый лишний запрос
 });
 
-module.exports = {
+export default {
   securityMiddleware: forbiddenRequestBlocker,
   rateLimiter: limiter,
   speedLimiter,

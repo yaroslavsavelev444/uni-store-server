@@ -1,4 +1,4 @@
-const { Schema, model } = require("mongoose");
+import { model, Schema } from "mongoose";
 
 const ContentBlockSchema = new Schema(
   {
@@ -12,7 +12,7 @@ const ContentBlockSchema = new Schema(
       required: true,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const TopicCommonSchema = new Schema(
@@ -29,7 +29,7 @@ const TopicCommonSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-module.exports = model("TopicCommon", TopicCommonSchema);
+export default model("TopicCommon", TopicCommonSchema);

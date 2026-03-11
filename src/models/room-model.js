@@ -1,4 +1,4 @@
-const { Schema, model, Types } = require("mongoose");
+import { model, Schema, Types } from "mongoose";
 
 const roomSchema = new Schema(
   {
@@ -22,18 +22,18 @@ const roomSchema = new Schema(
     unreadCounts: [
       {
         userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-        count: { type: Number, default: 0 }
-      }
+        count: { type: Number, default: 0 },
+      },
     ],
   },
   {
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 roomSchema.index({ product: 1 });
 roomSchema.index({ "lastMessage.createdAt": -1 });
 
-module.exports = model("Room", roomSchema);
+export default model("Room", roomSchema);

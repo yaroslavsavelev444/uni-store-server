@@ -1,13 +1,27 @@
-const ApiError = require("../exceptions/api-error");
-const mongoose = require("mongoose");
-const { ProductStatus } = require("../models/product-model");
-const { ProductModel, UserSearchModel } = require("../models/index.models");
-const CategoryModel = require("../models/category-model"); // ДОБАВЛЕНО
-const fileService = require("../utils/fileManager");
-const PurchaseCheckService = require("./purchaseCheckService");
-const ReviewsService = require("./reviewService");
-const FileManager = require("../utils/fileManager");
-const ProductDiscountService = require("./ProductDiscountService");
+import { Types } from "mongoose";
+import ApiError, {
+  BadRequest,
+  DatabaseError,
+  NotFound,
+} from "../exceptions/api-error";
+import { findById, findOne } from "../models/category-model"; // ДОБАВЛЕНО
+import { ProductModel, UserSearchModel } from "../models/index.models";
+import { ProductStatus } from "../models/product-model";
+import {
+  getFileUrl as _getFileUrl,
+  deleteFile,
+  getFileUrl,
+  validateFileExists,
+} from "../utils/fileManager";
+import {
+  getCartDiscountInfoForProduct,
+  getDiscountsForProducts,
+} from "./ProductDiscountService";
+import { hasUserPurchasedProduct } from "./purchaseCheckService";
+import {
+  checkIfUserHasReviewedStatic,
+  getProductReviewsCountStatic,
+} from "./reviewService";
 
 class ProductService {
   async getAllProducts(query = {}) {
@@ -58,8 +72,8 @@ class ProductService {
 
     // 2. Фильтр по категории (через ID категории)
     if (category) {
-      if (!mongoose.Types.ObjectId.isValid(category)) {
-        throw ApiError.BadRequest("Некорректный ID категории");
+      if (!Types.ObjectId.isValid(category)) {
+        throw BadRequest("Некорректный ID категории");
       }
       filter.category = category;
     }
@@ -69,7 +83,7 @@ class ProductService {
     if (slug) {
       try {
         // Находим категорию по slug
-        const categoryDoc = await CategoryModel.findOne({ slug });
+        const categoryDoc = await findOne({ slug });
 
         if (!categoryDoc) {
           // Если категория не найдена, возвращаем пустой результат
@@ -89,7 +103,7 @@ class ProductService {
         categoryIdFromSlug = categoryDoc._id;
         filter.category = categoryIdFromSlug;
       } catch (error) {
-        throw ApiError.DatabaseError("Ошибка при поиске категории");
+        throw DatabaseError("Ошибка при поиске категории");
       }
     }
 
@@ -111,7 +125,7 @@ class ProductService {
     // 8. ИСКЛЮЧЕНИЕ ID продуктов
     if (excludeIds && excludeIds.length > 0) {
       const validExcludeIds = excludeIds.filter((id) =>
-        mongoose.Types.ObjectId.isValid(id),
+        Types.ObjectId.isValid(id),
       );
 
       if (validExcludeIds.length > 0) {
@@ -187,9 +201,7 @@ class ProductService {
         const finalPrice = this.calculateFinalPrice(product);
 
         // Получаем количество отзывов для этого продукта
-        const reviewsCount = await ReviewsService.getProductReviewsCountStatic(
-          product._id,
-        );
+        const reviewsCount = await getProductReviewsCountStatic(product._id);
 
         return {
           ...product,
@@ -208,10 +220,9 @@ class ProductService {
       let productsWithDiscounts = productsWithFinalPrice;
       if (!query.skipDiscountCheck) {
         try {
-          productsWithDiscounts =
-            await ProductDiscountService.getDiscountsForProducts(
-              productsWithFinalPrice,
-            );
+          productsWithDiscounts = await getDiscountsForProducts(
+            productsWithFinalPrice,
+          );
         } catch (error) {
           console.error("Ошибка при получении скидок для продуктов:", error);
           // В случае ошибки возвращаем продукты без информации о скидках
@@ -227,16 +238,14 @@ class ProductService {
           processedProduct.mainImage &&
           !processedProduct.mainImage.startsWith("http")
         ) {
-          processedProduct.mainImage = FileManager.getFileUrl(
-            processedProduct.mainImage,
-          );
+          processedProduct.mainImage = _getFileUrl(processedProduct.mainImage);
         }
 
         // Обработка массива images
         if (Array.isArray(processedProduct.images)) {
           processedProduct.images = processedProduct.images.map((img) => ({
             ...img,
-            url: FileManager.getFileUrl(img.url),
+            url: _getFileUrl(img.url),
           }));
         }
 
@@ -246,7 +255,7 @@ class ProductService {
           processedProduct.instruction.url &&
           !processedProduct.instruction.url.startsWith("http")
         ) {
-          processedProduct.instruction.url = FileManager.getFileUrl(
+          processedProduct.instruction.url = _getFileUrl(
             processedProduct.instruction.url,
           );
         }
@@ -285,13 +294,13 @@ class ProductService {
         },
       };
     } catch (error) {
-      throw ApiError.DatabaseError("Ошибка при получении продуктов");
+      throw DatabaseError("Ошибка при получении продуктов");
     }
   }
 
   async getSimilarProducts(productId, options = {}) {
-    if (!mongoose.Types.ObjectId.isValid(productId)) {
-      throw ApiError.BadRequest("Некорректный формат ID продукта");
+    if (!Types.ObjectId.isValid(productId)) {
+      throw BadRequest("Некорректный формат ID продукта");
     }
 
     try {
@@ -302,7 +311,7 @@ class ProductService {
         .lean();
 
       if (!currentProduct) {
-        throw ApiError.NotFound("Продукт не найден");
+        throw NotFound("Продукт не найден");
       }
 
       const categoryId = currentProduct.category?._id;
@@ -353,13 +362,13 @@ class ProductService {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       console.error("Ошибка при получении похожих продуктов:", error);
-      throw ApiError.DatabaseError("Ошибка при получении похожих продуктов");
+      throw DatabaseError("Ошибка при получении похожих продуктов");
     }
   }
 
   async getProductById(id, options = {}) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw ApiError.BadRequest("Некорректный формат ID продукта");
+    if (!Types.ObjectId.isValid(id)) {
+      throw BadRequest("Некорректный формат ID продукта");
     }
 
     try {
@@ -382,17 +391,17 @@ class ProductService {
       const product = await query.lean({ virtuals: true });
 
       if (!product) {
-        throw ApiError.NotFound("Продукт не найден");
+        throw NotFound("Продукт не найден");
       }
 
       // Проверка видимости для не-админов
       if (!options.isAdmin && !product.isVisible) {
-        throw ApiError.NotFound("Продукт не доступен");
+        throw NotFound("Продукт не доступен");
       }
 
       // Проверка существования категории
       if (product.category && !product.category._id) {
-        throw ApiError.NotFound("Категория продукта не найдена");
+        throw NotFound("Категория продукта не найдена");
       }
 
       // Рассчитываем финальную цену
@@ -401,7 +410,7 @@ class ProductService {
       return product;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError("Ошибка при получении продукта");
+      throw DatabaseError("Ошибка при получении продукта");
     }
   }
 
@@ -426,15 +435,15 @@ class ProductService {
       const product = await query.lean({ virtuals: true });
 
       if (!product) {
-        throw ApiError.NotFound("Продукт не найден");
+        throw NotFound("Продукт не найден");
       }
 
       if (!options.isAdmin && !product.isVisible) {
-        throw ApiError.NotFound("Продукт не доступен");
+        throw NotFound("Продукт не доступен");
       }
 
       if (product.category && !product.category._id) {
-        throw ApiError.NotFound("Категория продукта не найдена");
+        throw NotFound("Категория продукта не найдена");
       }
 
       // ФИЛЬТРАЦИЯ СПЕЦИФИКАЦИЙ - только видимые
@@ -449,17 +458,16 @@ class ProductService {
       if (Array.isArray(product.images)) {
         product.images = product.images.map((img) => ({
           ...img,
-          url: FileManager.getFileUrl(img.url),
+          url: _getFileUrl(img.url),
         }));
       }
 
       // Добавляем информацию о централизованных скидках
       if (!options.skipDiscountCheck) {
-        const discountInfo =
-          await ProductDiscountService.getCartDiscountInfoForProduct(
-            product,
-            options.cartQuantity || 1,
-          );
+        const discountInfo = await getCartDiscountInfoForProduct(
+          product,
+          options.cartQuantity || 1,
+        );
 
         if (discountInfo) {
           product.cartDiscount = discountInfo;
@@ -472,13 +480,12 @@ class ProductService {
       }
 
       if (options.userId) {
-        product.hasPurchased =
-          await PurchaseCheckService.hasUserPurchasedProduct(
-            options.userId,
-            product._id.toString(),
-          );
+        product.hasPurchased = await hasUserPurchasedProduct(
+          options.userId,
+          product._id.toString(),
+        );
 
-        product.hasReviewed = await ReviewsService.checkIfUserHasReviewedStatic(
+        product.hasReviewed = await checkIfUserHasReviewedStatic(
           options.userId,
           product._id.toString(),
         );
@@ -487,7 +494,7 @@ class ProductService {
       return product;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError("Ошибка при получении продукта");
+      throw DatabaseError("Ошибка при получении продукта");
     }
   }
 
@@ -498,13 +505,13 @@ class ProductService {
         sku: productData.sku,
       });
       if (existingProduct) {
-        throw ApiError.BadRequest("Продукт с таким SKU уже существует");
+        throw BadRequest("Продукт с таким SKU уже существует");
       }
 
       // Проверка существования категории
-      const categoryExists = await CategoryModel.findById(productData.category);
+      const categoryExists = await findById(productData.category);
       if (!categoryExists) {
-        throw ApiError.BadRequest("Указанная категория не существует");
+        throw BadRequest("Указанная категория не существует");
       }
 
       // Проверка связанных продуктов
@@ -535,19 +542,19 @@ class ProductService {
       await this.rollbackProductFiles(productData);
 
       if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError("Ошибка при создании продукта");
+      throw DatabaseError("Ошибка при создании продукта");
     }
   }
 
   async updateProduct(id, updateData, userId) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw ApiError.BadRequest("Некорректный формат ID продукта");
+    if (!Types.ObjectId.isValid(id)) {
+      throw BadRequest("Некорректный формат ID продукта");
     }
 
     try {
       const product = await ProductModel.findById(id);
       if (!product) {
-        throw ApiError.NotFound("Продукт не найден");
+        throw NotFound("Продукт не найден");
       }
 
       // Проверка SKU на уникальность
@@ -557,17 +564,15 @@ class ProductService {
           _id: { $ne: id },
         });
         if (existingProduct) {
-          throw ApiError.BadRequest("Продукт с таким SKU уже существует");
+          throw BadRequest("Продукт с таким SKU уже существует");
         }
       }
 
       // Проверка категории
       if (updateData.category) {
-        const categoryExists = await CategoryModel.findById(
-          updateData.category,
-        );
+        const categoryExists = await findById(updateData.category);
         if (!categoryExists) {
-          throw ApiError.BadRequest("Указанная категория не существует");
+          throw BadRequest("Указанная категория не существует");
         }
       }
 
@@ -605,7 +610,7 @@ class ProductService {
           product.mainImage = null;
         } else if (updateData.mainImage.url) {
           // Проверяем что файл существует
-          await fileService.validateFileExists(updateData.mainImage.url);
+          await validateFileExists(updateData.mainImage.url);
           product.mainImage = updateData.mainImage;
         }
       }
@@ -648,7 +653,7 @@ class ProductService {
       return this.formatProductForResponse(product);
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError("Ошибка при обновлении продукта");
+      throw DatabaseError("Ошибка при обновлении продукта");
     }
   }
 
@@ -668,7 +673,7 @@ class ProductService {
     if (instructionData.type === "file") {
       // Проверяем что файл существует
       if (instructionData.url && !instructionData.url.startsWith("http")) {
-        await fileService.validateFileExists(instructionData.url);
+        await validateFileExists(instructionData.url);
       }
 
       // Сохраняем дополнительные метаданные
@@ -683,7 +688,7 @@ class ProductService {
       try {
         new URL(instructionData.url);
       } catch (error) {
-        throw ApiError.BadRequest("Некорректный URL инструкции");
+        throw BadRequest("Некорректный URL инструкции");
       }
 
       // Устанавливаем заголовок по умолчанию
@@ -748,7 +753,7 @@ class ProductService {
 
         // Для новых: Проверяйте с try-catch, чтобы записать лог, но продолжить
         try {
-          await fileService.validateFileExists(image.url);
+          await validateFileExists(image.url);
         } catch (error) {
           console.error(
             `Предупреждение: Пропускаем недействительное новое изображение: ${image.url} - ${error.message}`,
@@ -787,7 +792,7 @@ class ProductService {
     );
     for (const imageUrl of galleryImagesToDelete) {
       try {
-        await fileService.deleteFile(imageUrl);
+        await deleteFile(imageUrl);
       } catch (error) {
         console.warn(`Не удалось удалить изображение: ${error.message}`);
       }
@@ -800,7 +805,7 @@ class ProductService {
       (!newMainImage || newMainImage.url !== oldMainImage.url)
     ) {
       try {
-        await fileService.deleteFile(oldMainImage.url);
+        await deleteFile(oldMainImage.url);
       } catch (error) {
         console.warn(
           `Не удалось удалить основное изображение: ${error.message}`,
@@ -815,7 +820,7 @@ class ProductService {
       (!newInstruction || newInstruction.url !== oldInstruction.url)
     ) {
       try {
-        await fileService.deleteFile(oldInstruction.url);
+        await deleteFile(oldInstruction.url);
       } catch (error) {
         console.warn(`Не удалось удалить инструкцию: ${error.message}`);
       }
@@ -850,7 +855,7 @@ class ProductService {
     // Удаляем файлы
     for (const fileUrl of filesToDelete) {
       try {
-        await fileService.deleteFile(fileUrl);
+        await deleteFile(fileUrl);
       } catch (error) {
         console.warn(`Не удалось удалить файл при откате: ${error.message}`);
       }
@@ -865,20 +870,18 @@ class ProductService {
 
     // Преобразуем пути файлов в полные URL
     if (productObj.mainImage && productObj.mainImage.url) {
-      productObj.mainImage.url = fileService.getFileUrl(
-        productObj.mainImage.url,
-      );
+      productObj.mainImage.url = getFileUrl(productObj.mainImage.url);
     }
 
     if (productObj.images && Array.isArray(productObj.images)) {
       productObj.images = productObj.images.map((img) => ({
         ...img,
-        url: fileService.getFileUrl(img.url),
+        url: getFileUrl(img.url),
       }));
     }
 
     if (productObj.instructionFile && productObj.instructionFile.url) {
-      productObj.instructionFile.url = fileService.getFileUrl(
+      productObj.instructionFile.url = getFileUrl(
         productObj.instructionFile.url,
       );
     }
@@ -889,12 +892,12 @@ class ProductService {
     return productObj;
   }
   async updateProductStatus(id, status, userId) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw ApiError.BadRequest("Некорректный формат ID продукта");
+    if (!Types.ObjectId.isValid(id)) {
+      throw BadRequest("Некорректный формат ID продукта");
     }
 
     if (!Object.values(ProductStatus).includes(status)) {
-      throw ApiError.BadRequest("Некорректный статус продукта");
+      throw BadRequest("Некорректный статус продукта");
     }
 
     try {
@@ -910,13 +913,13 @@ class ProductService {
       ).lean({ virtuals: true });
 
       if (!product) {
-        throw ApiError.NotFound("Продукт не найден");
+        throw NotFound("Продукт не найден");
       }
 
       return product;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError("Ошибка при обновлении статуса продукта");
+      throw DatabaseError("Ошибка при обновлении статуса продукта");
     }
   }
 
@@ -1086,14 +1089,14 @@ class ProductService {
 
   async addRelatedProduct(productId, relatedProductId, userId) {
     if (
-      !mongoose.Types.ObjectId.isValid(productId) ||
-      !mongoose.Types.ObjectId.isValid(relatedProductId)
+      !Types.ObjectId.isValid(productId) ||
+      !Types.ObjectId.isValid(relatedProductId)
     ) {
-      throw ApiError.BadRequest("Некорректный формат ID продукта");
+      throw BadRequest("Некорректный формат ID продукта");
     }
 
     if (productId === relatedProductId) {
-      throw ApiError.BadRequest("Продукт не может быть связан с самим собой");
+      throw BadRequest("Продукт не может быть связан с самим собой");
     }
 
     try {
@@ -1103,11 +1106,11 @@ class ProductService {
       ]);
 
       if (!product || !relatedProduct) {
-        throw ApiError.NotFound("Один из продуктов не найден");
+        throw NotFound("Один из продуктов не найден");
       }
 
       if (product.relatedProducts.includes(relatedProductId)) {
-        throw ApiError.BadRequest("Продукт уже связан");
+        throw BadRequest("Продукт уже связан");
       }
 
       product.relatedProducts.push(relatedProductId);
@@ -1117,13 +1120,13 @@ class ProductService {
       return product.toObject({ virtuals: true });
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError("Ошибка при добавлении связанного продукта");
+      throw DatabaseError("Ошибка при добавлении связанного продукта");
     }
   }
 
   async getRelatedProducts(productId, options = {}) {
-    if (!mongoose.Types.ObjectId.isValid(productId)) {
-      throw ApiError.BadRequest("Некорректный формат ID продукта");
+    if (!Types.ObjectId.isValid(productId)) {
+      throw BadRequest("Некорректный формат ID продукта");
     }
 
     try {
@@ -1140,7 +1143,7 @@ class ProductService {
         .lean({ virtuals: true });
 
       if (!product) {
-        throw ApiError.NotFound("Продукт не найден");
+        throw NotFound("Продукт не найден");
       }
 
       // Рассчитываем финальные цены для связанных продуктов
@@ -1152,7 +1155,7 @@ class ProductService {
       return relatedProductsWithPrice;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw ApiError.DatabaseError("Ошибка при получении связанных продуктов");
+      throw DatabaseError("Ошибка при получении связанных продуктов");
     }
   }
 
@@ -1198,7 +1201,7 @@ class ProductService {
         },
       };
     } catch (error) {
-      throw ApiError.DatabaseError("Ошибка при поиске продуктов");
+      throw DatabaseError("Ошибка при поиске продуктов");
     }
   }
 
@@ -1245,7 +1248,7 @@ class ProductService {
         // Проверка уникальности ID в массиве
         const uniqueIds = [...new Set(productData[field])];
         if (uniqueIds.length !== productData[field].length) {
-          throw ApiError.BadRequest(`Дублирующиеся ID в поле ${field}`);
+          throw BadRequest(`Дублирующиеся ID в поле ${field}`);
         }
 
         // Проверка существования продуктов
@@ -1260,7 +1263,7 @@ class ProductService {
         );
 
         if (missingIds.length > 0) {
-          throw ApiError.BadRequest(
+          throw BadRequest(
             `Некоторые связанные продукты не существуют: ${missingIds.join(", ")}`,
           );
         }
@@ -1299,4 +1302,4 @@ class ProductService {
   }
 }
 
-module.exports = new ProductService();
+export default new ProductService();

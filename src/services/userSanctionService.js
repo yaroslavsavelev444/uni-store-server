@@ -1,8 +1,17 @@
 // services/user-sanction-service.js (обновленная версия)
-const ApiError = require("../exceptions/api-error");
-const { UserModel, UserSanctionModel } = require("../models/index.models");
-const SessionService = require("../services/SessionService");
-const logger = require("../logger/logger");
+import ApiError, {
+  BadRequest,
+  DatabaseError,
+  ForbiddenError,
+  NotFoundError,
+} from "../exceptions/api-error";
+import { error as _error, info } from "../logger/logger";
+import { UserModel, UserSanctionModel } from "../models/index.models";
+import {
+  bulkRemoveFromBlacklist,
+  deleteAllUserSessions,
+  getUserActiveSessions,
+} from "../services/SessionService";
 
 class UserSanctionService {
   /**
@@ -14,7 +23,7 @@ class UserSanctionService {
    */
   async blockUser(userId, admin, options = {}) {
     const session = await UserModel.db.startSession();
-    
+
     try {
       session.startTransaction();
 
@@ -28,20 +37,20 @@ class UserSanctionService {
       // Проверяем существование пользователя
       const user = await UserModel.findById(userId).session(session);
       if (!user) {
-        throw ApiError.NotFoundError("Пользователь не найден", null);
+        throw NotFoundError("Пользователь не найден", null);
       }
 
       // Проверяем, не пытаемся ли заблокировать себя
       if (userId.toString() === admin.id.toString()) {
-        throw ApiError.BadRequest("Вы не можете заблокировать себя", [], null);
+        throw BadRequest("Вы не можете заблокировать себя", [], null);
       }
 
       // Проверяем, не пытаемся ли заблокировать другого админа/суперадмина
       if (user.role === "admin" || user.role === "superadmin") {
         if (admin.role !== "superadmin") {
-          throw ApiError.ForbiddenError(
+          throw ForbiddenError(
             "Только суперадмин может блокировать администраторов",
-            null
+            null,
           );
         }
       }
@@ -50,7 +59,7 @@ class UserSanctionService {
       await UserSanctionModel.updateMany(
         { user: userId, isActive: true },
         { isActive: false },
-        { session }
+        { session },
       );
 
       // Рассчитываем expiresAt
@@ -87,47 +96,54 @@ class UserSanctionService {
 
       // 🔴 КРИТИЧЕСКИ ВАЖНО: Инвалидируем ВСЕ сессии пользователя
       try {
-        await SessionService.deleteAllUserSessions(userId);
-        logger.info(`Все сессии пользователя ${userId} удалены при блокировке`, {
+        await deleteAllUserSessions(userId);
+        info(`Все сессии пользователя ${userId} удалены при блокировке`, {
           userId,
           adminId: admin.id,
           duration,
         });
       } catch (sessionError) {
-        logger.error(`Ошибка при удалении сессий пользователя ${userId}:`, sessionError);
+        _error(
+          `Ошибка при удалении сессий пользователя ${userId}:`,
+          sessionError,
+        );
         // НЕ прерываем транзакцию, продолжаем блокировку
       }
 
       // 🔴 Добавляем все активные токены в blacklist
       try {
         // Получаем все активные сессии пользователя
-        const activeSessions = await SessionService.getUserActiveSessions(userId);
-        
+        const activeSessions = await getUserActiveSessions(userId);
+
         if (activeSessions && activeSessions.length > 0) {
           // Используем bulkAddToBlacklist для массового добавления
-          const refreshTokens = activeSessions.map(s => s.refreshToken);
-          
+          const refreshTokens = activeSessions.map((s) => s.refreshToken);
+
           // Создаем операции для pipeline
-          const operations = refreshTokens.map(token => {
+          const operations = refreshTokens.map((token) => {
             const blacklistKey = `blacklist:refresh:${token}`;
-            const ttl = duration === 0 
-              ? 365 * 24 * 60 * 60 // 1 год для бессрочной блокировки
-              : duration * 60 * 60; // Токены будут в blacklist пока действует блокировка
-            return ['setex', blacklistKey, ttl, "user_blocked"];
+            const ttl =
+              duration === 0
+                ? 365 * 24 * 60 * 60 // 1 год для бессрочной блокировки
+                : duration * 60 * 60; // Токены будут в blacklist пока действует блокировка
+            return ["setex", blacklistKey, ttl, "user_blocked"];
           });
 
           // Выполняем массовое добавление в Redis
-          const redisClient = require("../redis/redis.client");
+          const redisClient = require("../redis/redis.client").default;
           await redisClient.pipeline(operations);
-          
-          logger.info(`Токены пользователя ${userId} добавлены в blacklist`, {
+
+          info(`Токены пользователя ${userId} добавлены в blacklist`, {
             userId,
             tokensCount: refreshTokens.length,
-            duration: duration === 0 ? 'permanent' : `${duration} hours`,
+            duration: duration === 0 ? "permanent" : `${duration} hours`,
           });
         }
       } catch (blacklistError) {
-        logger.error(`Ошибка при добавлении токенов в blacklist для пользователя ${userId}:`, blacklistError);
+        _error(
+          `Ошибка при добавлении токенов в blacklist для пользователя ${userId}:`,
+          blacklistError,
+        );
         // НЕ прерываем транзакцию
       }
 
@@ -139,7 +155,7 @@ class UserSanctionService {
         .populate("admin", "name email role")
         .lean();
 
-      logger.info(`Пользователь ${userId} успешно заблокирован`, {
+      info(`Пользователь ${userId} успешно заблокирован`, {
         userId,
         adminId: admin.id,
         duration,
@@ -148,18 +164,17 @@ class UserSanctionService {
       });
 
       return populatedSanction;
-
     } catch (error) {
       await session.abortTransaction();
-      
+
       if (error instanceof ApiError) {
         throw error;
       }
-      
-      logger.error(`Ошибка при блокировке пользователя ${userId}:`, error);
-      throw ApiError.DatabaseError(
+
+      _error(`Ошибка при блокировке пользователя ${userId}:`, error);
+      throw DatabaseError(
         `Ошибка при блокировке пользователя: ${error.message}`,
-        null
+        null,
       );
     } finally {
       session.endSession();
@@ -174,25 +189,25 @@ class UserSanctionService {
    */
   async unblockUser(userId, admin) {
     const session = await UserModel.db.startSession();
-    
+
     try {
       session.startTransaction();
 
       const user = await UserModel.findById(userId).session(session);
       if (!user) {
-        throw ApiError.NotFoundError("Пользователь не найден", null);
+        throw NotFoundError("Пользователь не найден", null);
       }
 
       // Проверяем, заблокирован ли пользователь
       if (user.status !== "blocked") {
-        throw ApiError.BadRequest("Пользователь не заблокирован", [], null);
+        throw BadRequest("Пользователь не заблокирован", [], null);
       }
 
       // Деактивируем все активные санкции
       await UserSanctionModel.updateMany(
         { user: userId, isActive: true },
         { isActive: false },
-        { session }
+        { session },
       );
 
       // Обновляем статус пользователя
@@ -204,47 +219,54 @@ class UserSanctionService {
       // ✅ ОЧИЩАЕМ BLACKLIST: Удаляем все токены пользователя из черного списка
       try {
         // Получаем все сессии пользователя (включая отозванные)
-        const userSessions = await require("../models/index.models").UserSessionModel.find({ 
-          userId 
-        }).session(session);
-        
-        if (userSessions && userSessions.length > 0) {
-          const refreshTokens = userSessions.map(s => s.refreshToken);
-          
-          // Удаляем из Redis blacklist
-          await SessionService.bulkRemoveFromBlacklist(refreshTokens);
-          
-          logger.info(`Токены пользователя ${userId} удалены из blacklist при разблокировке`, {
+        const userSessions = await require("../models/index.models")
+          .default.UserSessionModel.find({
             userId,
-            adminId: admin.id,
-            tokensCount: refreshTokens.length,
-          });
+          })
+          .session(session);
+
+        if (userSessions && userSessions.length > 0) {
+          const refreshTokens = userSessions.map((s) => s.refreshToken);
+
+          // Удаляем из Redis blacklist
+          await bulkRemoveFromBlacklist(refreshTokens);
+
+          info(
+            `Токены пользователя ${userId} удалены из blacklist при разблокировке`,
+            {
+              userId,
+              adminId: admin.id,
+              tokensCount: refreshTokens.length,
+            },
+          );
         }
       } catch (blacklistError) {
-        logger.error(`Ошибка при очистке blacklist для пользователя ${userId}:`, blacklistError);
+        _error(
+          `Ошибка при очистке blacklist для пользователя ${userId}:`,
+          blacklistError,
+        );
         // НЕ прерываем транзакцию
       }
 
       await session.commitTransaction();
 
-      logger.info(`Пользователь ${userId} успешно разблокирован`, {
+      info(`Пользователь ${userId} успешно разблокирован`, {
         userId,
         adminId: admin.id,
       });
 
       return user;
-
     } catch (error) {
       await session.abortTransaction();
-      
+
       if (error instanceof ApiError) {
         throw error;
       }
-      
-      logger.error(`Ошибка при разблокировке пользователя ${userId}:`, error);
-      throw ApiError.DatabaseError(
+
+      _error(`Ошибка при разблокировке пользователя ${userId}:`, error);
+      throw DatabaseError(
         `Ошибка при разблокировке пользователя: ${error.message}`,
-        null
+        null,
       );
     } finally {
       session.endSession();
@@ -265,10 +287,13 @@ class UserSanctionService {
 
       return sanctions;
     } catch (error) {
-      logger.error(`Ошибка при получении истории санкций пользователя ${userId}:`, error);
-      throw ApiError.DatabaseError(
+      _error(
+        `Ошибка при получении истории санкций пользователя ${userId}:`,
+        error,
+      );
+      throw DatabaseError(
         `Ошибка при получении истории санкций: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -291,10 +316,13 @@ class UserSanctionService {
 
       return sanctions;
     } catch (error) {
-      logger.error(`Ошибка при получении активных санкций пользователя ${userId}:`, error);
-      throw ApiError.DatabaseError(
+      _error(
+        `Ошибка при получении активных санкций пользователя ${userId}:`,
+        error,
+      );
+      throw DatabaseError(
         `Ошибка при получении активных санкций: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -311,7 +339,7 @@ class UserSanctionService {
         .lean();
 
       if (!user) {
-        throw ApiError.NotFoundError("Пользователь не найден", null);
+        throw NotFoundError("Пользователь не найден", null);
       }
 
       // Проверяем, не истекла ли блокировка
@@ -339,10 +367,13 @@ class UserSanctionService {
       if (error instanceof ApiError) {
         throw error;
       }
-      logger.error(`Ошибка при проверке статуса блокировки пользователя ${userId}:`, error);
-      throw ApiError.DatabaseError(
+      _error(
+        `Ошибка при проверке статуса блокировки пользователя ${userId}:`,
+        error,
+      );
+      throw DatabaseError(
         `Ошибка при проверке статуса блокировки: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -353,42 +384,49 @@ class UserSanctionService {
   async autoUnblockExpiredSanctions() {
     try {
       const now = new Date();
-      
+
       // Находим все активные санкции с истекшим сроком
       const expiredSanctions = await UserSanctionModel.find({
         isActive: true,
         expiresAt: { $lt: now },
         duration: { $gt: 0 }, // Только временные блокировки (не бессрочные)
-      }).populate('user', '_id status');
+      }).populate("user", "_id status");
 
       let unblockedCount = 0;
-      
+
       for (const sanction of expiredSanctions) {
         try {
-          await this.unblockUser(sanction.user._id, { 
-            id: "system_auto", 
-            name: "Система (авто)" 
+          await this.unblockUser(sanction.user._id, {
+            id: "system_auto",
+            name: "Система (авто)",
           });
           unblockedCount++;
-          
-          logger.info(`Пользователь ${sanction.user._id} автоматически разблокирован`, {
-            userId: sanction.user._id,
-            sanctionId: sanction._id,
-            expiresAt: sanction.expiresAt,
-          });
+
+          info(
+            `Пользователь ${sanction.user._id} автоматически разблокирован`,
+            {
+              userId: sanction.user._id,
+              sanctionId: sanction._id,
+              expiresAt: sanction.expiresAt,
+            },
+          );
         } catch (error) {
-          logger.error(`Ошибка при автоматической разблокировке пользователя ${sanction.user._id}:`, error);
+          _error(
+            `Ошибка при автоматической разблокировке пользователя ${sanction.user._id}:`,
+            error,
+          );
         }
       }
 
-      logger.info(`Автоматическая разблокировка завершена. Разблокировано пользователей: ${unblockedCount} из ${expiredSanctions.length}`);
+      info(
+        `Автоматическая разблокировка завершена. Разблокировано пользователей: ${unblockedCount} из ${expiredSanctions.length}`,
+      );
       return { total: expiredSanctions.length, unblocked: unblockedCount };
-
     } catch (error) {
-      logger.error("Ошибка в autoUnblockExpiredSanctions:", error);
+      _error("Ошибка в autoUnblockExpiredSanctions:", error);
       throw error;
     }
   }
 }
 
-module.exports = new UserSanctionService();
+export default new UserSanctionService();

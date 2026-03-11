@@ -1,4 +1,4 @@
-const {TransportCompanyModel} = require("../models/index.models");
+import { TransportCompanyModel } from "../models/index.models";
 
 class TransportCompanyService {
   /**
@@ -57,4 +57,4 @@ class TransportCompanyService {
   }
 }
 
-module.exports = new TransportCompanyService();
+export default new TransportCompanyService();

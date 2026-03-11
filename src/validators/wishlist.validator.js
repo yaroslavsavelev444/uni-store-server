@@ -1,4 +1,4 @@
-const { body, param } = require("express-validator");
+import { body } from "express-validator";
 
 const wishlistValidators = {
   addOrRemoveProduct: [
@@ -12,9 +12,9 @@ const wishlistValidators = {
       .isString()
       .withMessage("Заметки должны быть строкой")
       .isLength({ max: 500 })
-      .withMessage("Заметки не могут превышать 500 символов")
+      .withMessage("Заметки не могут превышать 500 символов"),
   ],
-  
+
   updateSettings: [
     body("notifyOnPriceDrop")
       .optional()
@@ -27,9 +27,9 @@ const wishlistValidators = {
     body("sortBy")
       .optional()
       .isIn(["addedAt", "priceAsc", "priceDesc", "popularity", "name"])
-      .withMessage("Некорректное значение сортировки")
+      .withMessage("Некорректное значение сортировки"),
   ],
-  
+
   moveToCart: [
     body("productId")
       .notEmpty()
@@ -39,8 +39,8 @@ const wishlistValidators = {
     body("quantity")
       .optional()
       .isInt({ min: 1 })
-      .withMessage("Количество должно быть целым числом не менее 1")
-  ]
+      .withMessage("Количество должно быть целым числом не менее 1"),
+  ],
 };
 
-module.exports = wishlistValidators;
+export default wishlistValidators;

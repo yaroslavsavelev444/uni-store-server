@@ -1,5 +1,5 @@
-const { body, param } = require("express-validator");
-const { Types } = require("mongoose");
+import { body, param } from "express-validator";
+import { Types } from "mongoose";
 
 const validateCartItem = [
   body("productId")
@@ -7,7 +7,7 @@ const validateCartItem = [
     .withMessage("ID продукта обязателен")
     .custom((value) => Types.ObjectId.isValid(value))
     .withMessage("Некорректный формат ID продукта"),
-  
+
   body("quantity")
     .notEmpty()
     .withMessage("Количество обязательно")
@@ -23,7 +23,7 @@ const validateProductId = [
     .withMessage("Некорректный формат ID продукта"),
 ];
 
-module.exports = {
+export default {
   validateCartItem,
   validateProductId,
 };

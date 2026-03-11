@@ -1,38 +1,37 @@
-const CartModel = require("./cart-model");
-const ProductModel = require("./product-model");
-const ProductReviewModel = require("./product-review-model");
-const PromoBlockModel = require("./promo-block-model");
-const MainMaterialModel = require("./main-material-model");
-const ContactModel = require("./contact-model");
-const CategoryModel = require("./category-model");
-const CompanyModel = require("./company-model");
-const TokenModel = require("./token-model");
-const UserModel = require("./user-model");
-const {OrderModel,
-  OrderStatus,
-  DeliveryMethod} = require("./order-model");
-const UserSessionModel = require("./user-session-model");
-const UserSecurityModel = require("./user-security-model");
-const NotificationModel = require("./notification-model");
-const ConsentModel = require("./consent-model");
-const TopicModelCommon = require("./topic-model-common");
-const FeedbackModel = require("./feedback-model");
-const MessageModel = require("./message-model");
-const RoomModel = require("./room-model");
-const KeyEncryptModel = require("./key-encrypt-model");
-const UserSearchModel = require("./user-search-model");
-const { FaqTopicModel, FaqQuestionModel } = require("./faq-model");
-const WishlistModel = require("./wishlist-model");
-const PickupPointModel = require("./pickup-point-model");
-const TransportCompanyModel = require("./transport-company-model");
-const ContentBlockModel = require("./content-block-model");
-const UserSanctionModel = require("./user-sanction-model");
-const UserAcceptedConsentModel = require("./user-accepted-consent-model");
-const RefundModel = require("./refund-model");
-const BannerViewModel = require("./banner-view-model");
-const BannerModel = require("./banner-model");
-const DiscountModel = require("./discount-model");
-module.exports = {
+import BannerModel from "./banner-model";
+import BannerViewModel from "./banner-view-model";
+import CartModel from "./cart-model";
+import CategoryModel from "./category-model";
+import CompanyModel from "./company-model";
+import ConsentModel from "./consent-model";
+import ContactModel from "./contact-model";
+import ContentBlockModel from "./content-block-model";
+import DiscountModel from "./discount-model";
+import { FaqQuestionModel, FaqTopicModel } from "./faq-model";
+import FeedbackModel from "./feedback-model";
+import FileModel from "./file-model";
+import KeyEncryptModel from "./key-encrypt-model";
+import MainMaterialModel from "./main-material-model";
+import MessageModel from "./message-model";
+import NotificationModel from "./notification-model";
+import { DeliveryMethod, OrderModel, OrderStatus } from "./order-model";
+import PickupPointModel from "./pickup-point-model";
+import ProductModel from "./product-model";
+import ProductReviewModel from "./product-review-model";
+import PromoBlockModel from "./promo-block-model";
+import RefundModel from "./refund-model";
+import RoomModel from "./room-model";
+import TokenModel from "./token-model";
+import TopicModelCommon from "./topic-model-common";
+import TransportCompanyModel from "./transport-company-model";
+import UserAcceptedConsentModel from "./user-accepted-consent-model";
+import UserModel from "./user-model";
+import UserSanctionModel from "./user-sanction-model";
+import UserSearchModel from "./user-search-model";
+import UserSecurityModel from "./user-security-model";
+import UserSessionModel from "./user-session-model";
+import WishlistModel from "./wishlist-model";
+export default {
   CartModel,
   ProductModel,
   ProductReviewModel,
@@ -67,5 +66,6 @@ module.exports = {
   RefundModel,
   BannerViewModel,
   BannerModel,
-  DiscountModel
+  DiscountModel,
+  FileModel,
 };

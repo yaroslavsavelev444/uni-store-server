@@ -52,15 +52,15 @@ const login_from_new_device = (user, deviceInfo) => ({
   },
   options: {
     type: "login_from_new_device",
-    link: `/profile/security`, 
+    link: `/profile/security`,
     priority: "high",
   },
 });
 
 // Именованный экспорт в CommonJS
-module.exports = {
+export default {
   subscription_match,
   moderation_passed,
   system_error,
-  login_from_new_device
+  login_from_new_device,
 };

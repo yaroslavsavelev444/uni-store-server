@@ -1,11 +1,17 @@
-const cartService = require("../services/cartService");
+import {
+  addOrUpdateItem as _addOrUpdateItem,
+  clearCart as _clearCart,
+  decreaseQuantity as _decreaseQuantity,
+  getCart as _getCart,
+  removeItem as _removeItem,
+} from "../services/cartService";
 
 class CartController {
   async getCart(req, res, next) {
     try {
-      const cart = await cartService.getCart(req.user.id);
-      console.log('getCart', JSON.stringify(cart));
-      
+      const cart = await _getCart(req.user.id);
+      console.log("getCart", JSON.stringify(cart));
+
       res.json(cart);
     } catch (error) {
       next(error);
@@ -15,7 +21,7 @@ class CartController {
   async addOrUpdateItem(req, res, next) {
     try {
       const { productId, quantity } = req.body;
-      const cart = await cartService.addOrUpdateItem(req.user.id, productId, quantity);
+      const cart = await _addOrUpdateItem(req.user.id, productId, quantity);
       res.status(200).json(cart);
     } catch (error) {
       next(error);
@@ -25,7 +31,7 @@ class CartController {
   async removeItem(req, res, next) {
     try {
       const { productId } = req.params;
-      const cart = await cartService.removeItem(req.user.id, productId);
+      const cart = await _removeItem(req.user.id, productId);
       res.status(200).json(cart);
     } catch (error) {
       next(error);
@@ -35,7 +41,7 @@ class CartController {
   async decreaseQuantity(req, res, next) {
     try {
       const { productId } = req.params;
-      const cart = await cartService.decreaseQuantity(req.user.id, productId);
+      const cart = await _decreaseQuantity(req.user.id, productId);
       res.status(200).json(cart);
     } catch (error) {
       next(error);
@@ -44,7 +50,7 @@ class CartController {
 
   async clearCart(req, res, next) {
     try {
-      const result = await cartService.clearCart(req.user.id);
+      const result = await _clearCart(req.user.id);
       res.status(200).json(result);
     } catch (error) {
       next(error);
@@ -52,4 +58,4 @@ class CartController {
   }
 }
 
-module.exports = new CartController();
+export default new CartController();

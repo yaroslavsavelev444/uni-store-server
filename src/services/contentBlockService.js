@@ -1,12 +1,15 @@
-const ApiError = require("../exceptions/api-error");
-const { ContentBlockModel } = require("../models/index.models");
-const fileService = require("../utils/fileManager");
-const mongoose = require("mongoose");
-const path = require("path");
-const fs = require("fs").promises;
-const redisClient = require("../redis/redis.client");
-const logger = require("../logger/logger");
-const xss = require("xss");
+import { basename } from "node:path";
+import { startSession, Types } from "mongoose";
+import { BadRequest } from "../exceptions/api-error";
+import { debug, error, warn } from "../logger/logger";
+import { ContentBlockModel } from "../models/index.models";
+import redisClient from "../redis/redis.client";
+import {
+  deleteFile,
+  getFileUrl,
+  moveFile,
+  validateFileExists,
+} from "../utils/fileManager";
 
 class ContentBlockService {
   constructor() {
@@ -29,62 +32,57 @@ class ContentBlockService {
     try {
       for (const pattern of patterns) {
         await this.redisClient.deletePattern(pattern);
-        logger.debug(
-          `[ContentBlockService] Invalidated cache pattern: ${pattern}`
-        );
+        debug(`[ContentBlockService] Invalidated cache pattern: ${pattern}`);
       }
     } catch (err) {
-      logger.error(
-        `[ContentBlockService] Error invalidating cache: ${err.message}`
-      );
+      error(`[ContentBlockService] Error invalidating cache: ${err.message}`);
     }
   }
 
   // Получение всех блоков
-async getAll(includeInactive = false) {
-  const cacheKey = includeInactive
-    ? this.CACHE_KEYS.ALL_BLOCKS
-    : this.CACHE_KEYS.ACTIVE_BLOCKS;
+  async getAll(includeInactive = false) {
+    const cacheKey = includeInactive
+      ? this.CACHE_KEYS.ALL_BLOCKS
+      : this.CACHE_KEYS.ACTIVE_BLOCKS;
 
-  try {
-    const cached = await this.redisClient.getJson(cacheKey);
-    if (cached) {
-      logger.debug(
-        `[ContentBlockService] getAll from cache (includeInactive: ${includeInactive})`
-      );
-      // Добавляем полные URL к изображениям в кешированных данных
-      return cached.map(item => {
-        if (item.imageUrl && item.imageUrl) {
-          item.imageUrl = fileService.getFileUrl(item.imageUrl);
-        }
-        return item;
-      });
+    try {
+      const cached = await this.redisClient.getJson(cacheKey);
+      if (cached) {
+        debug(
+          `[ContentBlockService] getAll from cache (includeInactive: ${includeInactive})`,
+        );
+        // Добавляем полные URL к изображениям в кешированных данных
+        return cached.map((item) => {
+          if (item.imageUrl && item.imageUrl) {
+            item.imageUrl = getFileUrl(item.imageUrl);
+          }
+          return item;
+        });
+      }
+    } catch (err) {
+      warn(`[ContentBlockService] Cache get error: ${err.message}`);
     }
-  } catch (err) {
-    logger.warn(`[ContentBlockService] Cache get error: ${err.message}`);
+
+    const query = includeInactive ? {} : { isActive: true };
+    const items = await ContentBlockModel.find(query)
+      .sort({ position: 1, createdAt: -1 })
+      .lean();
+
+    try {
+      await this.redisClient.setJson(
+        cacheKey,
+        items, // Сохраняем в кеш без fullUrl, чтобы не кешировать абсолютные URL
+        includeInactive ? this.CACHE_TTL.ALL : this.CACHE_TTL.ACTIVE,
+      );
+      debug(
+        `[ContentBlockService] getAll cached (includeInactive: ${includeInactive})`,
+      );
+    } catch (err) {
+      warn(`[ContentBlockService] Cache set error: ${err.message}`);
+    }
+
+    return items;
   }
-
-  const query = includeInactive ? {} : { isActive: true };
-  const items = await ContentBlockModel.find(query)
-    .sort({ position: 1, createdAt: -1 })
-    .lean();
-
-
-  try {
-    await this.redisClient.setJson(
-      cacheKey,
-      items, // Сохраняем в кеш без fullUrl, чтобы не кешировать абсолютные URL
-      includeInactive ? this.CACHE_TTL.ALL : this.CACHE_TTL.ACTIVE
-    );
-    logger.debug(
-      `[ContentBlockService] getAll cached (includeInactive: ${includeInactive})`
-    );
-  } catch (err) {
-    logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
-  }
-
-  return items;
-}
 
   // Получение блока по ID
   async getById(id) {
@@ -93,11 +91,11 @@ async getAll(includeInactive = false) {
     try {
       const cached = await this.redisClient.getJson(cacheKey);
       if (cached) {
-        logger.debug(`[ContentBlockService] getById ${id} from cache`);
+        debug(`[ContentBlockService] getById ${id} from cache`);
         return cached;
       }
     } catch (err) {
-      logger.warn(`[ContentBlockService] Cache get error: ${err.message}`);
+      warn(`[ContentBlockService] Cache get error: ${err.message}`);
     }
 
     const item = await ContentBlockModel.findById(id).lean();
@@ -105,9 +103,9 @@ async getAll(includeInactive = false) {
     if (item) {
       try {
         await this.redisClient.setJson(cacheKey, item, this.CACHE_TTL.SINGLE);
-        logger.debug(`[ContentBlockService] getById ${id} cached`);
+        debug(`[ContentBlockService] getById ${id} cached`);
       } catch (err) {
-        logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
+        warn(`[ContentBlockService] Cache set error: ${err.message}`);
       }
     }
 
@@ -122,11 +120,11 @@ async getAll(includeInactive = false) {
     try {
       const cached = await this.redisClient.getJson(cacheKey);
       if (cached) {
-        logger.debug(`[ContentBlockService] getByTag ${tag} from cache`);
+        debug(`[ContentBlockService] getByTag ${tag} from cache`);
         return cached;
       }
     } catch (err) {
-      logger.warn(`[ContentBlockService] Cache get error: ${err.message}`);
+      warn(`[ContentBlockService] Cache get error: ${err.message}`);
     }
 
     const items = await ContentBlockModel.find({
@@ -138,9 +136,9 @@ async getAll(includeInactive = false) {
 
     try {
       await this.redisClient.setJson(cacheKey, items, this.CACHE_TTL.ACTIVE);
-      logger.debug(`[ContentBlockService] getByTag ${tag} cached`);
+      debug(`[ContentBlockService] getByTag ${tag} cached`);
     } catch (err) {
-      logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
+      warn(`[ContentBlockService] Cache set error: ${err.message}`);
     }
 
     return items;
@@ -154,7 +152,7 @@ async getAll(includeInactive = false) {
       // Обрабатываем изображение
       if (contentBlockData.image?.url) {
         contentBlockData.imageUrl = await this.processImage(
-          contentBlockData.imageUrl
+          contentBlockData.imageUrl,
         );
       }
 
@@ -169,14 +167,12 @@ async getAll(includeInactive = false) {
       await this.invalidateCache(
         "contentBlocks:all",
         "contentBlocks:active",
-        "contentBlocks:tag:*"
+        "contentBlocks:tag:*",
       );
 
       return newBlock.toObject();
     } catch (err) {
-      logger.error(
-        `[ContentBlockService] Error creating block: ${err.message}`
-      );
+      error(`[ContentBlockService] Error creating block: ${err.message}`);
       throw err;
     }
   }
@@ -186,25 +182,25 @@ async getAll(includeInactive = false) {
     console.log("id, updateData, userId", id, updateData, userId);
 
     try {
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw ApiError.BadRequest("Некорректный формат ID блока");
+      if (!Types.ObjectId.isValid(id)) {
+        throw BadRequest("Некорректный формат ID блока");
       }
 
       const existingBlock = await ContentBlockModel.findById(id);
       if (!existingBlock) {
-        throw ApiError.BadRequest("Блок не найден");
+        throw BadRequest("Блок не найден");
       }
 
       if (updateData.imageUrl !== undefined) {
         if (updateData.imageUrl === null) {
           if (existingBlock.imageUrl) {
-            await fileService.deleteFile(existingBlock.imageUrl);
+            await deleteFile(existingBlock.imageUrl);
           }
           updateData.image = null;
         } else if (updateData.imageUrl) {
           const newImageUrl = await this.processImage(updateData.imageUrl);
-          console.log('newImageUrl' ,newImageUrl);
-          
+          console.log("newImageUrl", newImageUrl);
+
           // // Удаляем старое изображение
           // if (existingBlock.imageUrl) {
           //   await fileService.deleteFile(existingBlock.imageUrl);
@@ -226,14 +222,12 @@ async getAll(includeInactive = false) {
         "contentBlocks:all",
         "contentBlocks:active",
         `contentBlocks:id:${id}`,
-        "contentBlocks:tag:*"
+        "contentBlocks:tag:*",
       );
 
       return existingBlock.toObject();
     } catch (err) {
-      logger.error(
-        `[ContentBlockService] Error updating block ${id}: ${err.message}`
-      );
+      error(`[ContentBlockService] Error updating block ${id}: ${err.message}`);
       throw err;
     }
   }
@@ -243,34 +237,40 @@ async getAll(includeInactive = false) {
     console.log(`[ContentBlockService] processImage called with ${imageUrl}`);
     // Извлекаем путь из URL если это полный URL
     let filePath = imageUrl;
-    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
       const url = new URL(imageUrl);
       filePath = url.pathname;
-      
+
       // Декодируем URL-encoded символы
       filePath = decodeURIComponent(filePath);
-      console.log(`[ContentBlockService] processImage: filePath after decoding is ${filePath}`);
+      console.log(
+        `[ContentBlockService] processImage: filePath after decoding is ${filePath}`,
+      );
     }
-    
+
     // Проверяем, является ли файл временным
-    if (filePath.includes('/temp/')) {
+    if (filePath.includes("/temp/")) {
       console.log(`[ContentBlockService] processImage: file is temporary`);
       // Перемещаем файл в постоянную папку через fileService
       const timestamp = Date.now();
-      const filename = path.basename(filePath);
+      const filename = basename(filePath);
       const newWebPath = `/uploads/content-blocks/${timestamp}_${filename}`;
-      
-      console.log('filePath' ,filePath);
-      console.log('newWebPath' ,newWebPath);
-      
-      await fileService.moveFile(filePath, newWebPath);
-      console.log(`[ContentBlockService] processImage: moved file to ${newWebPath}`);
+
+      console.log("filePath", filePath);
+      console.log("newWebPath", newWebPath);
+
+      await moveFile(filePath, newWebPath);
+      console.log(
+        `[ContentBlockService] processImage: moved file to ${newWebPath}`,
+      );
       return newWebPath;
     }
-    
+
     // Если файл уже в постоянной папке, просто проверяем его существование
-    await fileService.validateFileExists(filePath);
-    console.log(`[ContentBlockService] processImage: file exists at ${filePath}`);
+    await validateFileExists(filePath);
+    console.log(
+      `[ContentBlockService] processImage: file exists at ${filePath}`,
+    );
     return filePath;
   }
   // Вспомогательный метод для обработки изображения
@@ -279,7 +279,7 @@ async getAll(includeInactive = false) {
     try {
       const block = await ContentBlockModel.findById(id);
       if (!block) {
-        throw ApiError.BadRequest("Блок не найден");
+        throw BadRequest("Блок не найден");
       }
 
       // Удаляем изображение если оно есть
@@ -295,14 +295,12 @@ async getAll(includeInactive = false) {
         "contentBlocks:all",
         "contentBlocks:active",
         `contentBlocks:id:${id}`,
-        "contentBlocks:tag:*"
+        "contentBlocks:tag:*",
       );
 
       return true;
     } catch (err) {
-      logger.error(
-        `[ContentBlockService] Error deleting block ${id}: ${err.message}`
-      );
+      error(`[ContentBlockService] Error deleting block ${id}: ${err.message}`);
       throw err;
     }
   }
@@ -312,11 +310,11 @@ async getAll(includeInactive = false) {
     const updated = await ContentBlockModel.findByIdAndUpdate(
       id,
       { isActive, updatedAt: Date.now() },
-      { new: true }
+      { new: true },
     );
 
     if (!updated) {
-      throw ApiError.BadRequest("Блок не найден");
+      throw BadRequest("Блок не найден");
     }
 
     // Инвалидируем кеш
@@ -324,7 +322,7 @@ async getAll(includeInactive = false) {
       "contentBlocks:all",
       "contentBlocks:active",
       `contentBlocks:id:${id}`,
-      "contentBlocks:tag:*"
+      "contentBlocks:tag:*",
     );
 
     return updated;
@@ -336,12 +334,12 @@ async getAll(includeInactive = false) {
   async deleteOldImage(imageUrl) {
     try {
       if (imageUrl && imageUrl.startsWith("/uploads/content-blocks/")) {
-        await fileService.deleteFile(imageUrl);
-        logger.debug(`[ContentBlockService] Old image deleted: ${imageUrl}`);
+        await deleteFile(imageUrl);
+        debug(`[ContentBlockService] Old image deleted: ${imageUrl}`);
       }
     } catch (err) {
-      logger.warn(
-        `[ContentBlockService] Error deleting old image ${imageUrl}: ${err.message}`
+      warn(
+        `[ContentBlockService] Error deleting old image ${imageUrl}: ${err.message}`,
       );
       // Не прерываем выполнение если не удалось удалить файл
     }
@@ -369,7 +367,7 @@ async getAll(includeInactive = false) {
         withoutButtons: total - withButtons,
       };
     } catch (err) {
-      logger.error(`[ContentBlockService] Error getting stats: ${err.message}`);
+      error(`[ContentBlockService] Error getting stats: ${err.message}`);
       throw err;
     }
   }
@@ -377,7 +375,7 @@ async getAll(includeInactive = false) {
   // Вспомогательный метод для массового обновления позиций
   async updatePositions(positionUpdates) {
     try {
-      const session = await mongoose.startSession();
+      const session = await startSession();
       session.startTransaction();
 
       try {
@@ -385,7 +383,7 @@ async getAll(includeInactive = false) {
           await ContentBlockModel.findByIdAndUpdate(
             update.id,
             { position: update.position, updatedAt: Date.now() },
-            { session }
+            { session },
           );
         }
 
@@ -395,7 +393,7 @@ async getAll(includeInactive = false) {
         await this.invalidateCache(
           "contentBlocks:all",
           "contentBlocks:active",
-          "contentBlocks:tag:*"
+          "contentBlocks:tag:*",
         );
 
         return true;
@@ -406,12 +404,10 @@ async getAll(includeInactive = false) {
         session.endSession();
       }
     } catch (err) {
-      logger.error(
-        `[ContentBlockService] Error updating positions: ${err.message}`
-      );
+      error(`[ContentBlockService] Error updating positions: ${err.message}`);
       throw err;
     }
   }
 }
 
-module.exports = ContentBlockService;
+export default ContentBlockService;

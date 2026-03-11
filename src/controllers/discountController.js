@@ -1,6 +1,15 @@
-const discountService = require("../services/discountService");
-const ApiError = require("../exceptions/api-error");
-const mongoose = require("mongoose");
+import { Types } from "mongoose";
+import ApiError from "../exceptions/api-error";
+import {
+  changeDiscountStatus,
+  createDiscount,
+  deleteDiscount,
+  getApplicableDiscounts,
+  getDiscountById,
+  listDiscounts,
+  updateDiscount,
+} from "../services/discountService";
+
 class DiscountController {
   /**
    * Создание скидки
@@ -25,7 +34,7 @@ class DiscountController {
         );
       }
 
-      const discount = await discountService.createDiscount({
+      const discount = await createDiscount({
         discountData,
         userId,
       });
@@ -45,7 +54,7 @@ class DiscountController {
       const discountData = req.body;
       const userId = req.user.id;
 
-      const discount = await discountService.updateDiscount({
+      const discount = await updateDiscount({
         id,
         discountData,
         userId,
@@ -62,7 +71,7 @@ class DiscountController {
    */
   async getById(req, res, next) {
     try {
-      const discount = await discountService.getDiscountById(req.params.id);
+      const discount = await getDiscountById(req.params.id);
       res.json(discount);
     } catch (error) {
       next(error);
@@ -74,7 +83,7 @@ class DiscountController {
    */
   async getAll(req, res, next) {
     try {
-      const result = await discountService.listDiscounts(req.query);
+      const result = await listDiscounts(req.query);
       res.json(result);
     } catch (error) {
       next(error);
@@ -86,7 +95,7 @@ class DiscountController {
    */
   async remove(req, res, next) {
     try {
-      const result = await discountService.deleteDiscount(req.params.id);
+      const result = await deleteDiscount(req.params.id);
       res.status(200).json(result);
     } catch (error) {
       next(error);
@@ -105,7 +114,7 @@ class DiscountController {
         throw ApiError.BadRequest("Поле isActive должно быть boolean");
       }
 
-      const discount = await discountService.changeDiscountStatus(id, isActive);
+      const discount = await changeDiscountStatus(id, isActive);
       res.json(discount);
     } catch (error) {
       next(error);
@@ -119,12 +128,11 @@ class DiscountController {
     try {
       const { cartId } = req.body;
 
-      if (!cartId || !mongoose.Types.ObjectId.isValid(cartId)) {
+      if (!cartId || !Types.ObjectId.isValid(cartId)) {
         throw ApiError.BadRequest("Некорректный ID корзины");
       }
 
-      const applicableDiscounts =
-        await discountService.getApplicableDiscounts(cartId);
+      const applicableDiscounts = await getApplicableDiscounts(cartId);
 
       res.json({
         discounts: applicableDiscounts,
@@ -136,4 +144,4 @@ class DiscountController {
   }
 }
 
-module.exports = new DiscountController();
+export default new DiscountController();

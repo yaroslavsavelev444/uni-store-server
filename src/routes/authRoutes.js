@@ -1,41 +1,58 @@
-// routes/auth.js
-const express = require("express");
+import express from "express";
+import authController from "../controllers/authController.js";
+import passwordResetLimiters from "../limiters/passwordResetLimiters.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import DeviceAuthManager from "../middlewares/deviceAuthMiddleware.js";
+import multerMiddleware from "../middlewares/multerMiddleware.js";
+import rateLimit from "../middlewares/rateLimit.js";
+
 const router = express.Router();
-const authController = require("../controllers/authController");
-const authMiddleware = require("../middlewares/auth-middleware");
-const multerMiddleware = require("../middlewares/multerMiddleware");
-const { createRedisRateLimiter } = require("../middlewares/rateLimit");
+
+const { createRedisRateLimiter } = rateLimit;
 const {
   ipLimiter,
   initiatePasswordResetLimiter,
   verifyPasswordResetCodeLimiter,
   completePasswordResetLimiter,
   passwordResetProcessLimiter,
-  resendPasswordResetCodeLimiter
-} = require("../limiters/passwordResetLimiters");
-const DeviceAuthManager = require("../middlewares/deviceAuthMiddleware");
+  resendPasswordResetCodeLimiter,
+} = passwordResetLimiters;
 
 // Динамический лимит по роли пользователя для логина
 const emailLimiter = createRedisRateLimiter({
   keyPrefix: "login:email",
   windowSec: 60,
   getMax: (req) => {
-    if (req.body.role === "admin") return 10; 
+    if (req.body.role === "admin") return 10;
     return 5;
   },
 });
 
 // BASE AUTH
-router.post("/register", DeviceAuthManager.createAuthMiddleware(), authController.register);
-router.post("/login", ipLimiter, emailLimiter,DeviceAuthManager.createAuthMiddleware(), authController.login);
-router.post("/logout", authMiddleware(['all']), authController.logout);
-router.get("/refresh", authMiddleware.refreshMiddleware(), authController.refresh);
+router.post(
+  "/register",
+  DeviceAuthManager.createAuthMiddleware(),
+  authController.register,
+);
+router.post(
+  "/login",
+  ipLimiter,
+  emailLimiter,
+  DeviceAuthManager.createAuthMiddleware(),
+  authController.login,
+);
+router.post("/logout", authMiddleware(["all"]), authController.logout);
+router.get(
+  "/refresh",
+  authMiddleware.refreshMiddleware(),
+  authController.refresh,
+);
 router.post("/check", authController.check);
 
 // UPDATES
 router.post(
   "/updateUser",
-  authMiddleware(['all']),
+  authMiddleware(["all"]),
   multerMiddleware({
     fields: "avatar",
     uploadDir: "users",
@@ -43,7 +60,7 @@ router.post(
     imagesOnly: true,
     useTemp: true,
   }),
-  authController.updateUser
+  authController.updateUser,
 );
 
 // 2FA CODES
@@ -53,7 +70,12 @@ const faLimiter = createRedisRateLimiter({
   getMax: () => 5,
 });
 
-router.post("/verify2faCode", ipLimiter, faLimiter, authController.verify2faCode);
+router.post(
+  "/verify2faCode",
+  ipLimiter,
+  faLimiter,
+  authController.verify2faCode,
+);
 
 // RESEND CODES
 const resend2FaLimiter = createRedisRateLimiter({
@@ -62,48 +84,63 @@ const resend2FaLimiter = createRedisRateLimiter({
   getMax: () => 3,
 });
 
-router.post("/resend2faCode", ipLimiter, resend2FaLimiter, authController.resendFaCode);
+router.post(
+  "/resend2faCode",
+  ipLimiter,
+  resend2FaLimiter,
+  authController.resendFaCode,
+);
 
 // SESSIONS
-router.get("/sessions", authMiddleware(['all']), authController.getSessions);
-router.patch("/revokeSession", authMiddleware(['all']), authController.revokeSession);
+router.get("/sessions", authMiddleware(["all"]), authController.getSessions);
+router.patch(
+  "/revokeSession",
+  authMiddleware(["all"]),
+  authController.revokeSession,
+);
 
-router.post("/changePassword", authMiddleware(['all']), authController.changePassword);
+router.post(
+  "/changePassword",
+  authMiddleware(["all"]),
+  authController.changePassword,
+);
 
 router.post(
   "/initiatePasswordReset",
   ipLimiter,
-  passwordResetProcessLimiter, 
-  initiatePasswordResetLimiter, 
-  authController.initiatePasswordReset
+  passwordResetProcessLimiter,
+  initiatePasswordResetLimiter,
+  authController.initiatePasswordReset,
 );
 
 router.post(
-  "/verifyPasswordResetCode", 
+  "/verifyPasswordResetCode",
   ipLimiter,
-  passwordResetProcessLimiter, 
-  verifyPasswordResetCodeLimiter, 
-  authController.verifyPasswordResetCode
+  passwordResetProcessLimiter,
+  verifyPasswordResetCodeLimiter,
+  authController.verifyPasswordResetCode,
 );
 
 router.post(
   "/completePasswordReset",
   ipLimiter,
-  passwordResetProcessLimiter, 
-  completePasswordResetLimiter, 
-  authController.completePasswordReset
+  passwordResetProcessLimiter,
+  completePasswordResetLimiter,
+  authController.completePasswordReset,
 );
-
 
 router.post(
   "/resendResetCode",
   ipLimiter,
   passwordResetProcessLimiter,
   resendPasswordResetCodeLimiter,
-  authController.resendResetCode
+  authController.resendResetCode,
 );
 
+router.post(
+  "/user/online",
+  authMiddleware(["all"]),
+  authController.updateOnlineStatus,
+);
 
-router.post('/user/online', authMiddleware(['all']), authController.updateOnlineStatus);
-
-module.exports = router;
+export default router;

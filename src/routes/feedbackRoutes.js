@@ -1,9 +1,26 @@
 // routes/feedback.js
-const express = require("express");
-const router = express.Router();
-const feedbackController = require("../controllers/feedbackController");
-const authMiddleware = require("../middlewares/auth-middleware");
-const { createRedisRateLimiter } = require("../middlewares/rateLimit");
+import { Router } from "express";
+
+const router = Router();
+
+import {
+  addInternalNote,
+  addTag,
+  deleteFeedback,
+  deleteInternalNote,
+  exportToCSV,
+  getAdminStats,
+  getAllFeedbacks,
+  getFeedback,
+  getUserStats,
+  markAsDuplicate,
+  removeTag,
+  submitFeedback,
+  updateInternalNote,
+  updatePriority,
+  updateStatus,
+} from "../controllers/feedbackController";
+import authMiddleware from "../middlewares/auth-middleware";
 
 // Лимитер для отправки фидбека (5 запросов в час на пользователя)
 // const feedbackSubmitLimiter = createRedisRateLimiter({
@@ -14,99 +31,45 @@ const { createRedisRateLimiter } = require("../middlewares/rateLimit");
 // });
 
 // Пользовательские роуты
-router.post(
-  "/create",
-  authMiddleware(['all']),
-  feedbackController.submitFeedback
-);
+router.post("/create", authMiddleware(["all"]), submitFeedback);
 
-router.get(
-  "/:id",
-  authMiddleware(['all']),
-  feedbackController.getFeedback
-);
-
+router.get("/:id", authMiddleware(["all"]), getFeedback);
 
 // Админские роуты (только для админов и модераторов)
-router.get(
-  "/",
-  authMiddleware(['admin']),
-  feedbackController.getAllFeedbacks
-);
+router.get("/", authMiddleware(["admin"]), getAllFeedbacks);
 
-router.patch(
-  "/:id/status",
-  authMiddleware(['admin']),
-  feedbackController.updateStatus
-);
+router.patch("/:id/status", authMiddleware(["admin"]), updateStatus);
 
-router.patch(
-  "/:id/priority",
-  authMiddleware(['admin']),
-  feedbackController.updatePriority
-);
+router.patch("/:id/priority", authMiddleware(["admin"]), updatePriority);
 
-
-router.post(
-  "/:id/notes",
-  authMiddleware(['admin']),
-  feedbackController.addInternalNote
-);
+router.post("/:id/notes", authMiddleware(["admin"]), addInternalNote);
 
 router.patch(
   "/:id/notes/:noteId",
-  authMiddleware(['admin']),
-  feedbackController.updateInternalNote
+  authMiddleware(["admin"]),
+  updateInternalNote,
 );
 
 router.delete(
   "/:id/notes/:noteId",
-  authMiddleware(['admin']),
-  feedbackController.deleteInternalNote
+  authMiddleware(["admin"]),
+  deleteInternalNote,
 );
 
-router.post(
-  "/:id/tags",
-  authMiddleware(['admin']),
-  feedbackController.addTag
-);
+router.post("/:id/tags", authMiddleware(["admin"]), addTag);
 
-router.delete(
-  "/:id/tags/:tag",
-  authMiddleware(['admin']),
-  feedbackController.removeTag
-);
+router.delete("/:id/tags/:tag", authMiddleware(["admin"]), removeTag);
 
-router.post(
-  "/:id/duplicate",
-  authMiddleware(['admin']),
-  feedbackController.markAsDuplicate
-);
+router.post("/:id/duplicate", authMiddleware(["admin"]), markAsDuplicate);
 
-router.delete(
-  "/:id",
-  authMiddleware(['admin']),
-  feedbackController.deleteFeedback
-);
+router.delete("/:id", authMiddleware(["admin"]), deleteFeedback);
 
 // Статистика (для админов)
-router.get(
-  "/stats/admin",
-  authMiddleware(['admin']),
-  feedbackController.getAdminStats
-);
+router.get("/stats/admin", authMiddleware(["admin"]), getAdminStats);
 
-router.get(
-  "/stats/user",
-  authMiddleware(['all']),
-  feedbackController.getUserStats
-);
+router.get("/stats/user", authMiddleware(["all"]), getUserStats);
 
 // Экспорт (для админов)
-router.get(
-  "/export/csv",
-  authMiddleware(['admin']),
-  feedbackController.exportToCSV
-);
+router.get("/export/csv", authMiddleware(["admin"]), exportToCSV);
 
-module.exports = router;
+export default router;

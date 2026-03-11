@@ -1,26 +1,26 @@
-module.exports = {
+export default {
   "leave-review": {
-    required: ["listingId"]
+    required: ["listingId"],
   },
   "order-updated": {
-    required: ["orderId", "status"]
+    required: ["orderId", "status"],
   },
-  "chat": {
-    required: ["roomId"]
+  chat: {
+    required: ["roomId"],
   },
   "login-from-new-device": {
-    required: ["ip", "ua"]
+    required: ["ip", "ua"],
   },
-  "system": {
-    required: []
+  system: {
+    required: [],
   },
-  "new_complaint_admin": {
-    required: ["complaintId"]
+  new_complaint_admin: {
+    required: ["complaintId"],
   },
-  "complaint_created": {
-    required: ["status", "complaintId"]
+  complaint_created: {
+    required: ["status", "complaintId"],
   },
-  "complaint_status_changed": {
-    required: ["status", "complaintId"]
-  }
+  complaint_status_changed: {
+    required: ["status", "complaintId"],
+  },
 };

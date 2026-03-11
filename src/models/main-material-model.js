@@ -1,13 +1,13 @@
 // models/mainMaterial.model.js
-const mongoose = require("mongoose");
+import { model, Schema } from "mongoose";
 
-const MainMaterialSchema = new mongoose.Schema(
+const MainMaterialSchema = new Schema(
   {
     caption: { type: String, required: true },
     mediaUrl: { type: String, required: true }, // Путь к файлу
     mediaType: { type: String, enum: ["image", "video"], required: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("MainMaterial", MainMaterialSchema);
+export default model("MainMaterial", MainMaterialSchema);

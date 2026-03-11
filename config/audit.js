@@ -1,4 +1,4 @@
-const auditConfig = require("./audit-config");
-const { NODE_ENV } = require("./env");
+import auditConfig, { development } from "./audit-config";
+import { NODE_ENV } from "./env";
 
-module.exports = auditConfig[NODE_ENV] || auditConfig.development;
+export default auditConfig[NODE_ENV] || development;

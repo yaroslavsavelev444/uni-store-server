@@ -1,6 +1,8 @@
-const express = require("express");
-const router = express.Router();
-const adminController = require("../controllers/adminController");
+import { Router } from "express";
+
+const router = Router();
+
+import adminController from "../controllers/adminController";
 
 // ============== USERS (Пользователи) ==============
 router.get("/users", adminController.getUsers);
@@ -25,4 +27,4 @@ router.delete("/main-materials/:id", adminController.deleteMainMaterial);
 // ============== UPLOADED FILES (Загруженные файлы) ==============
 router.delete("/files/:fileId", adminController.deleteUploadedFile);
 
-module.exports = router;
+export default router;

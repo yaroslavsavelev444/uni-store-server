@@ -1,5 +1,5 @@
-const { Schema, model, Types } = require("mongoose");
-const fileService = require('../utils/fileManager');
+import { model, Schema, Types } from "mongoose";
+import { getFileUrl } from "../utils/fileManager";
 
 const ProductStatus = {
   AVAILABLE: "available",
@@ -14,55 +14,58 @@ const ProductSchema = new Schema(
     sku: {
       type: String,
       unique: true,
-      required: [true, 'SKU обязателен'],
+      required: [true, "SKU обязателен"],
       trim: true,
       index: true,
       validate: {
-        validator: function(v) {
-          return /^[a-zA-Z0-9_-]+$/.test(v);
-        },
-        message: 'SKU может содержать только буквы, цифры, дефисы и подчеркивания'
-      }
+        validator: (v) => /^[a-zA-Z0-9_-]+$/.test(v),
+        message:
+          "SKU может содержать только буквы, цифры, дефисы и подчеркивания",
+      },
     },
     title: {
       type: String,
-      required: [true, 'Название обязательно'],
+      required: [true, "Название обязательно"],
       trim: true,
-      minlength: [3, 'Название должно содержать минимум 3 символа'],
-      maxlength: [200, 'Название должно содержать максимум 200 символов']
+      minlength: [3, "Название должно содержать минимум 3 символа"],
+      maxlength: [200, "Название должно содержать максимум 200 символов"],
     },
     description: {
       type: String,
-      required: [true, 'Описание обязательно'],
-      minlength: [10, 'Описание должно содержать минимум 10 символов'],
-      maxlength: [5000, 'Описание должно содержать максимум 5000 символов']
+      required: [true, "Описание обязательно"],
+      minlength: [10, "Описание должно содержать минимум 10 символов"],
+      maxlength: [5000, "Описание должно содержать максимум 5000 символов"],
     },
 
     // Ценообразование
     priceForIndividual: {
       type: Number,
-      required: [true, 'Цена для физ. лиц обязательна'],
-      min: [0, 'Цена не может быть отрицательной'],
-      max: [100000000, 'Цена не может превышать 1 000 000 00']
+      required: [true, "Цена для физ. лиц обязательна"],
+      min: [0, "Цена не может быть отрицательной"],
+      max: [100000000, "Цена не может превышать 1 000 000 00"],
     },
 
     // Скидки
     discount: {
       isActive: { type: Boolean, default: false },
-      percentage: { 
-        type: Number, 
-        default: 0, 
-        min: [0, 'Процент скидки не может быть отрицательным'],
-        max: [100, 'Процент скидки не может превышать 100']
+      percentage: {
+        type: Number,
+        default: 0,
+        min: [0, "Процент скидки не может быть отрицательным"],
+        max: [100, "Процент скидки не может превышать 100"],
       },
-      amount: { 
-        type: Number, 
-        default: 0, 
-        min: [0, 'Сумма скидки не может быть отрицательной'] 
+      amount: {
+        type: Number,
+        default: 0,
+        min: [0, "Сумма скидки не может быть отрицательной"],
       },
       validFrom: Date,
       validUntil: Date,
-      minQuantity: { type: Number, default: 1, min: [1, 'Минимальное количество не может быть меньше 1'] }
+      minQuantity: {
+        type: Number,
+        default: 1,
+        min: [1, "Минимальное количество не может быть меньше 1"],
+      },
     },
 
     // Статус и наличие
@@ -70,57 +73,57 @@ const ProductSchema = new Schema(
       type: String,
       enum: {
         values: Object.values(ProductStatus),
-        message: 'Некорректный статус продукта'
+        message: "Некорректный статус продукта",
       },
-      default: ProductStatus.AVAILABLE
+      default: ProductStatus.AVAILABLE,
     },
 
     minOrderQuantity: {
       type: Number,
       default: 1,
-      min: [1, 'Минимальное количество заказа не может быть меньше 1'],
-      max: [1000, 'Минимальное количество заказа не может превышать 1000']
+      min: [1, "Минимальное количество заказа не может быть меньше 1"],
+      max: [1000, "Минимальное количество заказа не может превышать 1000"],
     },
     maxOrderQuantity: {
       type: Number,
-      min: [1, 'Максимальное количество заказа не может быть меньше 1'],
-      max: [10000, 'Максимальное количество заказа не может превышать 10000'],
+      min: [1, "Максимальное количество заказа не может быть меньше 1"],
+      max: [10000, "Максимальное количество заказа не может превышать 10000"],
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return !v || v >= this.minOrderQuantity;
         },
-        message: 'Максимальное количество должно быть больше или равно минимальному'
-      }
+        message:
+          "Максимальное количество должно быть больше или равно минимальному",
+      },
     },
 
     // Категория
     category: {
       type: Schema.Types.ObjectId,
       ref: "Category",
-      required: [true, 'Категория обязательна'],
-      index: true
+      required: [true, "Категория обязательна"],
+      index: true,
     },
 
     // Видимость
-    isVisible: { 
-      type: Boolean, 
+    isVisible: {
+      type: Boolean,
       default: true,
-      index: true 
+      index: true,
     },
-    showOnMainPage: { 
-      type: Boolean, 
+    showOnMainPage: {
+      type: Boolean,
       default: false,
-      index: true 
+      index: true,
     },
 
-    mainImage: { 
+    mainImage: {
       type: String,
       validate: {
-        validator: function(v) {
-          return !v || /^(\/uploads\/products\/images\/|https?:\/\/)/.test(v);
-        },
-        message: 'Некорректный формат основного изображения'
-      }
+        validator: (v) =>
+          !v || /^(\/uploads\/products\/images\/|https?:\/\/)/.test(v),
+        message: "Некорректный формат основного изображения",
+      },
     },
     images: [
       {
@@ -128,31 +131,32 @@ const ProductSchema = new Schema(
           type: String,
           required: true,
           validate: {
-            validator: function(v) {
-              return /^(\/uploads\/products\/images\/|https?:\/\/)/.test(v);
-            },
-            message: 'Некорректный формат изображения'
-          }
+            validator: (v) =>
+              /^(\/uploads\/products\/images\/|https?:\/\/)/.test(v),
+            message: "Некорректный формат изображения",
+          },
         },
         alt: { type: String, maxlength: 255 },
-        order: { type: Number, default: 0, min: 0 }
-      }
+        order: { type: Number, default: 0, min: 0 },
+      },
     ],
-    
+
     instruction: {
       type: {
         type: String,
-        enum: ['file', 'link'],
+        enum: ["file", "link"],
       },
       url: {
         type: String,
         validate: {
-          validator: function(v) {
+          validator: function (v) {
             if (!this.instruction || !this.instruction.type) return true;
-            
-            if (this.instruction.type === 'file') {
-              return /^(\/uploads\/products\/instructions\/|https?:\/\/)/.test(v);
-            } else if (this.instruction.type === 'link') {
+
+            if (this.instruction.type === "file") {
+              return /^(\/uploads\/products\/instructions\/|https?:\/\/)/.test(
+                v,
+              );
+            } else if (this.instruction.type === "link") {
               try {
                 new URL(v);
                 return true;
@@ -162,20 +166,20 @@ const ProductSchema = new Schema(
             }
             return true;
           },
-          message: function(props) {
+          message: function (props) {
             const instructionType = this.instruction?.type;
-            if (instructionType === 'file') {
-              return 'Некорректный формат файла инструкции';
-            } else if (instructionType === 'link') {
-              return 'Некорректный формат ссылки';
+            if (instructionType === "file") {
+              return "Некорректный формат файла инструкции";
+            } else if (instructionType === "link") {
+              return "Некорректный формат ссылки";
             }
-            return 'Некорректный формат инструкции';
-          }
-        }
+            return "Некорректный формат инструкции";
+          },
+        },
       },
       originalName: {
         type: String,
-        maxlength: 255
+        maxlength: 255,
       },
       size: {
         type: Number,
@@ -184,10 +188,10 @@ const ProductSchema = new Schema(
       },
       title: {
         type: String,
-        maxlength: 255
+        maxlength: 255,
       },
       alt: { type: String, maxlength: 255 },
-      mimetype: { type: String }
+      mimetype: { type: String },
     },
 
     // Технические характеристики
@@ -197,53 +201,53 @@ const ProductSchema = new Schema(
         value: { type: Schema.Types.Mixed, required: true },
         unit: { type: String, maxlength: 20 },
         group: { type: String, maxlength: 50 },
-        isVisible: { type: Boolean, default: true }
-      }
+        isVisible: { type: Boolean, default: true },
+      },
     ],
 
     // Кастомные атрибуты
     customAttributes: {
       type: Schema.Types.Mixed,
-      default: {}
+      default: {},
     },
 
     // Связанные товары
     relatedProducts: [
       {
         type: Types.ObjectId,
-        ref: "Product"
-      }
+        ref: "Product",
+      },
     ],
 
     // Cross-sell/Up-sell товары
     upsellProducts: [
       {
         type: Types.ObjectId,
-        ref: "Product"
-      }
+        ref: "Product",
+      },
     ],
     crossSellProducts: [
       {
         type: Types.ObjectId,
-        ref: "Product"
-      }
+        ref: "Product",
+      },
     ],
 
     // Дополнительная информация
-    weight: { 
-      type: Number, 
-      min: [0, 'Вес не может быть отрицательным'],
-      max: [100000, 'Вез не может превышать 100000 грамм']
+    weight: {
+      type: Number,
+      min: [0, "Вес не может быть отрицательным"],
+      max: [100000, "Вез не может превышать 100000 грамм"],
     },
     dimensions: {
       length: { type: Number, min: 0, max: 10000 },
       width: { type: Number, min: 0, max: 10000 },
-      height: { type: Number, min: 0, max: 10000 }
+      height: { type: Number, min: 0, max: 10000 },
     },
     manufacturer: { type: String, maxlength: 100 },
     warrantyMonths: { type: Number, min: 0, max: 120 },
     rating: { type: Number, min: 0, max: 5, default: 0 },
-    
+
     // Мета-информация
     metaTitle: { type: String, maxlength: 255 },
     metaDescription: { type: String, maxlength: 500 },
@@ -252,11 +256,11 @@ const ProductSchema = new Schema(
     // Системные поля
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User"
+      ref: "User",
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User"
+      ref: "User",
     },
     publishedAt: Date,
 
@@ -264,42 +268,42 @@ const ProductSchema = new Schema(
     viewsCount: {
       type: Number,
       default: 0,
-      min: 0
+      min: 0,
     },
     purchasesCount: {
       type: Number,
       default: 0,
-      min: 0
-    }
+      min: 0,
+    },
   },
   {
     timestamps: true,
-    toJSON: { 
+    toJSON: {
       virtuals: true,
-      transform: function(doc, ret) {
+      transform: (doc, ret) => {
         delete ret.__v;
         delete ret.updatedAt;
-        
+
         // ГАРАНТИРОВАННАЯ ГЕНЕРАЦИЯ URL В toJSON
         if (ret.sku) {
           generateAndAddUrl(ret);
         }
-        
+
         return ret;
-      }
+      },
     },
-    toObject: { 
+    toObject: {
       virtuals: true,
-      transform: function(doc, ret) {
+      transform: (doc, ret) => {
         // ГАРАНТИРОВАННАЯ ГЕНЕРАЦИЯ URL В toObject
         if (ret.sku) {
           generateAndAddUrl(ret);
         }
-        
+
         return ret;
-      }
-    }
-  }
+      },
+    },
+  },
 );
 
 // ========== ВИРТУАЛЬНЫЕ ПОЛЯ ==========
@@ -308,7 +312,7 @@ ProductSchema.virtual("finalPriceForIndividual").get(function () {
   if (!this.discount?.isActive) return this.priceForIndividual;
 
   const now = new Date();
-  
+
   // Проверка срока действия скидки
   if (this.discount.validFrom && now < this.discount.validFrom) {
     return this.priceForIndividual;
@@ -331,9 +335,14 @@ ProductSchema.virtual("finalPriceForIndividual").get(function () {
 });
 
 // Виртуальное поле для URL (работает только при populate)
-ProductSchema.virtual('url').get(function() {
-  if (this.category && typeof this.category === 'object' && this.category.slug && this.sku) {
-    const BASE_URL = 'https://npo-polet.ru';
+ProductSchema.virtual("url").get(function () {
+  if (
+    this.category &&
+    typeof this.category === "object" &&
+    this.category.slug &&
+    this.sku
+  ) {
+    const BASE_URL = "https://npo-polet.ru";
     return `${BASE_URL}/categories/${this.category.slug}/products/${this.sku}`;
   }
   return null;
@@ -344,22 +353,22 @@ ProductSchema.virtual('url').get(function() {
 // Функция для гарантированной генерации URL
 function generateAndAddUrl(productObj) {
   if (!productObj.sku) return;
-  
-  let categorySlug = '';
-  
+
+  let categorySlug = "";
+
   // Извлекаем slug категории
   if (productObj.category) {
-    if (typeof productObj.category === 'object') {
+    if (typeof productObj.category === "object") {
       // Категория уже популирована
-      categorySlug = productObj.category.slug || '';
+      categorySlug = productObj.category.slug || "";
     }
     // Если category это ObjectId (строка), slug будет null
     // но это нормально - URL сгенерируется ниже в processProductDocument
   }
-  
+
   // Генерируем URL если есть slug
   if (categorySlug) {
-    const BASE_URL = 'https://npo-polet.ru';
+    const BASE_URL = "https://npo-polet.ru";
     productObj.url = `${BASE_URL}/categories/${categorySlug}/products/${productObj.sku}`;
     productObj.productUrl = `/categories/${categorySlug}/products/${productObj.sku}`;
   } else {
@@ -371,65 +380,83 @@ function generateAndAddUrl(productObj) {
 
 // Функция для проверки, нужно ли обрабатывать URL файлов
 const shouldProcessUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  
+  if (!url || typeof url !== "string") return false;
+
   // Не обрабатываем если уже полный URL
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://") ||
+    url.startsWith("data:")
+  ) {
     return false;
   }
-  
+
   // Обрабатываем только локальные пути
-  return url.startsWith('/uploads/');
+  return url.startsWith("/uploads/");
 };
 
 // Основная функция обработки документа
 const processProductDocument = (doc) => {
-  if (!doc || typeof doc !== 'object') return doc;
-  
+  if (!doc || typeof doc !== "object") return doc;
+
   // 1. Обработка изображений
   if (doc.mainImage && shouldProcessUrl(doc.mainImage)) {
-    doc.mainImage = fileService.getFileUrl(doc.mainImage);
+    doc.mainImage = getFileUrl(doc.mainImage);
   }
-  
+
   // 2. Обработка массива images
   if (doc.images && Array.isArray(doc.images)) {
-    doc.images = doc.images.map(image => {
+    doc.images = doc.images.map((image) => {
       if (image && image.url && shouldProcessUrl(image.url)) {
         return {
           ...image,
-          url: fileService.getFileUrl(image.url)
+          url: getFileUrl(image.url),
         };
       }
       return image;
     });
   }
-  
+
   // 3. Обработка инструкции
-  if (doc.instruction && doc.instruction !== null && doc.instruction.url && shouldProcessUrl(doc.instruction.url)) {
+  if (
+    doc.instruction &&
+    doc.instruction !== null &&
+    doc.instruction.url &&
+    shouldProcessUrl(doc.instruction.url)
+  ) {
     doc.instruction = {
       ...doc.instruction,
-      url: fileService.getFileUrl(doc.instruction.url)
+      url: getFileUrl(doc.instruction.url),
     };
   }
-  
+
   // 4. Обработка specifications если там есть изображения
   if (doc.specifications && Array.isArray(doc.specifications)) {
-    doc.specifications = doc.specifications.map(spec => {
-      if (spec.value && typeof spec.value === 'string' && shouldProcessUrl(spec.value)) {
+    doc.specifications = doc.specifications.map((spec) => {
+      if (
+        spec.value &&
+        typeof spec.value === "string" &&
+        shouldProcessUrl(spec.value)
+      ) {
         return {
           ...spec,
-          value: fileService.getFileUrl(spec.value)
+          value: getFileUrl(spec.value),
         };
       }
       return spec;
     });
   }
-  
+
   // 5. ГАРАНТИРОВАННАЯ ГЕНЕРАЦИЯ URL для продукта
   if (doc.sku) {
     // Проверяем, может быть категория уже популирована middleware
-    if (!doc.url && doc.category && typeof doc.category === 'object' && doc.category.slug) {
-      const BASE_URL = 'https://npo-polet.ru';
+    if (
+      !doc.url &&
+      doc.category &&
+      typeof doc.category === "object" &&
+      doc.category.slug
+    ) {
+      const BASE_URL = "https://npo-polet.ru";
       doc.url = `${BASE_URL}/categories/${doc.category.slug}/products/${doc.sku}`;
     }
     // Если url все еще не установлен, но есть данные для его генерации
@@ -438,90 +465,89 @@ const processProductDocument = (doc) => {
       doc.url = null;
     }
   }
-  
+
   return doc;
 };
 
 // ========== MIDDLEWARE ДЛЯ АВТОМАТИЧЕСКОГО POPULATE ==========
 
 // Middleware для автоматического populate категории
-ProductSchema.pre(/^find/, function(next) {
+ProductSchema.pre(/^find/, function (next) {
   // Автоматически популируем категорию при ЛЮБОМ find запросе
   // Проверяем, не был ли уже установлен populate
-  const hasCategoryPopulate = this._mongooseOptions.populate && 
-    (Array.isArray(this._mongooseOptions.populate) 
-      ? this._mongooseOptions.populate.some(p => p.path === 'category')
-      : this._mongooseOptions.populate.path === 'category');
-  
+  const hasCategoryPopulate =
+    this._mongooseOptions.populate &&
+    (Array.isArray(this._mongooseOptions.populate)
+      ? this._mongooseOptions.populate.some((p) => p.path === "category")
+      : this._mongooseOptions.populate.path === "category");
+
   if (!hasCategoryPopulate) {
     this.populate({
-      path: 'category',
-      select: 'slug name _id',
-      options: { 
+      path: "category",
+      select: "slug name _id",
+      options: {
         lean: true,
         // Не строго - если категория удалена, все равно возвращаем продукт
-        strictPopulate: false 
-      }
+        strictPopulate: false,
+      },
     });
   }
-  
+
   next();
 });
 
 // Middleware для aggregate запросов
-ProductSchema.pre('aggregate', function(next) {
+ProductSchema.pre("aggregate", function (next) {
   // Автоматически добавляем lookup для категории в агрегацию
-  const hasCategoryLookup = this.pipeline().some(stage => 
-    stage.$lookup && stage.$lookup.as === 'category'
+  const hasCategoryLookup = this.pipeline().some(
+    (stage) => stage.$lookup && stage.$lookup.as === "category",
   );
-  
+
   if (!hasCategoryLookup) {
     this.pipeline().unshift(
       {
         $lookup: {
-          from: 'categories',
-          localField: 'category',
-          foreignField: '_id',
-          as: 'category',
-          pipeline: [
-            { $project: { slug: 1, name: 1, _id: 1 } }
-          ]
-        }
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "category",
+          pipeline: [{ $project: { slug: 1, name: 1, _id: 1 } }],
+        },
       },
       {
         $unwind: {
-          path: '$category',
-          preserveNullAndEmptyArrays: true
-        }
-      }
+          path: "$category",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
     );
   }
-  
+
   next();
 });
 
 // ========== POST MIDDLEWARE ДЛЯ ОБРАБОТКИ РЕЗУЛЬТАТОВ ==========
 
 // Middleware для обработки результатов запросов
-ProductSchema.post(['find', 'findOne', 'findById'], function(docs) {
+ProductSchema.post(["find", "findOne", "findById"], (docs) => {
   if (!docs) return docs;
-  
+
   if (Array.isArray(docs)) {
     return docs.map(processProductDocument);
   }
-  
+
   return processProductDocument(docs);
 });
 
 // Middleware для агрегации
-ProductSchema.post('aggregate', function(docs) {
+ProductSchema.post("aggregate", (docs) => {
   if (!docs || !Array.isArray(docs)) return docs;
-  
+
   return docs.map(processProductDocument);
 });
 
 // Middleware для toJSON (если вызывается вручную)
-ProductSchema.methods.toJSON = function() {
+ProductSchema.methods.toJSON = function () {
   const obj = this.toObject ? this.toObject() : this;
   return processProductDocument(obj);
 };
@@ -540,83 +566,90 @@ ProductSchema.index({ showOnMainPage: 1, isVisible: 1 });
 
 ProductSchema.pre("save", function (next) {
   // Автоматическое обновление publishedAt при публикации
-  if (this.isModified('isVisible') && this.isVisible && !this.publishedAt) {
+  if (this.isModified("isVisible") && this.isVisible && !this.publishedAt) {
     this.publishedAt = new Date();
   }
-  
+
   next();
 });
 
 // ========== СТАТИЧЕСКИЕ МЕТОДЫ ==========
 
-ProductSchema.statics.findAvailable = function() {
+ProductSchema.statics.findAvailable = function () {
   return this.find({
     status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
-    isVisible: true
+    isVisible: true,
   });
 };
 
 // Статический метод который гарантированно возвращает URL
-ProductSchema.statics.findWithUrls = function(...args) {
+ProductSchema.statics.findWithUrls = function (...args) {
   return this.find(...args)
     .populate({
-      path: 'category',
-      select: 'slug name _id',
-      options: { lean: true, strictPopulate: false }
+      path: "category",
+      select: "slug name _id",
+      options: { lean: true, strictPopulate: false },
     })
     .lean({ virtuals: true });
 };
 
-ProductSchema.statics.findOneWithUrl = function(...args) {
+ProductSchema.statics.findOneWithUrl = function (...args) {
   return this.findOne(...args)
     .populate({
-      path: 'category',
-      select: 'slug name _id',
-      options: { lean: true, strictPopulate: false }
+      path: "category",
+      select: "slug name _id",
+      options: { lean: true, strictPopulate: false },
     })
     .lean({ virtuals: true });
 };
 
 // ========== МЕТОДЫ ЭКЗЕМПЛЯРА ==========
 
-ProductSchema.methods.incrementViews = function() {
+ProductSchema.methods.incrementViews = function () {
   this.viewsCount += 1;
   return this.save();
 };
 
-ProductSchema.methods.incrementPurchases = function(quantity = 1) {
+ProductSchema.methods.incrementPurchases = function (quantity = 1) {
   this.purchasesCount += quantity;
   return this.save();
 };
 
 // Метод для получения URL (гарантированный)
-ProductSchema.methods.getProductUrl = function() {
+ProductSchema.methods.getProductUrl = function () {
   // Если категория уже загружена
-  if (this.category && typeof this.category === 'object' && this.category.slug) {
-    const BASE_URL = 'https://npo-polet.ru';
+  if (
+    this.category &&
+    typeof this.category === "object" &&
+    this.category.slug
+  ) {
+    const BASE_URL = "https://npo-polet.ru";
     return `${BASE_URL}/categories/${this.category.slug}/products/${this.sku}`;
   }
-  
+
   // Если нет, возвращаем паттерн
   return `/categories/[category]/products/${this.sku}`;
 };
 
 // ========== ДОПОЛНИТЕЛЬНЫЕ СТАТИЧЕСКИЕ МЕТОДЫ ==========
 
-ProductSchema.statics.findWithProcessedUrls = async function(...args) {
+ProductSchema.statics.findWithProcessedUrls = async function (...args) {
   const docs = await this.find(...args);
-  return Array.isArray(docs) ? docs.map(processProductDocument) : processProductDocument(docs);
+  return Array.isArray(docs)
+    ? docs.map(processProductDocument)
+    : processProductDocument(docs);
 };
 
-ProductSchema.statics.findOneWithProcessedUrls = async function(...args) {
+ProductSchema.statics.findOneWithProcessedUrls = async function (...args) {
   const doc = await this.findOne(...args);
   return processProductDocument(doc);
 };
 
-ProductSchema.statics.findByIdWithProcessedUrls = async function(id, ...args) {
+ProductSchema.statics.findByIdWithProcessedUrls = async function (id, ...args) {
   const doc = await this.findById(id, ...args);
   return processProductDocument(doc);
 };
 
-module.exports = model("Product", ProductSchema);
-module.exports.ProductStatus = ProductStatus;
+export default model("Product", ProductSchema);
+const _ProductStatus = ProductStatus;
+export { _ProductStatus as ProductStatus };

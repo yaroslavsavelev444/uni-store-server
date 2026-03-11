@@ -1,426 +1,306 @@
-const fs = require("fs").promises;
-const path = require("path");
-const crypto = require("crypto");
-const logger = require("../logger/logger");
-const serverConfig = require("../config/serverConfig");
-const FileManager = require("../utils/fileManager"); 
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
+import { fromFile } from "file-type";
+import { uploadsDir } from "../config/serverConfig";
+import { error as _error, info } from "../logger/logger";
+import File, {
+  aggregate,
+  countDocuments,
+  deleteOne,
+  find,
+  findById,
+  findOne,
+} from "../models/fileModel";
+
+// Заглушка для сервиса проверки прав на сущности
+// В реальном проекте импортируйте нужный сервис (orderService, productService)
+const entityService = {
+  async canViewOrder(user, orderId) {
+    // Пример: пользователь может просматривать заказ, если он админ или владелец заказа
+    // Здесь должна быть реальная логика
+    return user.role === "admin" || String(user.id) === String(orderId); // упрощённо
+  },
+  async canEditOrder(user, orderId) {
+    return user.role === "admin"; // только админ может редактировать
+  },
+};
 
 class FileService {
   constructor() {
-    this.uploadsDir = path.join(process.cwd(), serverConfig.uploadsDir);
-    this.tempDir = path.join(this.uploadsDir, "temp");
+    this.uploadsDir = join(process.cwd(), uploadsDir); // в продакшне /var/app/uploads
+    this.tempDir = join(this.uploadsDir, "temp");
+    this.permanentDir = join(this.uploadsDir, "permanent");
     this.ensureDirectories();
   }
 
-  /**
-   * Создание необходимых директорий
-   */
   async ensureDirectories() {
     try {
       await fs.mkdir(this.uploadsDir, { recursive: true });
       await fs.mkdir(this.tempDir, { recursive: true });
-      
-      // Создаем .gitkeep файлы
-      await Promise.all([
-        fs.writeFile(path.join(this.uploadsDir, '.gitkeep'), ''),
-        fs.writeFile(path.join(this.tempDir, '.gitkeep'), '')
-      ]);
-      
-      logger.info(`[FILE_SERVICE] Директории созданы: ${this.tempDir}`);
+      await fs.mkdir(this.permanentDir, { recursive: true });
+      info(`[FILE_SERVICE] Директории созданы`);
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка создания директорий: ${error.message}`);
+      _error(`[FILE_SERVICE] Ошибка создания директорий: ${error.message}`);
       throw error;
     }
   }
 
   /**
-   * Сохранение файла
+   * Сохраняет временный файл в БД
+   * @param {string} userId - ID владельца
+   * @param {Object} file - объект файла от multer
+   * @param {string} [entityType] - тип сущности (order, product)
+   * @param {string} [entityId] - ID сущности
+   * @returns {Promise<Object>} сохранённый документ
    */
-  async saveFile(userId, file) {
+  async saveFile(userId, file, entityType = null, entityId = null) {
     try {
-      // Проверяем входные данные
       if (!file || !file.filename || !file.path) {
-        throw new Error('Некорректные данные файла');
+        throw new Error("Некорректные данные файла");
+      }
+
+      // Проверка сигнатуры файла
+      const type = await fromFile(file.path);
+      const allowedMime = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
+      if (!type || !allowedMime.includes(type.mime)) {
+        await fs.unlink(file.path).catch(() => {});
+        throw new Error(
+          "Файл не является допустимым изображением (сигнатура не совпадает)",
+        );
       }
 
       const tempName = file.filename;
-      const tempPath = file.path;
-
-      logger.info(`[FILE_SERVICE] Сохранение файла: ${tempName} для пользователя ${userId}`);
-
-      // Проверяем существование файла
-      try {
-        await fs.access(tempPath);
-      } catch (error) {
-        throw new Error(`Файл не найден по пути: ${tempPath}`);
-      }
-
-      // Создаем метаданные
       const fileMeta = {
-        id: crypto.randomUUID(),
+        userId,
         tempName,
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size,
-        uploadedAt: new Date().toISOString(),
-        userId,
-        path: `/uploads/temp/${tempName}`,
-        url: serverConfig.getTempFileUrl(tempName),
-        alt: path.parse(file.originalname).name
+        path: file.path,
+        status: "temp",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 дней
+        entityType,
+        entityId,
       };
 
-      // Сохраняем метаданные
-      await this.saveFileMetadata(userId, fileMeta);
-
-      logger.info(`[FILE_SERVICE] Файл сохранен: ${tempName}`);
-
-      return fileMeta;
-
+      const savedFile = await new File(fileMeta).save();
+      info(`[FILE_SERVICE] Файл сохранён: ${tempName} для ${userId}`);
+      return savedFile;
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка сохранения файла: ${error.message}`, error);
+      _error(`[FILE_SERVICE] Ошибка сохранения файла: ${error.message}`, error);
       throw error;
     }
   }
 
   /**
-   * Сохранение метаданных файла
+   * Проверка квоты пользователя
    */
-  async saveFileMetadata(userId, fileMeta) {
-    const metaPath = path.join(this.tempDir, `${userId}_meta.json`);
-    let existingMeta = [];
-
-    try {
-      const metaContent = await fs.readFile(metaPath, 'utf8');
-      existingMeta = JSON.parse(metaContent);
-    } catch (error) {
-      // Файл не существует, создаем новый
-      logger.info(`[FILE_SERVICE] Создание нового файла метаданных для пользователя ${userId}`);
+  async checkUserQuota(
+    userId,
+    additionalBytes = 0,
+    maxBytes = 100 * 1024 * 1024,
+  ) {
+    // Используем агрегацию для быстрого подсчёта
+    const result = await aggregate([
+      { $match: { userId } },
+      { $group: { _id: null, total: { $sum: "$size" } } },
+    ]);
+    const totalUsed = result.length ? result[0].total : 0;
+    if (totalUsed + additionalBytes > maxBytes) {
+      throw new Error(
+        `Превышена квота хранилища (макс. ${maxBytes / 1024 / 1024} MB)`,
+      );
     }
-
-    // Удаляем старую запись с таким же tempName
-    existingMeta = existingMeta.filter(meta => meta.tempName !== fileMeta.tempName);
-    
-    // Добавляем новую запись
-    existingMeta.push(fileMeta);
-
-    // Сохраняем
-    await fs.writeFile(metaPath, JSON.stringify(existingMeta, null, 2), 'utf8');
-    
-    logger.debug(`[FILE_SERVICE] Метаданные сохранены для файла: ${fileMeta.tempName}`);
+    return true;
   }
 
   /**
-   * Удаление файлов по временным именам (старый метод для обратной совместимости)
+   * Удаление файлов по ID с проверкой прав
+   * @param {Array} fileIds - массив _id
+   * @param {Object} user - объект пользователя { id, role }
+   * @returns {Promise<Array>} результаты по каждому файлу
    */
-  async deleteFiles(tempNames) {
+  async deleteFilesByIds(fileIds, user) {
     const results = [];
-
-    for (const tempName of tempNames) {
+    for (const fileId of fileIds) {
       try {
-        // Для временных файлов в папке temp
-        const filePath = path.join(this.tempDir, tempName);
-        
-        // Проверяем существование файла
-        try {
-          await fs.access(filePath);
-        } catch (error) {
-          logger.warn(`[FILE_SERVICE] Файл ${tempName} не существует`);
-          results.push({ 
-            success: true, 
-            tempName, 
-            message: 'Файл не существует (возможно уже удален)' 
-          });
+        const file = await findById(fileId);
+        if (!file) {
+          results.push({ success: false, fileId, error: "Файл не найден" });
           continue;
         }
-        
-        // Удаляем файл
-        await fs.unlink(filePath);
-        
-        // Очищаем метаданные
-        await this.cleanupMetadata(tempName);
-        
-        results.push({ 
-          success: true, 
-          tempName, 
-          message: 'Файл успешно удален' 
-        });
-        
-        logger.info(`[FILE_SERVICE] Файл удален: ${tempName}`);
 
+        // Проверка прав на удаление
+        const canDelete = await this._canDeleteFile(user, file);
+        if (!canDelete) {
+          results.push({ success: false, fileId, error: "Доступ запрещён" });
+          continue;
+        }
+
+        await fs.unlink(file.path);
+        await deleteOne({ _id: fileId });
+        results.push({ success: true, fileId });
+        info(`[FILE_SERVICE] Файл удалён: ${file.tempName}`);
       } catch (error) {
-        logger.error(`[FILE_SERVICE] Ошибка удаления файла ${tempName}:`, error);
-        results.push({ 
-          success: false, 
-          tempName, 
-          error: error.message 
-        });
+        results.push({ success: false, fileId, error: error.message });
+        _error(`[FILE_SERVICE] Ошибка удаления: ${error.message}`);
       }
     }
-
     return results;
   }
 
-  async deleteFilesByUrls(fileUrls) {
-  const results = [];
-  
-  for (const fileUrl of fileUrls) {
-    try {
-      logger.info(`[FILE_SERVICE] Удаление файла из массива: ${fileUrl}`);
-      console.log('[FILE_SERVICE] deleteFile вызван с параметром:');
-    console.log('  Значение:', fileUrls);
-    console.log('  Тип:', typeof fileUrls);
-    console.log('  Конструктор:', fileUrls?.constructor?.name);
-    
-    if (fileUrls) {
-      console.log('  String():', String(fileUrls));
-    }
-    
-    logger.info(`[FILE_SERVICE] Удаление файла: ${fileUrls}`);
-
-      // Используем FileManager для удаления
-      const success = await FileManager.deleteFile(fileUrl);
-      
-      // Если это был временный файл, очищаем метаданные
-      if (fileUrl.includes('/temp/')) {
-        const filename = path.basename(fileUrl);
-        await this.cleanupMetadata(filename);
-      }
-      
-      results.push({ 
-        success: true, 
-        fileUrl, 
-        message: 'Файл успешно удален' 
-      });
-      
-      logger.info(`[FILE_SERVICE] Файл удален: ${fileUrl}`);
-      
-    } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка удаления файла ${fileUrl}:`, error);
-      results.push({ 
-        success: false, 
-        fileUrl, 
-        error: error.message 
-      });
-    }
-  }
-  
-  return results;
-}
-
-
-
   /**
-   * Удаление файла по полному URL или пути (новый метод)
+   * Перемещение файла из temp в permanent
+   * @param {string} fileId
+   * @param {string} userId - ID владельца (должен совпадать)
+   * @param {Object} options - { isPublic, entityType, entityId }
+   * @returns {Promise<Object>} обновлённый документ
    */
-  async deleteFile(filePathOrUrl) {
+  async moveFileToPermanent(
+    fileId,
+    userId,
+    { isPublic = false, entityType = null, entityId = null } = {},
+  ) {
     try {
-      logger.info(`[FILE_SERVICE] Удаление файла: ${filePathOrUrl}`);
-      
-      // Используем FileManager для удаления
-      const result = await FileManager.deleteFile(filePathOrUrl);
-      
-      // Если это был временный файл, очищаем метаданные
-      if (filePathOrUrl.includes('/temp/')) {
-        const filename = path.basename(filePathOrUrl);
-        await this.cleanupMetadata(filename);
+      const file = await findOne({ _id: fileId, userId });
+      if (!file || file.status !== "temp") {
+        throw new Error(
+          "Файл не найден, не является временным или доступ запрещён",
+        );
       }
-      
-      return result;
+      const userDir = join(this.permanentDir, userId);
+      await fs.mkdir(userDir, { recursive: true });
+      const newPath = join(userDir, file.tempName);
+      await fs.rename(file.path, newPath);
+      file.path = newPath;
+      file.isPublic = isPublic;
+      if (entityType) file.entityType = entityType;
+      if (entityId) file.entityId = entityId;
+      file.status = "permanent";
+      file.expiresAt = null;
+      // Если файл публичный, но токен ещё не сгенерирован – сработает pre-save
+      await file.save();
+      info(`[FILE_SERVICE] Файл перемещён в permanent: ${file.tempName}`);
+      return file;
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка удаления файла ${filePathOrUrl}:`, error);
+      _error(`[FILE_SERVICE] Ошибка перемещения: ${error.message}`);
       throw error;
     }
   }
 
   /**
-   * Перемещение файла
+   * Получение информации о файле с учётом прав доступа
+   * @param {string} fileId
+   * @param {Object} user - объект пользователя { id, role } (может быть null для публичного доступа)
+   * @returns {Promise<Object|null>}
    */
-  async moveFile(sourcePath, targetPath) {
-    try {
-      logger.info(`[FILE_SERVICE] Перемещение файла: ${sourcePath} -> ${targetPath}`);
-      return await FileManager.moveFile(sourcePath, targetPath);
-    } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка перемещения файла: ${error.message}`, error);
-      throw error;
-    }
-  }
+  async getFileInfo(fileId, user = null) {
+    const file = await findById(fileId);
+    if (!file) return null;
 
-  /**
-   * Проверка существования файла
-   */
-  async validateFileExists(filePath) {
-    try {
-      logger.debug(`[FILE_SERVICE] Проверка существования файла: ${filePath}`);
-      return await FileManager.validateFileExists(filePath);
-    } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка проверки файла: ${error.message}`, error);
-      throw error;
-    }
-  }
+    // Публичный файл доступен всем
+    if (file.isPublic) return file;
 
-  /**
-   * Получение абсолютного пути
-   */
-  getAbsolutePath(filePath) {
-    return FileManager.getAbsolutePath(filePath);
-  }
+    // Если пользователь не авторизован, доступ запрещён
+    if (!user) return null;
 
-  /**
-   * Получение URL файла
-   */
-  getFileUrl(filePath) {
-    return FileManager.getFileUrl(filePath);
-  }
+    // Владелец имеет доступ
+    if (String(file.userId) === String(user.id)) return file;
 
-  /**
-   * Очистка метаданных
-   */
-  async cleanupMetadata(tempName) {
-    try {
-      const metaFiles = await fs.readdir(this.tempDir);
-      const userMetaFiles = metaFiles.filter(f => f.endsWith('_meta.json'));
-
-      for (const metaFile of userMetaFiles) {
-        const metaPath = path.join(this.tempDir, metaFile);
-        const metaContent = await fs.readFile(metaPath, 'utf8');
-        const metadata = JSON.parse(metaContent);
-
-        // Фильтруем записи без указанного файла
-        const filteredMetadata = metadata.filter(meta => meta.tempName !== tempName);
-
-        if (filteredMetadata.length !== metadata.length) {
-          await fs.writeFile(metaPath, JSON.stringify(filteredMetadata, null, 2), 'utf8');
-          logger.debug(`[FILE_SERVICE] Метаданные очищены для файла: ${tempName}`);
-        }
+    // Если файл привязан к сущности, проверяем права на сущность
+    if (file.entityType && file.entityId) {
+      let canAccess = false;
+      if (file.entityType === "order") {
+        canAccess = await entityService.canViewOrder(user, file.entityId);
       }
-    } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка очистки метаданных: ${error.message}`);
+      // Можно добавить другие типы (product и т.д.)
+      if (canAccess) return file;
     }
+
+    return null;
   }
 
   /**
-   * Получение информации о файле
+   * Получение пути к файлу с проверкой прав
    */
-  async getFileInfo(tempName) {
-    try {
-      const metaFiles = await fs.readdir(this.tempDir);
-      const userMetaFiles = metaFiles.filter(f => f.endsWith('_meta.json'));
-
-      for (const metaFile of userMetaFiles) {
-        const metaPath = path.join(this.tempDir, metaFile);
-        const metaContent = await fs.readFile(metaPath, 'utf8');
-        const metadata = JSON.parse(metaContent);
-        
-        const fileInfo = metadata.find(m => m.tempName === tempName);
-        
-        if (fileInfo) {
-          return fileInfo;
-        }
-      }
-
-      return null;
-
-    } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка получения информации о файле ${tempName}:`, error);
-      return null;
-    }
+  async getFilePath(fileId, user = null) {
+    const file = await this.getFileInfo(fileId, user);
+    return file ? file.path : null;
   }
 
   /**
-   * Получение пути к файлу
+   * Получение публичного файла по токену (без авторизации)
+   * @param {string} token
+   * @returns {Promise<Object|null>}
    */
-  async getFilePath(tempName) {
-    const filePath = path.join(this.tempDir, tempName);
-    
-    try {
-      await fs.access(filePath);
-      return filePath;
-    } catch (error) {
-      return null;
-    }
+  async getPublicFileByToken(token) {
+    return findOne({
+      publicToken: token,
+      isPublic: true,
+      status: "permanent",
+    });
   }
 
   /**
-   * Получение файлов пользователя
+   * Получение списка файлов пользователя с пагинацией
+   * @param {string} userId
+   * @param {number} page
+   * @param {number} limit
+   * @returns {Promise<{files: Array, total: number, page: number, pages: number}>}
    */
-  async getUserFiles(userId) {
-    try {
-      const metaPath = path.join(this.tempDir, `${userId}_meta.json`);
-      
+  async getUserFiles(userId, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [files, total] = await Promise.all([
+      find({ userId }).sort({ uploadedAt: -1 }).skip(skip).limit(limit),
+      countDocuments({ userId }),
+    ]);
+    return {
+      files,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Очистка устаревших временных файлов (запускается по cron)
+   */
+  async cleanupOldFiles() {
+    const oldFiles = await find({ expiresAt: { $lt: new Date() } });
+    for (const file of oldFiles) {
       try {
-        await fs.access(metaPath);
+        await fs.unlink(file.path);
+        await deleteOne({ _id: file._id });
+        info(`[CLEANUP] Удалён старый файл: ${file.tempName}`);
       } catch (error) {
-        return []; // Файл метаданных не существует
+        _error(`[CLEANUP] Ошибка: ${error.message}`);
       }
-
-      const metaContent = await fs.readFile(metaPath, 'utf8');
-      const metadata = JSON.parse(metaContent);
-
-      // Проверяем существование файлов
-      const validFiles = [];
-      
-      for (const fileMeta of metadata) {
-        const filePath = path.join(this.tempDir, fileMeta.tempName);
-        
-        try {
-          await fs.access(filePath);
-          validFiles.push(fileMeta);
-        } catch (error) {
-          // Файл не существует, удаляем из метаданных
-          await this.cleanupMetadata(fileMeta.tempName);
-        }
-      }
-
-      return validFiles;
-
-    } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка получения файлов пользователя ${userId}:`, error);
-      return [];
     }
   }
 
-  /**
-   * Получение статистики файлов
-   */
-  async getFilesStats() {
-    try {
-      const files = await fs.readdir(this.tempDir);
-      const metaFiles = files.filter(f => f.endsWith('_meta.json'));
-      
-      let totalFiles = 0;
-      let totalSize = 0;
-      const users = new Set();
+  // Вспомогательный метод для проверки права на удаление
+  async _canDeleteFile(user, file) {
+    // Админ может удалить любой файл
+    if (user.role === "admin") return true;
 
-      for (const metaFile of metaFiles) {
-        try {
-          const metaPath = path.join(this.tempDir, metaFile);
-          const metaContent = await fs.readFile(metaPath, 'utf8');
-          const metadata = JSON.parse(metaContent);
-          
-          totalFiles += metadata.length;
-          metadata.forEach(meta => {
-            totalSize += meta.size || 0;
-            if (meta.userId) {
-              users.add(meta.userId);
-            }
-          });
-        } catch (error) {
-          // Пропускаем поврежденные файлы метаданных
-        }
+    // Владелец может удалить свой файл
+    if (String(file.userId) === String(user.id)) return true;
+
+    // Если файл привязан к сущности, проверяем право на редактирование сущности
+    if (file.entityType && file.entityId) {
+      if (file.entityType === "order") {
+        return await entityService.canEditOrder(user, file.entityId);
       }
-
-      return {
-        totalFiles,
-        totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
-        uniqueUsers: users.size,
-        storagePath: this.tempDir
-      };
-
-    } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка получения статистики файлов: ${error.message}`);
-      return null;
+      // Добавить другие типы
     }
+
+    return false;
   }
 }
 
-module.exports = new FileService();
+export default new FileService();

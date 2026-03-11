@@ -1,4 +1,4 @@
-const notificationTypes = require("../constants/notificationTypes");
+import notificationTypes from "../constants/notificationTypes";
 
 function validateNotification(type, data) {
   const config = notificationTypes[type];
@@ -7,7 +7,7 @@ function validateNotification(type, data) {
     return {
       valid: false,
       error: `Unknown notification type: ${type}`,
-      missing: []
+      missing: [],
     };
   }
 
@@ -19,9 +19,8 @@ function validateNotification(type, data) {
 
   return {
     valid: missing.length === 0,
-    missing
+    missing,
   };
 }
 
-
-module.exports = { validateNotification };
+export default { validateNotification };

@@ -1,4 +1,4 @@
-module.exports = class UserDTO {
+export default class UserDTO {
     id;
     name;
     email;

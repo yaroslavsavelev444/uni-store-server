@@ -1,23 +1,23 @@
 // models/notificationModel.js
-const mongoose = require("mongoose");
+import { model, Schema } from "mongoose";
 
-const notificationSchema = new mongoose.Schema({
+const notificationSchema = new Schema({
   // Получатель уведомления
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
 
   // Тип уведомления (чтобы понимать источник)
   type: {
-  type: String,
-  enum: [
-    "system",
-    "subscription_match",
-    "chat",
-    "review",
-    "order",
-    "login_from_new_device" // добавляем новый тип
-  ],
-  default: "system",
-},
+    type: String,
+    enum: [
+      "system",
+      "subscription_match",
+      "chat",
+      "review",
+      "order",
+      "login_from_new_device", // добавляем новый тип
+    ],
+    default: "system",
+  },
 
   // Заголовок уведомления
   title: { type: String, required: true },
@@ -52,4 +52,4 @@ const notificationSchema = new mongoose.Schema({
 // Индексы для ускорения выборок
 notificationSchema.index({ userId: 1, type: 1, isRead: 1 });
 
-module.exports = mongoose.model("Notification", notificationSchema);
+export default model("Notification", notificationSchema);

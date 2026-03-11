@@ -1,5 +1,5 @@
 // models/KeyModel.js
-const { Schema, model } = require("mongoose");
+import { model, Schema } from "mongoose";
 
 const keySchema = new Schema(
   {
@@ -10,10 +10,10 @@ const keySchema = new Schema(
     active: { type: Boolean, default: false },
     comment: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 keySchema.index({ version: 1 });
 keySchema.index({ active: 1 });
 
-module.exports = model("KeyEncrypt", keySchema);
+export default model("KeyEncrypt", keySchema);

@@ -1,24 +1,22 @@
 // src/services/sitemapService.js
 
-const redis = require("../redis/redis.client");
-
-const {
-  ProductModel,
+import {
   CategoryModel,
+  ProductModel,
   TopicModelCommon,
-} = require("../models/index.models");
-
-const { ProductStatus } = require("../models/product-model");
+} from "../models/index.models";
+import { ProductStatus } from "../models/product-model";
+import { del, get, setex } from "../redis/redis.client";
 
 const SITEMAP_KEY = "sitemap:xml:v1";
 const SITEMAP_TTL_SECONDS = 60 * 60 * 24; // 24 часа
 
 const SITE_URL = "https://npo-polet.ru";
 
-exports.getXml = async () => {
+export async function getXml() {
   // 1️⃣ Пытаемся взять из Redis
   try {
-    const cachedXml = await redis.get(SITEMAP_KEY);
+    const cachedXml = await get(SITEMAP_KEY);
     if (cachedXml) {
       return cachedXml;
     }
@@ -41,9 +39,7 @@ exports.getXml = async () => {
 
   categories.forEach((c) => {
     // Изменено: /categories/{slug} вместо /catalog/{slug}
-    urls.push(
-      buildUrl(`/categories/${c.slug}`, "weekly", 0.8, c.updatedAt)
-    );
+    urls.push(buildUrl(`/categories/${c.slug}`, "weekly", 0.8, c.updatedAt));
   });
 
   products.forEach((p) => {
@@ -55,53 +51,47 @@ exports.getXml = async () => {
           `/categories/${p.category.slug}/products/${p.slug}`,
           "weekly",
           0.7,
-          p.updatedAt
-        )
+          p.updatedAt,
+        ),
       );
     } else {
       // Fallback на старый формат если категория не найдена
       console.warn(`Product ${p.slug} has no category, using fallback URL`);
-      urls.push(
-        buildUrl(`/product/${p.slug}`, "weekly", 0.7, p.updatedAt)
-      );
+      urls.push(buildUrl(`/product/${p.slug}`, "weekly", 0.7, p.updatedAt));
     }
   });
 
   topics.forEach((t) => {
-    urls.push(
-      buildUrl(`/topics/${t.slug}`, "monthly", 0.5, t.updatedAt)
-    );
+    urls.push(buildUrl(`/topics/${t.slug}`, "monthly", 0.5, t.updatedAt));
   });
 
   const xml = buildXml(urls);
 
   // 3️⃣ Кладём в Redis
   try {
-    await redis.setex(SITEMAP_KEY, SITEMAP_TTL_SECONDS, xml);
+    await setex(SITEMAP_KEY, SITEMAP_TTL_SECONDS, xml);
   } catch (err) {
     // Ошибка кеша не ломает ответ
   }
 
   return xml;
-};
+}
 
 // 🔥 Вызывать при create/update/delete товара, категории и т.д.
-exports.invalidate = async () => {
+export async function invalidate() {
   try {
-    await redis.del(SITEMAP_KEY);
+    await del(SITEMAP_KEY);
   } catch (err) {
     // noop
   }
-};
+}
 
 function buildUrl(path, freq, priority, lastmod) {
   return {
     loc: `${SITE_URL}${path}`,
     changefreq: freq,
     priority,
-    lastmod: lastmod
-      ? lastmod.toISOString().split("T")[0]
-      : null,
+    lastmod: lastmod ? lastmod.toISOString().split("T")[0] : null,
   };
 }
 

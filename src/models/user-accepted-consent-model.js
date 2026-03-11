@@ -1,5 +1,5 @@
 // models/user-accepted-consent-model.js
-const { Schema, model } = require("mongoose");
+import { model, Schema } from "mongoose";
 
 const UserAcceptedConsentSchema = new Schema(
   {
@@ -32,16 +32,13 @@ const UserAcceptedConsentSchema = new Schema(
       required: true,
     },
   },
-  { timestamps: false }
+  { timestamps: false },
 );
 
 // Один пользователь не может дважды принять одну и ту же версию
 UserAcceptedConsentSchema.index(
   { userId: 1, consentSlug: 1, consentVersion: 1 },
-  { unique: true }
+  { unique: true },
 );
 
-module.exports = model(
-  "UserAcceptedConsent",
-  UserAcceptedConsentSchema
-);
+export default model("UserAcceptedConsent", UserAcceptedConsentSchema);

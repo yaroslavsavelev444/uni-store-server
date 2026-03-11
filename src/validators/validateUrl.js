@@ -1,17 +1,23 @@
-const Joi = require("joi");
+import { boolean, object, string } from "joi";
 
-const schema = Joi.object({
-  name: Joi.string().optional(),
-  ios: Joi.object({
-    url: Joi.string().uri({ scheme: [/https?/] }).allow("").optional(),
-    meta: Joi.object().optional()
+const schema = object({
+  name: string().optional(),
+  ios: object({
+    url: string()
+      .uri({ scheme: [/https?/] })
+      .allow("")
+      .optional(),
+    meta: object().optional(),
   }).optional(),
-  android: Joi.object({
-    url: Joi.string().uri({ scheme: [/https?/] }).allow("").optional(),
-    meta: Joi.object().optional()
+  android: object({
+    url: string()
+      .uri({ scheme: [/https?/] })
+      .allow("")
+      .optional(),
+    meta: object().optional(),
   }).optional(),
-  note: Joi.string().allow("").optional(),
-  active: Joi.boolean().optional()
+  note: string().allow("").optional(),
+  active: boolean().optional(),
 });
 
-module.exports = (payload) => schema.validate(payload, { abortEarly: false });
+export default (payload) => schema.validate(payload, { abortEarly: false });

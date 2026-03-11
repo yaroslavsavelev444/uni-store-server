@@ -1,12 +1,13 @@
-const nodemailer = require("nodemailer");
-const renderTemplate = require("../emailTemplates/renderer");
-const { formattedDate } = require("../utils/formats");
-const ApiError = require("../exceptions/api-error");
+import { createTransport } from "nodemailer";
+import renderTemplate from "../emailTemplates/renderer";
+import { BadRequest } from "../exceptions/api-error";
+import { formattedDate } from "../utils/formats";
+
 require("dotenv").config();
 
 // Транспортер
 const createTransporter = () => {
-  return nodemailer.createTransport({
+  return createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT, 10),
     secure: true,
@@ -99,16 +100,6 @@ Email: ${data.customer.email}
       });
       break;
     }
-
-    case "orderCancelledByUser": {
-      subject = "📝 Заказ отменен";
-      html = renderTemplate("orderCancelledByUser", {
-        ...data,
-        formattedDate: formattedDate(data.createdAt),
-      });
-      break;
-    }
-
 
     case "orderCancelledByAdmin": {
       subject = `❌ Ваш заказ No${data.orderNumber} отменен`;
@@ -210,8 +201,8 @@ IP: ${data.ip}
     }
 
     case "consentUpdated": {
-  subject = `📄 Обновлено ${data.consentTitle}`;
-  text = `Уважаемый пользователь!
+      subject = `📄 Обновлено ${data.consentTitle}`;
+      text = `Уважаемый пользователь!
 Мы обновили ${data.consentTitle} (редакция ${data.version} от ${data.updateDate}).
 
 Ключевые изменения: ${data.changeDescription}
@@ -223,18 +214,17 @@ IP: ${data.ip}
 
 Если вы не согласны с изменениями, вы можете удалить свой аккаунт в разделе настроек профиля.`;
 
-  html = renderTemplate("consentUpdated", {
-    consentTitle: data.consentTitle,
-    version: data.version,
-    updateDate: data.updateDate,
-    changeDescription: data.changeDescription,
-    documentUrl: data.documentUrl,
-    effectiveDate: data.effectiveDate,
-    notificationTypes: data.notificationTypes || ['email']
-  });
-  break;
-}
-
+      html = renderTemplate("consentUpdated", {
+        consentTitle: data.consentTitle,
+        version: data.version,
+        updateDate: data.updateDate,
+        changeDescription: data.changeDescription,
+        documentUrl: data.documentUrl,
+        effectiveDate: data.effectiveDate,
+        notificationTypes: data.notificationTypes || ["email"],
+      });
+      break;
+    }
 
     case "newFeedback": {
       subject = "📬 Новый фидбек от пользователя";
@@ -332,9 +322,8 @@ IP: ${data.ip}
       break;
     }
 
-
     default:
-      throw ApiError.BadRequest("Неверный тип уведомления");
+      throw BadRequest("Неверный тип уведомления");
   }
 
   console.log("html", html);
@@ -349,6 +338,6 @@ IP: ${data.ip}
   console.log(`📨 Уведомление "${type}" отправлено на ${email}`);
 };
 
-module.exports = {
+export default {
   sendNotification,
 };
