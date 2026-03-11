@@ -1,8 +1,7 @@
 // middlewares/passwordResetLimiters.js
-import {
-  createIpRateLimiter,
-  createRedisRateLimiter,
-} from "../middlewares/rateLimit";
+import rateLimit from "../middlewares/rateLimit.js";
+
+const { createIpRateLimiter, createRedisRateLimiter } = rateLimit;
 
 // Базовые IP лимитеры
 const ipLimiter = createIpRateLimiter({

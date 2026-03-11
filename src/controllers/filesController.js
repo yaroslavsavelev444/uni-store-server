@@ -1,14 +1,16 @@
 import { promises as fs } from "node:fs";
-import logger from "../logger/logger";
-import {
-  getUserFiles as _getUserFiles,
+import logger from "../logger/logger.js";
+import fileService from "../services/fileService.js";
+
+const {
+  getUserFiles: _getUserFiles,
   deleteFilesByIds,
   getFileInfo,
   getFilePath,
   getPublicFileByToken,
   moveFileToPermanent,
   saveFile,
-} from "../services/fileService";
+} = fileService;
 
 class FilesController {
   async uploadFiles(req, res) {

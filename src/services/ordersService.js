@@ -3,42 +3,50 @@
 import { promises as fs } from "node:fs";
 import { basename, dirname } from "node:path";
 import { startSession } from "mongoose";
-import ApiError, {
-  BadRequest,
-  DatabaseError,
-  InternalError,
-  NotFound,
-} from "../exceptions/api-error";
-import { error as _error, info } from "../logger/logger";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, DatabaseError, InternalServerError, NotFoundError } =
+  ApiError;
+
+import logger from "../logger/logger.js";
+
+const { error: _error, info } = logger;
+
 import {
   DeliveryMethod,
   OrderModel,
   OrderStatus,
   ProductModel,
   UserModel,
-} from "../models/index.models";
+} from "../models/index.models.js";
 import {
   sendEmailNotification,
   sendPushNotification,
-} from "../queues/taskQueues";
-import {
+} from "../queues/taskQueues.js";
+import fileManager from "../utils/fileManager.js";
+
+const {
   deleteFile,
   getAbsolutePath,
   getFileInfo,
   getFileUrl,
   getMimeTypeFromName,
   validateFileExists,
-} from "../utils/fileManager";
-import CartService from "./cartService";
-import {
+} = fileManager;
+
+import CartService from "./cartService.js";
+import companyService from "./companyService.js";
+
+const {
   createCompany,
   getCompanyById,
   getCompanyByTaxNumber,
   invalidateUserCompaniesCache,
-} from "./companyService";
-import DiscountService from "./discountService"; // Добавляем импорт
-import OrderCacheService from "./OrderCacheService";
-import ProductService from "./productService";
+} = companyService;
+
+import DiscountService from "./discountService.js"; // Добавляем импорт
+import OrderCacheService from "./OrderCacheService.js";
+import ProductService from "./productService.js";
 
 class OrderService {
   constructor() {
@@ -82,7 +90,7 @@ class OrderService {
         );
 
         if (!product) {
-          throw NotFound(`Товар ${item.product.sku} не найден`);
+          throw NotFoundError(`Товар ${item.product.sku} не найден`);
         }
 
         if (product.status !== "available" && product.status !== "preorder") {
@@ -516,7 +524,7 @@ class OrderService {
         .lean();
 
       if (!order) {
-        throw NotFound("Заказ не найден");
+        throw NotFoundError("Заказ не найден");
       }
 
       // Обработка данных компании
@@ -592,7 +600,7 @@ class OrderService {
       }).session(session);
 
       if (!order) {
-        throw NotFound("Заказ не найден");
+        throw NotFoundError("Заказ не найден");
       }
 
       // Проверяем возможность отмены
@@ -753,7 +761,7 @@ class OrderService {
         .lean();
 
       if (!order) {
-        throw NotFound("Заказ не найден");
+        throw NotFoundError("Заказ не найден");
       }
 
       // Сохраняем в кеш
@@ -779,7 +787,7 @@ class OrderService {
       const order = await OrderModel.findById(orderId).session(session);
 
       if (!order) {
-        throw NotFound("Заказ не найден");
+        throw NotFoundError("Заказ не найден");
       }
 
       // Проверяем валидность перехода статусов
@@ -857,7 +865,7 @@ class OrderService {
       const order = await OrderModel.findById(orderId).session(session);
 
       if (!order) {
-        throw NotFound("Заказ не найден");
+        throw NotFoundError("Заказ не найден");
       }
 
       // Освобождаем зарезервированные товары
@@ -1109,7 +1117,7 @@ class OrderService {
     // Проверяем существование заказа
     const order = await OrderModel.findById(orderId);
     if (!order) {
-      throw NotFound("Заказ не найден");
+      throw NotFoundError("Заказ не найден");
     }
 
     // Проверяем права пользователя (админ)
@@ -1275,7 +1283,7 @@ class OrderService {
           `[OrderService] Ошибка при копировании файла:`,
           copyError,
         );
-        throw InternalError(
+        throw InternalServerError(
           `Ошибка при перемещении файла: ${copyError.message}`,
         );
       }
@@ -1299,7 +1307,7 @@ class OrderService {
     // Проверяем существование заказа
     const order = await OrderModel.findById(orderId);
     if (!order) {
-      throw NotFound("Заказ не найден");
+      throw NotFoundError("Заказ не найден");
     }
 
     // Находим вложение
@@ -1307,7 +1315,7 @@ class OrderService {
       (a) => a._id.toString() === fileId,
     );
     if (attachmentIndex === -1) {
-      throw NotFound("Файл не найден в заказе");
+      throw NotFoundError("Файл не найден в заказе");
     }
 
     const attachment = order.attachments[attachmentIndex];

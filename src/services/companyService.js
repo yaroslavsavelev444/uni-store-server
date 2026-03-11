@@ -1,13 +1,17 @@
 // services/company.service.js
 import { startSession } from "mongoose";
-import ApiError, {
-  BadRequest,
-  DatabaseError,
-  NotFound,
-} from "../exceptions/api-error";
-import { error as _error, debug, info } from "../logger/logger";
-import { CompanyModel, OrderModel } from "../models/index.models";
-import { del, deletePattern, getJson, setJson } from "../redis/redis.client";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFoundError, DatabaseError } = ApiError;
+
+import logger from "../logger/logger.js";
+
+const { error: _error, debug, info } = logger;
+
+import { CompanyModel, OrderModel } from "../models/index.models.js";
+import redis from "../redis/redis.client.js";
+
+const { del, deletePattern, getJson, setJson } = redis;
 
 class CompanyService {
   constructor() {
@@ -49,7 +53,7 @@ class CompanyService {
         .lean();
 
       if (!company) {
-        throw NotFound("Компания не найдена или у вас нет к ней доступа");
+        throw NotFoundError("Компания не найдена или у вас нет к ней доступа");
       }
 
       // Проверяем необходимые поля для оформления заказа
@@ -214,7 +218,7 @@ class CompanyService {
         .lean();
 
       if (!company) {
-        throw NotFound("Компания не найдена");
+        throw NotFoundError("Компания не найдена");
       }
 
       // Сохраняем в кеш
@@ -254,7 +258,7 @@ class CompanyService {
         .lean();
 
       if (!company) {
-        throw NotFound("Компания не найдена");
+        throw NotFoundError("Компания не найдена");
       }
 
       // Сохраняем в кеш
@@ -287,7 +291,7 @@ class CompanyService {
       }).session(session);
 
       if (!company) {
-        throw NotFound("Компания не найдена");
+        throw NotFoundError("Компания не найдена");
       }
 
       // Если обновляется ИНН, проверяем уникальность
@@ -353,11 +357,10 @@ class CompanyService {
       }).session(session);
 
       if (!company) {
-        throw NotFound("Компания не найдена");
+        throw NotFoundError("Компания не найдена");
       }
 
       // Проверяем, не используется ли компания в заказах
-      const OrderModel = require("../models/order-model").default.OrderModel;
       const usedInOrders = await OrderModel.exists({
         "companyInfo.companyId": companyId,
         status: { $nin: ["cancelled", "refunded"] },
@@ -444,9 +447,6 @@ class CompanyService {
       if (cached) {
         return cached;
       }
-
-      // Ищем последнюю использованную компанию (например, в заказах)
-      const OrderModel = require("../models/order-model").default.OrderModel;
       const lastOrderWithCompany = await OrderModel.findOne({
         user: userId,
         "companyInfo.companyId": { $exists: true },

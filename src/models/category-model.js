@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose";
-import { getFileUrl } from "../utils/fileManager";
+import FileManager from "../utils/fileManager.js";
 
 const CategorySchema = new Schema(
   {
@@ -116,7 +116,7 @@ CategorySchema.post(["find", "findOne", "findById"], (docs) => {
       !doc.image.url.startsWith("http")
     ) {
       // Преобразуем путь в полный URL
-      doc.image.url = getFileUrl(doc.image.url);
+      doc.image.url = FileManager.getFileUrl(doc.image.url);
     }
 
     // Если нужно обработать другие поля с изображениями

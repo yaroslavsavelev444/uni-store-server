@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 
-import promoBlocksController from "../controllers/promoBlocksController";
+import promoBlocksController from "../controllers/promoBlocksController.js";
 
 router.get("/getPromoBlocks", promoBlocksController.getPromoBlocks);
 router.get("/getMainMaterials", promoBlocksController.getMainMaterials);

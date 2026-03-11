@@ -1,12 +1,10 @@
 // services/user-service.js
 import { default as mongoose } from "mongoose";
-import ApiError, {
-  BadRequest,
-  DatabaseError,
-  ForbiddenError,
-  NotFoundError,
-} from "../exceptions/api-error";
-import { UserModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, DatabaseError, ForbiddenError, NotFoundError } = ApiError;
+
+import { UserModel } from "../models/index.models.js";
 
 class UserService {
   /**

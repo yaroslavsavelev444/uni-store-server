@@ -1,8 +1,8 @@
 import { createBullBoard } from "@bull-board/api";
-import { BullAdapter } from "@bull-board/api/bullAdapter";
+import { BullAdapter } from "@bull-board/api/dist/queueAdapters/bull.js"; // ИЗМЕНЕНО
 import { ExpressAdapter } from "@bull-board/express";
 import express from "express";
-import bull from "./bull"; // предполагается, что файл bull.js экспортирует по умолчанию объект с очередями
+import bull from "./bull.js";
 
 const { taskQueues, moderateQueues, pushNotificationsQueues } = bull;
 

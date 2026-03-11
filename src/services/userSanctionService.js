@@ -1,17 +1,23 @@
 // services/user-sanction-service.js (обновленная версия)
-import ApiError, {
-  BadRequest,
-  DatabaseError,
-  ForbiddenError,
-  NotFoundError,
-} from "../exceptions/api-error";
-import { error as _error, info } from "../logger/logger";
-import { UserModel, UserSanctionModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
 import {
-  bulkRemoveFromBlacklist,
+  UserModel,
+  UserSanctionModel,
+  UserSessionModel,
+} from "../models/index.models.js"; // Добавили UserSessionModel
+import redisClient from "../redis/redis.client.js"; // Импортируем redis
+import SessionService from "../services/SessionService.js";
+
+const { info, error: _error } = logger;
+const {
   deleteAllUserSessions,
   getUserActiveSessions,
-} from "../services/SessionService";
+  bulkRemoveFromBlacklist,
+} = SessionService;
+
+// Деструктурируем нужные ошибки из ApiError
+const { NotFoundError, BadRequest, DatabaseError, ForbiddenError } = ApiError;
 
 class UserSanctionService {
   /**
@@ -37,20 +43,19 @@ class UserSanctionService {
       // Проверяем существование пользователя
       const user = await UserModel.findById(userId).session(session);
       if (!user) {
-        throw NotFoundError("Пользователь не найден", null);
+        throw new NotFoundError("Пользователь не найден"); // Добавил new
       }
 
       // Проверяем, не пытаемся ли заблокировать себя
       if (userId.toString() === admin.id.toString()) {
-        throw BadRequest("Вы не можете заблокировать себя", [], null);
+        throw new ApiError.BadRequest("Вы не можете заблокировать себя", []); // Добавил new
       }
 
       // Проверяем, не пытаемся ли заблокировать другого админа/суперадмина
       if (user.role === "admin" || user.role === "superadmin") {
         if (admin.role !== "superadmin") {
-          throw ForbiddenError(
-            "Только суперадмин может блокировать администраторов",
-            null,
+          throw new ForbiddenError(
+            "Только суперадмин может блокировать администраторов", // Убрал null
           );
         }
       }
@@ -130,8 +135,7 @@ class UserSanctionService {
           });
 
           // Выполняем массовое добавление в Redis
-          const redisClient = require("../redis/redis.client").default;
-          await redisClient.pipeline(operations);
+          await redisClient.pipeline(operations); // Используем импортированный redisClient
 
           info(`Токены пользователя ${userId} добавлены в blacklist`, {
             userId,
@@ -172,9 +176,9 @@ class UserSanctionService {
       }
 
       _error(`Ошибка при блокировке пользователя ${userId}:`, error);
-      throw DatabaseError(
+      throw new DatabaseError(
+        // Добавил new
         `Ошибка при блокировке пользователя: ${error.message}`,
-        null,
       );
     } finally {
       session.endSession();
@@ -195,12 +199,12 @@ class UserSanctionService {
 
       const user = await UserModel.findById(userId).session(session);
       if (!user) {
-        throw NotFoundError("Пользователь не найден", null);
+        throw new NotFoundError("Пользователь не найден"); // Добавил new
       }
 
       // Проверяем, заблокирован ли пользователь
       if (user.status !== "blocked") {
-        throw BadRequest("Пользователь не заблокирован", [], null);
+        throw new BadRequest("Пользователь не заблокирован", []); // Добавил new
       }
 
       // Деактивируем все активные санкции
@@ -219,11 +223,10 @@ class UserSanctionService {
       // ✅ ОЧИЩАЕМ BLACKLIST: Удаляем все токены пользователя из черного списка
       try {
         // Получаем все сессии пользователя (включая отозванные)
-        const userSessions = await require("../models/index.models")
-          .default.UserSessionModel.find({
-            userId,
-          })
-          .session(session);
+        const userSessions = await UserSessionModel.find({
+          // Используем импортированную модель
+          userId,
+        }).session(session);
 
         if (userSessions && userSessions.length > 0) {
           const refreshTokens = userSessions.map((s) => s.refreshToken);
@@ -264,9 +267,9 @@ class UserSanctionService {
       }
 
       _error(`Ошибка при разблокировке пользователя ${userId}:`, error);
-      throw DatabaseError(
+      throw new DatabaseError(
+        // Добавил new
         `Ошибка при разблокировке пользователя: ${error.message}`,
-        null,
       );
     } finally {
       session.endSession();
@@ -291,9 +294,9 @@ class UserSanctionService {
         `Ошибка при получении истории санкций пользователя ${userId}:`,
         error,
       );
-      throw DatabaseError(
+      throw new DatabaseError(
+        // Добавил new
         `Ошибка при получении истории санкций: ${error.message}`,
-        null,
       );
     }
   }
@@ -320,9 +323,9 @@ class UserSanctionService {
         `Ошибка при получении активных санкций пользователя ${userId}:`,
         error,
       );
-      throw DatabaseError(
+      throw new DatabaseError(
+        // Добавил new
         `Ошибка при получении активных санкций: ${error.message}`,
-        null,
       );
     }
   }
@@ -339,7 +342,7 @@ class UserSanctionService {
         .lean();
 
       if (!user) {
-        throw NotFoundError("Пользователь не найден", null);
+        throw new NotFoundError("Пользователь не найден"); // Добавил new
       }
 
       // Проверяем, не истекла ли блокировка
@@ -371,9 +374,9 @@ class UserSanctionService {
         `Ошибка при проверке статуса блокировки пользователя ${userId}:`,
         error,
       );
-      throw DatabaseError(
+      throw new DatabaseError(
+        // Добавил new
         `Ошибка при проверке статуса блокировки: ${error.message}`,
-        null,
       );
     }
   }

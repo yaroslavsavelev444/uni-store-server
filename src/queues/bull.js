@@ -1,6 +1,6 @@
 import Bull from "bull";
-import logger from "../logger/logger";
-import redis from "../redis/redisConfig";
+import logger from "../logger/logger.js";
+import redis from "../redis/redisConfig.js";
 
 const defaultJobOptions = {
   removeOnComplete: 1000, // Удалять после 1000 задач

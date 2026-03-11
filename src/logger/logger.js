@@ -1,6 +1,10 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url"; // Добавь это
 import pino, { multistream, stdTimeFunctions, transport } from "pino";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = join(__filename, "..");
 
 const logDir = join(__dirname, "..", "logs");
 

@@ -1,18 +1,20 @@
 // controllers/orders.controller.js
-import ApiError from "../exceptions/api-error";
-import { DeliveryMethod, PaymentMethod } from "../models/order-model";
-import {
-  createOrder as _createOrder,
-  deleteAttachment as _deleteAttachment,
-  getAdminOrders as _getAdminOrders,
-  updateOrderStatus as _updateOrderStatus,
-  uploadAttachment as _uploadAttachment,
+import ApiError from "../exceptions/api-error.js";
+import { DeliveryMethod, PaymentMethod } from "../models/order-model.js";
+import ordersService from "../services/ordersService.js";
+
+const {
+  createOrder: _createOrder,
+  deleteAttachmen: _deleteAttachment,
+  getAdminOrder: _getAdminOrders,
+  updateOrderStatu: _updateOrderStatus,
+  uploadAttachmen: _uploadAttachment,
   cancelOrderByAdmin,
   cancelOrderByUser,
   getOrderById,
   getUserOrder,
   getUserOrders,
-} from "../services/ordersService";
+} = ordersService;
 
 class OrdersController {
   // ========== USER ENDPOINTS ==========

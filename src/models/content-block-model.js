@@ -1,6 +1,6 @@
 import { model, Schema } from "mongoose";
 import xss from "xss";
-import { getFileUrl } from "../utils/fileManager";
+import fileManager from "../utils/fileManager.js";
 
 const contentBlockSchema = new Schema(
   {
@@ -156,14 +156,14 @@ const processContentBlockDocument = (doc) => {
 
   // Обработка imageUrl
   if (doc.imageUrl && shouldProcessUrl(doc.imageUrl)) {
-    doc.imageUrl = getFileUrl(doc.imageUrl);
+    doc.imageUrl = fileManager.getFileUrl(doc.imageUrl);
   }
 
   // Обработка button.action если это локальный путь
   if (doc.button && doc.button.action && shouldProcessUrl(doc.button.action)) {
     doc.button = {
       ...doc.button,
-      action: getFileUrl(doc.button.action),
+      action: fileManager.getFileUrl(doc.button.action),
     };
   }
 
@@ -173,7 +173,7 @@ const processContentBlockDocument = (doc) => {
     const processMetadata = (metadata) => {
       for (const [key, value] of Object.entries(metadata)) {
         if (typeof value === "string" && shouldProcessUrl(value)) {
-          metadata[key] = getFileUrl(value);
+          metadata[key] = fileManager.getFileUrl(value);
         } else if (
           value &&
           typeof value === "object" &&
@@ -183,7 +183,7 @@ const processContentBlockDocument = (doc) => {
         } else if (Array.isArray(value)) {
           metadata[key] = value.map((item) => {
             if (typeof item === "string" && shouldProcessUrl(item)) {
-              return getFileUrl(item);
+              return fileManager.getFileUrl(item);
             }
             return item;
           });

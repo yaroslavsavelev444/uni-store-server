@@ -1,8 +1,11 @@
 import { existsSync, unlink } from "node:fs";
 import { unlink as _unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { InternalServerError, NotFoundError } from "../exceptions/api-error";
-import { MainMaterialModel, PromoBlockModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+
+const { InternalServerError, NotFoundError } = ApiError;
+
+import { MainMaterialModel, PromoBlockModel } from "../models/index.models.js";
 
 const createPromoBlock = async (data) => {
   const block = new PromoBlockModel(data);
@@ -76,7 +79,7 @@ const getMainMaterials = async () => {
   return await MainMaterialModel.find().sort({ createdAt: -1 }); // последние первыми
 };
 
-export default {
+export {
   createPromoBlock,
   getPromoBlock,
   deletePromoBlock,

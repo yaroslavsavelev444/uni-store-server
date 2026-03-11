@@ -4,9 +4,11 @@ import {
   CategoryModel,
   ProductModel,
   TopicModelCommon,
-} from "../models/index.models";
-import { ProductStatus } from "../models/product-model";
-import { del, get, setex } from "../redis/redis.client";
+} from "../models/index.models.js";
+import { ProductStatus } from "../models/product-model.js";
+import redis from "../redis/redis.client.js";
+
+const { del, get, setex } = redis;
 
 const SITEMAP_KEY = "sitemap:xml:v1";
 const SITEMAP_TTL_SECONDS = 60 * 60 * 24; // 24 часа

@@ -1,13 +1,15 @@
-import ApiError from "../exceptions/api-error";
-import {
-  changeStatus as _changeStatus,
+import ApiError from "../exceptions/api-error.js";
+import bannerService from "../services/bannerService.js";
+
+const {
+  changeStatus: _changeStatus,
   createBanner,
   deleteBanner,
   getBannerById,
   getBannerForUser,
   listBanners,
   updateBanner,
-} from "../services/bannerService";
+} = bannerService;
 
 class BannerController {
   async create(req, res, next) {

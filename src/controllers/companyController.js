@@ -1,35 +1,39 @@
 // controllers/companies.controller.js
-import { object, string } from "joi";
-import ApiError from "../exceptions/api-error";
-import {
-  createCompany as _createCompany,
-  deleteCompany as _deleteCompany,
-  getCompanyById as _getCompanyById,
-  getCompanyByTaxNumber as _getCompanyByTaxNumber,
-  getDefaultCompany as _getDefaultCompany,
-  searchCompanies as _searchCompanies,
-  updateCompany as _updateCompany,
+import joi from "joi";
+
+import ApiError from "../exceptions/api-error.js";
+import CompanyService from "../services/companyService.js";
+
+const {
+  createCompany: _createCompany,
+  deleteCompany: _deleteCompany,
+  getCompanyById: _getCompanyById,
+  getCompanyByTaxNumber: _getCompanyByTaxNumber,
+  getDefaultCompany: _getDefaultCompany,
+  searchCompanies: _searchCompanies,
+  updateCompany: _updateCompany,
   getUserCompanies,
   syncCacheAfterChanges,
-} from "../services/companyService";
+} = CompanyService;
 
 // Валидационные схемы
-const createCompanySchema = object({
-  companyName: string().required().min(2).max(200).trim().messages({
+const createCompanySchema = joi.object({
+  companyName: joi.string().required().min(2).max(200).trim().messages({
     "string.empty": "Название компании обязательно",
     "string.min": "Название компании должно содержать минимум 2 символа",
     "string.max": "Название компании не должно превышать 200 символов",
   }),
 
-  legalAddress: string().required().min(10).max(300).trim().messages({
+  legalAddress: joi.string().required().min(10).max(300).trim().messages({
     "string.empty": "Юридический адрес обязателен",
     "string.min": "Адрес слишком короткий (минимум 10 символов)",
     "string.max": "Адрес слишком длинный (максимум 300 символов)",
   }),
 
-  companyAddress: string().allow("").max(300).trim().optional(),
+  companyAddress: joi.string().allow("").max(300).trim().optional(),
 
-  taxNumber: string()
+  taxNumber: joi
+    .string()
     .required()
     .pattern(/^\d{10}$|^\d{12}$/)
     .messages({
@@ -37,9 +41,10 @@ const createCompanySchema = object({
       "string.pattern.base": "ИНН должен содержать 10 или 12 цифр",
     }),
 
-  contactPerson: string().allow("").max(100).trim().optional(),
+  contactPerson: joi.string().allow("").max(100).trim().optional(),
 
-  phone: string()
+  phone: joi
+    .string()
     .allow("")
     .pattern(/^[\d\s\-+()]+$/)
     .max(20)
@@ -49,7 +54,8 @@ const createCompanySchema = object({
       "string.pattern.base": "Неверный формат телефона",
     }),
 
-  email: string()
+  email: joi
+    .string()
     .allow("")
     .email()
     .max(100)
@@ -61,46 +67,51 @@ const createCompanySchema = object({
     }),
 });
 
-const updateCompanySchema = object({
-  companyName: string().min(2).max(200).trim().optional(),
+const updateCompanySchema = joi
+  .object({
+    companyName: joi.string().min(2).max(200).trim().optional(),
 
-  legalAddress: string().min(10).max(300).trim().optional(),
+    legalAddress: joi.string().min(10).max(300).trim().optional(),
 
-  companyAddress: string().allow("").max(300).trim().optional(),
+    companyAddress: joi.string().allow("").max(300).trim().optional(),
 
-  taxNumber: string()
-    .pattern(/^\d{10}$|^\d{12}$/)
-    .optional()
-    .messages({
-      "string.pattern.base": "ИНН должен содержать 10 или 12 цифр",
-    }),
+    taxNumber: joi
+      .string()
+      .pattern(/^\d{10}$|^\d{12}$/)
+      .optional()
+      .messages({
+        "string.pattern.base": "ИНН должен содержать 10 или 12 цифр",
+      }),
 
-  contactPerson: string().allow("").max(100).trim().optional(),
+    contactPerson: joi.string().allow("").max(100).trim().optional(),
 
-  phone: string()
-    .allow("")
-    .pattern(/^[\d\s\-+()]+$/)
-    .max(20)
-    .trim()
-    .optional()
-    .messages({
-      "string.pattern.base": "Неверный формат телефона",
-    }),
+    phone: joi
+      .string()
+      .allow("")
+      .pattern(/^[\d\s\-+()]+$/)
+      .max(20)
+      .trim()
+      .optional()
+      .messages({
+        "string.pattern.base": "Неверный формат телефона",
+      }),
 
-  email: string()
-    .allow("")
-    .email()
-    .max(100)
-    .trim()
-    .lowercase()
-    .optional()
-    .messages({
-      "string.email": "Неверный формат email",
-    }),
-}).min(1); // Хотя бы одно поле должно быть обновлено
+    email: joi
+      .string()
+      .allow("")
+      .email()
+      .max(100)
+      .trim()
+      .lowercase()
+      .optional()
+      .messages({
+        "string.email": "Неверный формат email",
+      }),
+  })
+  .min(1); // Хотя бы одно поле должно быть обновлено
 
-const searchCompanySchema = object({
-  query: string().required().min(1).max(100).trim().messages({
+const searchCompanySchema = joi.object({
+  query: joi.string().required().min(1).max(100).trim().messages({
     "string.empty": "Поисковый запрос обязателен",
     "string.min": "Запрос должен содержать минимум 1 символ",
     "string.max": "Запрос не должен превышать 100 символов",

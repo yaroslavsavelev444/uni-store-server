@@ -1,11 +1,13 @@
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import {
-  getUnreadCount as _getUnreadCount,
-  deleteNotificationsService,
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import notificationsService from "../services/notificationsService.js";
+
+const {
   getNotificationsService,
   markNotificationAsReadService,
-} from "../services/notificationsService";
+  deleteNotificationsService,
+  getUnreadCount: _getUnreadCount,
+} = notificationsService;
 
 const getNotifications = async (req, res, next) => {
   const userData = req.user;

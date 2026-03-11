@@ -2,25 +2,27 @@
 
 import { default as mongoose } from "mongoose";
 import sanitize from "sanitize-filename";
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import {
-  addInternalNote as _addInternalNote,
-  addTag as _addTag,
-  deleteFeedback as _deleteFeedback,
-  deleteInternalNote as _deleteInternalNote,
-  exportToCSV as _exportToCSV,
-  getAdminStats as _getAdminStats,
-  getAllFeedbacks as _getAllFeedbacks,
-  getFeedback as _getFeedback,
-  getUserStats as _getUserStats,
-  markAsDuplicate as _markAsDuplicate,
-  removeTag as _removeTag,
-  submitFeedback as _submitFeedback,
-  updateInternalNote as _updateInternalNote,
-  updatePriority as _updatePriority,
-  updateStatus as _updateStatus,
-} from "../services/feedbackService";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import feedbackService from "../services/feedbackService.js";
+
+const {
+  addInternalNote: _addInternalNote,
+  addTag: _addTag,
+  deleteFeedback: _deleteFeedback,
+  deleteInternalNote: _deleteInternalNote,
+  exportToCSV: _exportToCSV,
+  getAdminStats: _getAdminStats,
+  getAllFeedbacks: _getAllFeedbacks,
+  getFeedback: _getFeedback,
+  getUserStats: _getUserStats,
+  markAsDuplicate: _markAsDuplicate,
+  removeTag: _removeTag,
+  submitFeedback: _submitFeedback,
+  updateInternalNote: _updateInternalNote,
+  updatePriority: _updatePriority,
+  updateStatus: _updateStatus,
+} = feedbackService;
 
 const sanitizeInput = (data) => {
   if (typeof data === "string") {

@@ -1,7 +1,11 @@
-import { disconnect as _disconnect, connect, connection } from "mongoose";
-import logger from "../logger/logger";
+import dotenv from "dotenv";
+import mongoose from "mongoose";
 
-require("dotenv").config();
+const { connect, connection } = mongoose;
+
+import logger from "../logger/logger.js";
+
+dotenv.config();
 
 // Подключение к базе данных
 const connectDB = async () => {

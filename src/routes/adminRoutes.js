@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 
-import adminController from "../controllers/adminController";
+import adminController from "../controllers/adminController.js";
 
 // ============== USERS (Пользователи) ==============
 router.get("/users", adminController.getUsers);

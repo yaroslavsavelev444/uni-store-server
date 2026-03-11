@@ -3,8 +3,13 @@ import { Router } from "express";
 
 const router = Router();
 
-import { connection } from "mongoose";
-import { ping } from "../redis/redis.client";
+import mongo from "mongoose";
+
+const { connection } = mongo;
+
+import redis from "../redis/redis.client.js";
+
+const { ping } = redis;
 
 router.get("/healthcheck", async (req, res) => {
   const checks = {

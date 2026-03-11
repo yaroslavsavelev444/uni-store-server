@@ -1,20 +1,20 @@
 import { model, Schema } from "mongoose";
 
 const userSearchSchema = new Schema(
-  {
-    userId: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
-    selectedProductId: {
-      type: Schema.Types.ObjectId,
-      ref: "Product",
-      required: true,
-    },
-  },
-  { timestamps: true },
+	{
+		userId: {
+			type: Schema.Types.ObjectId,
+			ref: "User",
+			required: true,
+			index: true,
+		},
+		selectedProductId: {
+			type: Schema.Types.ObjectId,
+			ref: "Product",
+			required: true,
+		},
+	},
+	{ timestamps: true },
 );
 
 // Уникальность по userId + selectedProductId

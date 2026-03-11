@@ -1,8 +1,16 @@
 import { basename } from "node:path";
-import { BadRequest, NotFoundError } from "../exceptions/api-error";
-import { BannerModel, BannerViewModel } from "../models/index.models";
-import { get, set } from "../redis/redis.client";
-import { deleteFile, moveFile, validateFileExists } from "../utils/fileManager";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFoundError } = ApiError;
+
+import { BannerModel, BannerViewModel } from "../models/index.models.js";
+import redis from "../redis/redis.client.js";
+
+const { get, set } = redis;
+
+import fileManager from "../utils/fileManager.js";
+
+const { moveFile, deleteFile, validateFileExists } = fileManager;
 
 class BannerService {
   /**

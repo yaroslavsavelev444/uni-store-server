@@ -1,6 +1,8 @@
 // services/faqService.js
-import { FaqTopicModel } from "../models/index.models";
-import { del, getJson, setJson } from "../redis/redis.client";
+import { FaqTopicModel } from "../models/index.models.js";
+import redis from "../redis/redis.client.js";
+
+const { del, getJson, setJson } = redis;
 
 const FAQ_PUBLIC_CACHE_KEY = "faq:public:v1";
 const FAQ_PUBLIC_TTL = 60 * 60; // 1 hour

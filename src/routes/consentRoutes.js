@@ -2,8 +2,8 @@ import { Router } from "express";
 
 const router = Router();
 
-import consentController from "../controllers/consentController";
-import authMiddleware from "../middlewares/auth-middleware";
+import consentController from "../controllers/consentController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Публичные роуты (доступны всем)
 router.get("/", consentController.list);

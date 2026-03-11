@@ -1,4 +1,4 @@
-import { isProd } from "./env";
+import { isProd } from "./env.js";
 
 const allowedOriginsProd = [
   "https://api.npo-polet.ru",
@@ -30,3 +30,13 @@ export const allowedHeaders = [
   "X-User-Agent",
   "X-Timestamp",
 ];
+
+const corsConfig = {
+  origin,
+  credentials,
+  methods,
+  exposedHeaders,
+  allowedHeaders,
+};
+
+export default corsConfig;

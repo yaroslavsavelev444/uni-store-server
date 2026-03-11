@@ -1,7 +1,12 @@
 // services/cache/delivery-cache.service.js
 
-import { error as _error, debug } from "../logger/logger";
-import { keys as _keys, del, getJson, setJson } from "../redis/redis.client";
+import logger from "../logger/logger.js";
+
+const { error: _error, debug } = logger;
+
+import redis from "../redis/redis.client.js";
+
+const { keys: _keys, del, getJson, setJson } = redis;
 
 class DeliveryCacheService {
   constructor() {

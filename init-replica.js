@@ -1,4 +1,4 @@
-const { MongoClient } = require("mongodb");
+import { MongoClient } from "mongodb";
 
 const MONGO_PRIMARY = "mongodb://mongo1:27017";
 

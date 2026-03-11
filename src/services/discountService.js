@@ -1,6 +1,9 @@
 import { Types } from "mongoose";
-import { BadRequest, NotFoundError } from "../exceptions/api-error";
-import { DiscountModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFoundError } = ApiError;
+
+import { DiscountModel } from "../models/index.models.js";
 
 class DiscountService {
   /**

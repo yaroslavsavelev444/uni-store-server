@@ -1,9 +1,11 @@
-import ApiError, {
-  BadRequest,
-  InternalServerError,
-} from "../exceptions/api-error";
-import { ConsentModel } from "../models/index.models";
-import { del, getJson, setJson } from "../redis/redis.client";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, InternalServerError } = ApiError;
+
+import { ConsentModel } from "../models/index.models.js";
+import redis from "../redis/redis.client.js";
+
+const { del, getJson, setJson } = redis;
 
 class ConsentService {
   constructor() {

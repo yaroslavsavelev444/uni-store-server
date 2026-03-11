@@ -1,29 +1,40 @@
-import ApiError from "../exceptions/api-error";
-import auditLogger from "../logger/auditLogger";
-import logger from "../logger/logger";
-import { create2FACodeAndNotify } from "../services/2faService";
-import {
-  changePassword as _changePassword,
-  completePasswordReset as _completePasswordReset,
-  getSessions as _getSessions,
-  initiatePasswordReset as _initiatePasswordReset,
-  login as _login,
-  logout as _logout,
-  register as _register,
-  resendResetCode as _resendResetCode,
-  revokeSession as _revokeSession,
-  updateUser as _updateUser,
-  verifyPasswordResetCode as _verifyPasswordResetCode,
+import ApiError from "../exceptions/api-error.js";
+import auditLogger from "../logger/auditLogger.js";
+import logger from "../logger/logger.js";
+import faService from "../services/2faService.js";
+
+const { create2FACodeAndNotify } = faService;
+
+import authService from "../services/authService.js";
+
+const {
+  changePassword: _changePassword,
+  completePasswordReset: _completePasswordReset,
+  getSessions: _getSessions,
+  initiatePasswordReset: _initiatePasswordReset,
+  login: _login,
+  logout: _logout,
+  register: _register,
+  resendResetCode: _resendResetCode,
+  revokeSession: _revokeSession,
+  updateUser: _updateUser,
+  verifyPasswordResetCode: _verifyPasswordResetCode,
   checkService,
   getUserProfile,
   refreshService,
   updateOnlineStatusService,
   verify2FAAndNotify,
-} from "../services/authService";
-import { checkAllAcceptedConsents } from "../services/consentService";
-import getIp from "../utils/getIp";
-import { normalizeEmail } from "../utils/normalizers";
-import { validatePassword } from "../validators/passwordValidator";
+} = authService;
+
+import consentService from "../services/consentService.js";
+
+const { checkAllAcceptedConsents } = consentService;
+
+import getIp from "../utils/getIp.js";
+import { normalizeEmail } from "../utils/normalizers.js";
+import passwordValidator from "../validators/passwordValidator.js";
+
+const { validatePassword } = passwordValidator;
 
 const register = async (req, res, next) => {
   try {

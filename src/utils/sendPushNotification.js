@@ -1,6 +1,6 @@
-import { InternalServerError } from "../exceptions/api-error";
-import { info } from "../logger/logger";
-import { createNotification } from "../services/notificationsService";
+import { InternalServerError } from "../exceptions/api-error.js";
+import { info } from "../logger/logger.js";
+import { createNotification } from "../services/notificationsService.js";
 
 /**
  * Отправка пуш-уведомления
@@ -12,70 +12,70 @@ import { createNotification } from "../services/notificationsService";
  * @param {string|ObjectId} userId - пользователь, которому отправляется уведомление
  */
 async function sendPushNotificationCustom(
-  title,
-  body,
-  data = {},
-  options = {},
-  dbSave = true,
-  userId,
+	title,
+	body,
+	data = {},
+	options = {},
+	dbSave = true,
+	userId,
 ) {
-  info(
-    `sendPushNotificationCustom: ${JSON.stringify(
-      { title, body, data, options, dbSave, userId },
-      null,
-      2,
-    )}`,
-  );
-  const message = {
-    sound: options.sound || "default",
-    title,
-    body,
-    data,
-    priority: options.priority || "high",
-    ttl: options.ttl || 60 * 60,
-    badge: options.badge || undefined,
-    subtitle: options.subtitle,
-    channelId: options.channelId,
-  };
+	info(
+		`sendPushNotificationCustom: ${JSON.stringify(
+			{ title, body, data, options, dbSave, userId },
+			null,
+			2,
+		)}`,
+	);
+	const message = {
+		sound: options.sound || "default",
+		title,
+		body,
+		data,
+		priority: options.priority || "high",
+		ttl: options.ttl || 60 * 60,
+		badge: options.badge || undefined,
+		subtitle: options.subtitle,
+		channelId: options.channelId,
+	};
 
-  try {
-    // const ticketChunk = await expo.sendPushNotificationsAsync([message]);
+	try {
+		// const ticketChunk = await expo.sendPushNotificationsAsync([message]);
 
-    // const ticket = ticketChunk?.[0];
+		// const ticket = ticketChunk?.[0];
 
-    if (dbSave) {
-      // console.log("Saving notification to DB...", { userId, title });
+		if (dbSave) {
+			// console.log("Saving notification to DB...", { userId, title });
 
-      // const pushStatusMap = {
-      //   ok: "sent",
-      //   error: "failed",
-      //   unknown: "pending",
-      // };
+			// const pushStatusMap = {
+			//   ok: "sent",
+			//   error: "failed",
+			//   unknown: "pending",
+			// };
 
-      // const pushStatus = pushStatusMap[ticket?.status] || "pending";
+			// const pushStatus = pushStatusMap[ticket?.status] || "pending";
 
-      // const pushStatus = "pending";
+			// const pushStatus = "pending";
 
-      try {
-        await createNotification({
-          userId,
-          title,
-          body,
-          data,
-          type: data?.type || "system",
-        });
-        console.log("Notification saved");
-      } catch (error) {
-        console.error("❌ Ошибка при сохранении уведомления:", error);
-        throw InternalServerError("Error saving notification");
-      }
-    }
+			try {
+				await createNotification({
+					userId,
+					title,
+					body,
+					data,
+					type: data?.type || "system",
+				});
+				console.log("Notification saved");
+			} catch (error) {
+				console.error("❌ Ошибка при сохранении уведомления:", error);
+				throw InternalServerError("Error saving notification");
+			}
+		}
 
-    return true;
-  } catch (error) {
-    console.log("Ошибка при отправке push:", error);
-    throw error;
-  }
+		return true;
+	} catch (error) {
+		console.log("Ошибка при отправке push:", error);
+		throw error;
+	}
 }
 
 export default sendPushNotificationCustom;

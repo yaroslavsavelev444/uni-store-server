@@ -1,13 +1,11 @@
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs"; // Добавляем existsSync для синхронной проверки
+import * as path from "node:path"; // Импортируем всё как path для использования в getAbsolutePath
 import { basename, dirname, extname, isAbsolute, join } from "node:path";
-import { decode } from "iconv-lite";
+import pkg from "iconv-lite";
+
+const { decode } = pkg;
 
 class FileManager {
-  /**
-   * Проверяет существование файла
-   * @param {string} filePath - путь к файлу
-   * @returns {Promise<boolean>} - true если файл существует
-   */
   /**
    * Проверяет существование файла
    * @param {string} filePath - путь к файлу
@@ -83,8 +81,6 @@ class FileManager {
    * @param {string} filePathOrUrl - полный URL или путь к файлу
    * @returns {Promise<boolean>} - true если файл удален или не существует
    */
-  // utils/fileManager.js - обновим метод deleteFile
-
   static async deleteFile(filePathOrUrl) {
     console.log(`[FILE_MANAGER] Удаление файла: ${filePathOrUrl}`);
 
@@ -161,6 +157,7 @@ class FileManager {
       throw new Error(`Ошибка удаления файла: ${error.message}`);
     }
   }
+
   /**
    * Перемещает файл
    * @param {string} sourcePath - исходный путь
@@ -568,8 +565,9 @@ class FileManager {
   static getAbsolutePath(filePath) {
     console.log(`[FILE_MANAGER] Получение абсолютного пути для: ${filePath}`);
 
-    const fs = require("fs");
-    const path = require("path");
+    // Используем импортированные модули вместо require
+    // fs уже импортирован как promises, но нам нужен existsSync
+    // path уже импортирован как * as path
 
     // Если это полный URL, извлекаем путь
     if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
@@ -587,7 +585,7 @@ class FileManager {
     const isRealAbsolutePath = (filePath) => {
       if (!path.isAbsolute(filePath)) return false;
       try {
-        return fs.existsSync(filePath);
+        return existsSync(filePath); // Используем existsSync
       } catch (err) {
         return false;
       }
@@ -615,7 +613,8 @@ class FileManager {
       // Возвращаем первый существующий путь
       for (const possiblePath of possiblePaths) {
         try {
-          if (fs.existsSync(possiblePath)) {
+          if (existsSync(possiblePath)) {
+            // Используем existsSync
             console.log(
               `[FILE_MANAGER] Найден существующий путь: ${possiblePath}`,
             );
@@ -639,6 +638,7 @@ class FileManager {
     );
     return absolutePath;
   }
+
   /**
    * Получает информацию о файле
    */

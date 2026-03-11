@@ -3,20 +3,22 @@ import { Router } from "express";
 
 const router = Router();
 
-import ReviewsController from "../controllers/reviewsController";
-import authMiddleware from "../middlewares/auth-middleware";
+import ReviewsController from "../controllers/reviewsController.js";
+import authMiddleware, {
+  optionalAuth,
+} from "../middlewares/auth-middleware.js";
 
 const reviewsController = new ReviewsController();
 
 router.get(
   "/products/:productId/reviews",
-  authMiddleware.optionalAuth("all", true),
+  optionalAuth("all", true),
   reviewsController.getProductReviews.bind(reviewsController),
 );
 
 router.get(
   "/products/:productId/reviews/stats",
-  authMiddleware.optionalAuth("all", true),
+  optionalAuth("all", true),
   reviewsController.getProductReviewsStats.bind(reviewsController),
 );
 

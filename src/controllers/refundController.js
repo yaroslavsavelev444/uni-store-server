@@ -1,15 +1,17 @@
-import {
-  addAdminNote as _addAdminNote,
-  assignRefundToAdmin as _assignRefundToAdmin,
-  createRefund as _createRefund,
-  getAllRefunds as _getAllRefunds,
-  getRefundById as _getRefundById,
-  getRefundReasons as _getRefundReasons,
-  getRefundStats as _getRefundStats,
-  getRefundStatuses as _getRefundStatuses,
-  getUserRefunds as _getUserRefunds,
-  updateRefundStatus as _updateRefundStatus,
-} from "../services/refundService";
+import refundService from "../services/refundService.js";
+
+const {
+  addAdminNote: _addAdminNote,
+  assignRefundToAdmin: _assignRefundToAdmin,
+  createRefund: _createRefund,
+  getAllRefunds: _getAllRefunds,
+  getRefundById: _getRefundById,
+  getRefundReasons: _getRefundReasons,
+  getRefundStats: _getRefundStats,
+  getRefundStatuses: _getRefundStatuses,
+  getUserRefunds: _getUserRefunds,
+  updateRefundStatus: _updateRefundStatus,
+} = refundService;
 
 const refundController = {
   // Пользовательские методы

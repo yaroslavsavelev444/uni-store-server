@@ -3,9 +3,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import pickupPointController from "../controllers/pickupPointController";
-import transportCompanyController from "../controllers/transportCompanyController";
-import authMiddleware from "../middlewares/auth-middleware";
+import pickupPointController from "../controllers/pickupPointController.js";
+import transportCompanyController from "../controllers/transportCompanyController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Публичные роуты
 router.get("/pickup-points", pickupPointController.getPickupPoints);
@@ -14,39 +14,39 @@ router.get("/pickup-points/:id", pickupPointController.getPickupPoint);
 
 // Админские роуты
 router.post(
-  "/pickup-points",
-  authMiddleware("admin"),
-  pickupPointController.createPickupPoint,
+	"/pickup-points",
+	authMiddleware("admin"),
+	pickupPointController.createPickupPoint,
 );
 
 router.put(
-  "/pickup-points/:id",
-  authMiddleware("admin"),
-  pickupPointController.updatePickupPoint,
+	"/pickup-points/:id",
+	authMiddleware("admin"),
+	pickupPointController.updatePickupPoint,
 );
 
 router.delete(
-  "/pickup-points/:id",
-  authMiddleware("admin"),
-  pickupPointController.deletePickupPoint,
+	"/pickup-points/:id",
+	authMiddleware("admin"),
+	pickupPointController.deletePickupPoint,
 );
 
 router.patch(
-  "/pickup-points/:id/toggle-status",
-  authMiddleware("admin"),
-  pickupPointController.togglePickupPointStatus,
+	"/pickup-points/:id/toggle-status",
+	authMiddleware("admin"),
+	pickupPointController.togglePickupPointStatus,
 );
 
 router.patch(
-  "/pickup-points/:id/set-main",
-  authMiddleware("admin"),
-  pickupPointController.setAsMainPickupPoint,
+	"/pickup-points/:id/set-main",
+	authMiddleware("admin"),
+	pickupPointController.setAsMainPickupPoint,
 );
 
 router.put(
-  "/pickup-points/order",
-  authMiddleware("admin"),
-  pickupPointController.updatePickupPointsOrder,
+	"/pickup-points/order",
+	authMiddleware("admin"),
+	pickupPointController.updatePickupPointsOrder,
 );
 
 // ========== TRANSPORT COMPANIES ROUTES ==========
@@ -56,24 +56,24 @@ router.get("/transport-companies/active", transportCompanyController.getActive);
 
 // Для админа
 router.get(
-  "/transport-companies/",
-  authMiddleware("admin"),
-  transportCompanyController.getAll,
+	"/transport-companies/",
+	authMiddleware("admin"),
+	transportCompanyController.getAll,
 );
 router.post(
-  "/transport-companies/",
-  authMiddleware("admin"),
-  transportCompanyController.create,
+	"/transport-companies/",
+	authMiddleware("admin"),
+	transportCompanyController.create,
 );
 router.put(
-  "/transport-companies/:id",
-  authMiddleware("admin"),
-  transportCompanyController.update,
+	"/transport-companies/:id",
+	authMiddleware("admin"),
+	transportCompanyController.update,
 );
 router.delete(
-  "/transport-companies/:id",
-  authMiddleware("admin"),
-  transportCompanyController.delete,
+	"/transport-companies/:id",
+	authMiddleware("admin"),
+	transportCompanyController.delete,
 );
 
 export default router;

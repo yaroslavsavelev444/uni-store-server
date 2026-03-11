@@ -2,7 +2,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import {
+import categoriesController from "../controllers/categoriesController.js";
+
+const {
   createCategory,
   deleteCategory,
   getAllCategories,
@@ -11,17 +13,23 @@ import {
   getCategoryList,
   getProductCount,
   updateCategory,
-} from "../controllers/categoriesController";
-import authMiddleware from "../middlewares/auth-middleware";
-import { validateObjectId } from "../middlewares/validation.middleware";
-import {
+} = categoriesController;
+
+import authMiddleware from "../middlewares/auth-middleware.js";
+import validationMiddleware from "../middlewares/validation.middleware.js";
+
+const { validateObjectId } = validationMiddleware;
+
+import categoryValidator from "../validators/category.validator.js";
+
+const {
   categoryListQuerySchema,
   categoryQuerySchema,
   createCategorySchema,
   updateCategorySchema,
   validateCategory,
   validateCategoryQuery,
-} from "../validators/category.validator";
+} = categoryValidator;
 
 // Публичные эндпоинты (доступны всем)
 router.get("/", validateCategoryQuery(categoryQuerySchema), getAllCategories);

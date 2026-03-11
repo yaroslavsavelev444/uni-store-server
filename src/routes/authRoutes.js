@@ -1,7 +1,9 @@
 import express from "express";
 import authController from "../controllers/authController.js";
 import passwordResetLimiters from "../limiters/passwordResetLimiters.js";
-import authMiddleware from "../middlewares/auth-middleware.js";
+import authMiddleware, {
+  refreshMiddleware,
+} from "../middlewares/auth-middleware.js";
 import DeviceAuthManager from "../middlewares/deviceAuthMiddleware.js";
 import multerMiddleware from "../middlewares/multerMiddleware.js";
 import rateLimit from "../middlewares/rateLimit.js";
@@ -42,11 +44,7 @@ router.post(
   authController.login,
 );
 router.post("/logout", authMiddleware(["all"]), authController.logout);
-router.get(
-  "/refresh",
-  authMiddleware.refreshMiddleware(),
-  authController.refresh,
-);
+router.get("/refresh", refreshMiddleware(), authController.refresh);
 router.post("/check", authController.check);
 
 // UPDATES

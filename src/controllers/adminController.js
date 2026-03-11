@@ -1,27 +1,37 @@
-import { log } from "node:console";
 import { join } from "node:path";
-import ApiError from "../exceptions/api-error";
-import {
-  createCategory as _createCategory,
-  deleteCategory as _deleteCategory,
+import ApiError from "../exceptions/api-error.js";
+import CategoryService from "../services/categoryService.js";
+
+const {
+  createCategory: _createCategory,
+  deleteCategory: _deleteCategory,
   changeCategory,
   findById,
   updateCategoryWithImage,
-} from "../services/categoryService";
-import companyService from "../services/companyService";
-import { updateContactStatus as _updateContactStatus } from "../services/contactsService";
-import {
-  deleteOrderFile as _deleteOrderFile,
-  updateOrderStatus as _updateOrderStatus,
-  uploadOrderFile as _uploadOrderFile,
+} = CategoryService;
+
+import contactsService from "../services/contactsService.js";
+
+const { updateContactStatus: _updateContactStatus } = contactsService;
+
+import ordersService from "../services/ordersService.js";
+
+const {
+  deleteOrderFile: _deleteOrderFile,
+  updateOrderStatus: _updateOrderStatus,
+  uploadOrderFile: _uploadOrderFile,
   cancelOrderAdmin,
   getOrderAdmin,
   getOrdersAdmin,
-} from "../services/ordersService";
-import {
-  createProduct as _createProduct,
-  deleteUploadedFile as _deleteUploadedFile,
-} from "../services/productService";
+} = ordersService;
+
+import productService from "../services/productService.js";
+
+const {
+  createProduct: _createProduct,
+  deleteUploadedFile: _deleteUploadedFile,
+} = productService;
+
 import {
   deleteMainMaterial as _deleteMainMaterial,
   deletePromoBlock as _deletePromoBlock,
@@ -30,17 +40,20 @@ import {
   updatePromoBlock as _updatePromoBlock,
   createMainMaterial,
   createPromoBlock,
-} from "../services/promoBlockService";
-import {
-  getProductReviews as _getProductReviews,
-  getProductsReviews as _getProductsReviews,
-  updateReviewStatus as _updateReviewStatus,
-} from "../services/reviewService";
+} from "../services/promoBlockService.js";
+import reviewService from "../services/reviewService.js";
+
+const {
+  getProductReviews: _getProductReviews,
+  getProductsReviews: _getProductsReviews,
+  updateReviewStatus: _updateReviewStatus,
+} = reviewService;
+
 import {
   deleteUser as _deleteUser,
   getUsers as _getUsers,
   updateUserRole as _updateUserRole,
-} from "../services/userService";
+} from "../services/userService.js";
 
 //PRODUCT
 const createProduct = async (req, res, next) => {

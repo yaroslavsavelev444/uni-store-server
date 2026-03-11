@@ -1,11 +1,14 @@
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { InternalServerError } from "../exceptions/api-error";
-import { UserModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+
+const { InternalServerError } = ApiError;
+
+import { UserModel } from "../models/index.models.js";
 import {
   sendEmailNotification,
   sendPushNotification,
-} from "../queues/taskQueues";
+} from "../queues/taskQueues.js";
 
 class ConsentNotificationService {
   // Получаем всех активных пользователей

@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { model, Schema } from "mongoose";
-import { sanitizeHtml } from "../utils/sanitizer";
+import sanitizer from "../utils/sanitizer.js";
 
 const VersionHistorySchema = new Schema(
   {
@@ -78,7 +79,7 @@ ConsentSchema.pre("validate", function (next) {
 
   fieldsToSanitize.forEach((field) => {
     if (this.isModified(field) && this[field]) {
-      this[field] = sanitizeHtml(this[field]);
+      this[field] = sanitizer.sanitizeHtml(this[field]);
     }
   });
 
@@ -86,20 +87,19 @@ ConsentSchema.pre("validate", function (next) {
   if (this.history?.length) {
     this.history.forEach((h) => {
       if (h.content) {
-        h.content = sanitizeHtml(h.content);
+        h.content = sanitizer.sanitizeHtml(h.content);
       }
       if (h.changeDescription) {
-        h.changeDescription = sanitizeHtml(h.changeDescription);
+        h.changeDescription = sanitizer.sanitizeHtml(h.changeDescription); // Исправлено: sanitizeHtml -> sanitizer.sanitizeHtml
       }
     });
   }
 
   next();
 });
+
 // Предварительная обработка для сохранения истории
 ConsentSchema.pre("save", function (next) {
-  const crypto = require("crypto");
-
   // Если это обновление существующего соглашения и изменилось содержание или URL
   if (
     !this.isNew &&
@@ -123,8 +123,7 @@ ConsentSchema.pre("save", function (next) {
     this.version = `${major}.${minor}.${patch + 1}`;
 
     // Обновляем хеш контента
-    this.checksum = crypto
-      .createHash("sha256")
+    this.checksum = createHash("sha256") // Исправлено: crypto.createHash -> createHash
       .update(this.content)
       .digest("hex");
 

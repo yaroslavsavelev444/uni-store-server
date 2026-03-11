@@ -2,12 +2,17 @@
 
 import ApiError from "../exceptions/api-error.js";
 import logger from "../logger/logger.js";
-import { isSessionRevoked } from "../services/SessionService.js";
-import {
-  validateAccessToken,
-  validateRefreshToken,
-} from "../services/tokenService.js";
-import { checkUserBlockStatus } from "../services/userSanctionService.js";
+import SessionService from "../services/SessionService.js";
+
+const { isSessionRevoked } = SessionService;
+
+import tokenService from "../services/tokenService.js";
+
+const { validateAccessToken, validateRefreshToken } = tokenService;
+
+import userSanctionService from "../services/userSanctionService.js";
+
+const { checkUserBlockStatus } = userSanctionService;
 
 /**
  * Универсальная миддлвара для проверки авторизации

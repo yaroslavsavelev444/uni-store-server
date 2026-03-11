@@ -1,50 +1,55 @@
-import { array, boolean, number, object, string } from "joi";
+import joi from "joi";
 
-const contentBlockSchema = object({
-  title: string().required().min(1).max(200).messages({
+const contentBlockSchema = joi.object({
+  title: joi.string().required().min(1).max(200).messages({
     "string.empty": "Заголовок обязателен",
     "string.min": "Заголовок должен содержать хотя бы 1 символ",
     "string.max": "Заголовок не должен превышать 200 символов",
   }),
 
-  subtitle: string().required().min(1).max(500).messages({
+  subtitle: joi.string().required().min(1).max(500).messages({
     "string.empty": "Подзаголовок обязателен",
     "string.min": "Подзаголовок должен содержать хотя бы 1 символ",
     "string.max": "Подзаголовок не должен превышать 500 символов",
   }),
 
-  imageUrl: string().allow(null, ""),
-  button: object({
-    text: string().max(50).allow(null, "").messages({
-      "string.max": "Текст кнопки не должен превышать 50 символов",
-    }),
+  imageUrl: joi.string().allow(null, ""),
+  button: joi
+    .object({
+      text: joi.string().max(50).allow(null, "").messages({
+        "string.max": "Текст кнопки не должен превышать 50 символов",
+      }),
 
-    action: string()
-      .max(500)
-      .allow(null, "")
-      .pattern(/^(https?:\/\/|\/)[^\s]+$|^[a-zA-Z0-9_]+$/)
-      .message("Некорректный формат действия кнопки"),
+      action: joi
+        .string()
+        .max(500)
+        .allow(null, "")
+        .pattern(/^(https?:\/\/|\/)[^\s]+$|^[a-zA-Z0-9_]+$/)
+        .message("Некорректный формат действия кнопки"),
 
-    style: string()
-      .valid("primary", "secondary", "outline", null)
-      .default(null),
-  }).allow(null),
+      style: joi
+        .string()
+        .valid("primary", "secondary", "outline", null)
+        .default(null),
+    })
+    .allow(null),
 
-  description: string().max(2000).allow("").default("").messages({
+  description: joi.string().max(2000).allow("").default("").messages({
     "string.max": "Описание не должно превышать 2000 символов",
   }),
 
-  position: number().integer().min(0).default(0),
+  position: joi.number().integer().min(0).default(0),
 
-  isActive: boolean().default(true),
+  isActive: joi.boolean().default(true),
 
-  tags: array().items(string().trim().lowercase()).default([]),
+  tags: joi.array().items(joi.string().trim().lowercase()).default([]),
 
-  metadata: object().default({}),
+  metadata: joi.object().default({}),
 });
 
-const idSchema = object({
-  id: string()
+const idSchema = joi.object({
+  id: joi
+    .string()
     .pattern(/^[0-9a-fA-F]{24}$/)
     .required()
     .messages({
@@ -54,12 +59,12 @@ const idSchema = object({
 });
 
 const updateSchema = contentBlockSchema.keys({
-  title: string().min(1).max(200).messages({
+  title: joi.string().min(1).max(200).messages({
     "string.min": "Заголовок должен содержать хотя бы 1 символ",
     "string.max": "Заголовок не должен превышать 200 символов",
   }),
 
-  subtitle: string().min(1).max(500).messages({
+  subtitle: joi.string().min(1).max(500).messages({
     "string.min": "Подзаголовок должен содержать хотя бы 1 символ",
     "string.max": "Подзаголовок не должен превышать 500 символов",
   }),

@@ -1,32 +1,36 @@
-import { array, boolean, number, object, string } from "joi";
-import { EMAIL_REGEX, PHONE_REGEX, URL_REGEX } from "../constants/regex";
+import joi from "joi";
 
-const phoneSchema = object({
-  type: string()
+import { EMAIL_REGEX, PHONE_REGEX, URL_REGEX } from "../constants/regex.js";
+
+const phoneSchema = joi.object({
+  type: joi
+    .string()
     .valid("support", "sales", "general", "fax", "accounting", "other")
     .default("general"),
-  value: string().pattern(PHONE_REGEX).required().messages({
+  value: joi.string().pattern(PHONE_REGEX).required().messages({
     "string.pattern.base": "Неверный формат телефона",
   }),
-  description: string().max(100),
-  isPrimary: boolean().default(false),
-  sortOrder: number().default(0),
+  description: joi.string().max(100),
+  isPrimary: joi.boolean().default(false),
+  sortOrder: joi.number().default(0),
 });
 
-const emailSchema = object({
-  type: string()
+const emailSchema = joi.object({
+  type: joi
+    .string()
     .valid("support", "info", "sales", "security", "hr", "other")
     .default("general"),
-  value: string().pattern(EMAIL_REGEX).required().messages({
+  value: joi.string().pattern(EMAIL_REGEX).required().messages({
     "string.pattern.base": "Неверный формат email",
   }),
-  description: string().max(100),
-  isPrimary: boolean().default(false),
-  sortOrder: number().default(0),
+  description: joi.string().max(100),
+  isPrimary: joi.boolean().default(false),
+  sortOrder: joi.number().default(0),
 });
 
-const socialLinkSchema = object({
-  platform: string()
+const socialLinkSchema = joi.object({
+  platform: joi
+    .string()
     .valid(
       "telegram",
       "whatsapp",
@@ -40,34 +44,37 @@ const socialLinkSchema = object({
       "other",
     )
     .required(),
-  url: string().pattern(URL_REGEX).required().messages({
+  url: joi.string().pattern(URL_REGEX).required().messages({
     "string.pattern.base": "Неверный формат URL",
   }),
-  title: string().max(100),
-  sortOrder: number().default(0),
+  title: joi.string().max(100),
+  sortOrder: joi.number().default(0),
 });
 
-const otherContactSchema = object({
-  type: string()
+const otherContactSchema = joi.object({
+  type: joi
+    .string()
     .valid("messenger", "forum", "custom", "chat", "bot")
     .required(),
-  name: string().max(100).required(),
-  value: string().required(),
-  description: string().max(200),
-  sortOrder: number().default(0),
+  name: joi.string().max(100).required(),
+  value: joi.string().required(),
+  description: joi.string().max(200),
+  sortOrder: joi.number().default(0),
 });
 
-const organizationContactSchema = object({
-  companyName: string().max(200).required(),
-  legalAddress: string().max(500).allow(""),
-  physicalAddress: string().max(500).allow(""),
-  phones: array().items(phoneSchema).max(10),
-  emails: array().items(emailSchema).max(10),
-  socialLinks: array().items(socialLinkSchema).max(15),
-  otherContacts: array().items(otherContactSchema).max(10),
-  workingHours: string().max(500).allow(""),
-  isActive: boolean(),
-}).options({ stripUnknown: true });
+const organizationContactSchema = joi
+  .object({
+    companyName: joi.string().max(200).required(),
+    legalAddress: joi.string().max(500).allow(""),
+    physicalAddress: joi.string().max(500).allow(""),
+    phones: joi.array().items(phoneSchema).max(10),
+    emails: joi.array().items(emailSchema).max(10),
+    socialLinks: joi.array().items(socialLinkSchema).max(15),
+    otherContacts: joi.array().items(otherContactSchema).max(10),
+    workingHours: joi.string().max(500).allow(""),
+    isActive: joi.boolean(),
+  })
+  .options({ stripUnknown: true });
 
 export function validateCreateUpdate(req, res, next) {
   console.log("validateCreateUpdate", req.body);

@@ -1,14 +1,18 @@
 import { randomBytes } from "node:crypto";
 import { compare, hash } from "bcryptjs";
-import { sign, verify } from "jsonwebtoken";
-import ApiError, {
-  BadRequest,
-  TooManyRequests,
-  UnauthorizedError,
-} from "../exceptions/api-error";
-import { error as _error, debug, info, warn } from "../logger/logger";
-import { UserSecurityModel, UserSessionModel } from "../models/index.models";
-import { isSessionRevoked } from "./SessionService";
+import pkg from "jsonwebtoken";
+
+const { sign, verify } = pkg;
+
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+
+const { info, warn, error: _error, debug } = logger;
+
+import { UserSecurityModel, UserSessionModel } from "../models/index.models.js";
+import SessionService from "./SessionService.js";
+
+const { isSessionRevoked } = SessionService;
 
 // Проверка всех необходимых ключей при загрузке
 const checkEnvVars = () => {
@@ -60,7 +64,7 @@ const removeToken = async (refreshToken) => {
     refreshToken,
   }).exec();
   if (!tokenData) {
-    throw BadRequest("Токен не найден");
+    throw ApiError.BadRequest("Токен не найден");
   }
   return tokenData;
 };
@@ -134,14 +138,14 @@ const verifyPasswordResetToken = async (token) => {
   try {
     decoded = verify(token, process.env.JWT_RESET_SECRET_KEY);
   } catch (err) {
-    throw BadRequest("Неверный или истёкший токен");
+    throw ApiError.BadRequest("Неверный или истёкший токен");
   }
 
   const userId = decoded.userId;
   const userSecurity = await UserSecurityModel.findOne({ userId });
 
   if (!userSecurity || !userSecurity.resetTokenHash) {
-    throw BadRequest("Токен не найден или уже использован");
+    throw ApiError.BadRequest("Токен не найден или уже использован");
   }
 
   const isMatch = await compare(decoded.rawToken, userSecurity.resetTokenHash);
@@ -151,16 +155,16 @@ const verifyPasswordResetToken = async (token) => {
       { userId },
       { $inc: { resetTokenAttempts: 1 } },
     );
-    throw BadRequest("Неверный токен");
+    throw ApiError.BadRequest("Неверный токен");
   }
 
   if (userSecurity.resetTokenExpiration < Date.now()) {
-    throw BadRequest("Срок действия токена истёк");
+    throw ApiError.BadRequest("Срок действия токена истёк");
   }
 
   // Проверяем лимит попыток
   if (userSecurity.resetTokenAttempts >= 5) {
-    throw TooManyRequests(
+    throw ApiError.TooManyRequests(
       "Превышено количество попыток. Запросите новый токен.",
     );
   }
@@ -215,7 +219,7 @@ async function validateRefreshTokenFromRequest(req, userData) {
         path: req.path,
         userAgent: req.headers["user-agent"],
       });
-      throw UnauthorizedError("Требуется повторная авторизация");
+      throw ApiError.UnauthorizedError("Требуется повторная авторизация");
     }
 
     // Дополнительная проверка: валидируем сам refresh token
@@ -231,7 +235,7 @@ async function validateRefreshTokenFromRequest(req, userData) {
           ip: req.ip,
           path: req.path,
         });
-        throw UnauthorizedError("Невалидная сессия");
+        throw ApiError.UnauthorizedError("Невалидная сессия");
       }
     } catch (validationError) {
       // Если это ошибка валидации (не ApiError), преобразуем
@@ -241,7 +245,7 @@ async function validateRefreshTokenFromRequest(req, userData) {
           error: validationError.message,
           ip: req.ip,
         });
-        throw UnauthorizedError("Сессия устарела");
+        throw ApiError.UnauthorizedError("Сессия устарела");
       }
       throw validationError;
     }
@@ -256,7 +260,7 @@ async function validateRefreshTokenFromRequest(req, userData) {
         refreshToken: refreshToken.substring(0, 10) + "...",
         userAgent: req.headers["user-agent"],
       });
-      throw UnauthorizedError(
+      throw ApiError.UnauthorizedError(
         "Сессия была отозвана. Пожалуйста, войдите снова.",
       );
     }
@@ -268,7 +272,7 @@ async function validateRefreshTokenFromRequest(req, userData) {
     });
   } catch (error) {
     // Если ошибка не связана с отзывом токена, пробрасываем дальше
-    if (error instanceof UnauthorizedError) {
+    if (error instanceof ApiError.UnauthorizedError) {
       throw error;
     }
 
@@ -286,7 +290,7 @@ async function validateRefreshTokenFromRequest(req, userData) {
     // 2. Если доступ важнее - пропускаем с предупреждением
 
     // По умолчанию бросаем ошибку для безопасности
-    throw UnauthorizedError("Ошибка проверки сессии");
+    throw ApiError.UnauthorizedError("Ошибка проверки сессии");
   }
 }
 

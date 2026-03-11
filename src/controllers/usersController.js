@@ -1,22 +1,27 @@
 // controllers/user-controller.js
 
 import { default as mongoose } from "mongoose";
-import ApiError from "../exceptions/api-error";
-import {
-  blockUser as _blockUser,
-  getUserSanctions as _getUserSanctions,
-  unblockUser as _unblockUser,
+import ApiError from "../exceptions/api-error.js";
+import userSanctionService from "../services/userSanctionService.js";
+
+const {
+  blockUser: _blockUser,
+  getUserSanctions: _getUserSanctions,
+  unblockUser: _unblockUser,
   checkUserBlockStatus,
-} from "../services/userSanctionService";
-import {
-  demoteToUser as _demoteToUser,
-  getAllUsers as _getAllUsers,
-  getUserById as _getUserById,
-  promoteToAdmin as _promoteToAdmin,
-  searchUsers as _searchUsers,
-  updateUserRole as _updateUserRole,
+} = userSanctionService;
+
+import usersService from "../services/usersService.js";
+
+const {
+  demoteToUser: _demoteToUser,
+  getAllUsers: _getAllUsers,
+  getUserById: _getUserById,
+  promoteToAdmin: _promoteToAdmin,
+  searchUsers: _searchUsers,
+  updateUserRole: _updateUserRole,
   getUserWithDetails,
-} from "../services/usersService";
+} = usersService;
 
 class UserController {
   /**

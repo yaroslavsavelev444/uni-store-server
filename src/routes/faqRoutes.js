@@ -1,7 +1,7 @@
 // routes/faq.routes.js
 import { Router } from "express";
-import faqController from "../controllers/faqController";
-import authMiddleware from "../middlewares/auth-middleware";
+import faqController from "../controllers/faqController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 const router = Router();
 
@@ -19,18 +19,18 @@ router.delete("/topics/:id", faqController.deleteTopic);
 
 router.post("/topics/:topicId/questions", faqController.addQuestion);
 router.put(
-  "/topics/:topicId/questions/:questionId",
-  faqController.updateQuestion,
+	"/topics/:topicId/questions/:questionId",
+	faqController.updateQuestion,
 );
 router.delete(
-  "/topics/:topicId/questions/:questionId",
-  faqController.deleteQuestion,
+	"/topics/:topicId/questions/:questionId",
+	faqController.deleteQuestion,
 );
 
 router.put("/reorder/topics", faqController.reorderTopics);
 router.put(
-  "/topics/:topicId/reorder/questions",
-  faqController.reorderQuestions,
+	"/topics/:topicId/reorder/questions",
+	faqController.reorderQuestions,
 );
 
 export default router;

@@ -1,14 +1,17 @@
-import { urlencoded } from "body-parser";
+import pkg from "body-parser";
+
+const { urlencoded } = pkg;
+
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { json } from "express";
 import { express as _express } from "express-useragent";
 import helmet from "helmet";
-import auditConfig from "../config/audit";
-import corsConfig from "../config/cors";
-import logger from "../src/logger/logger";
-import auditRequestMiddleware from "../src/middlewares/audit-request-middleware";
-import requestContextMiddleware from "../src/middlewares/request-context-middleware";
+import auditConfig from "../config/audit.js";
+import corsConfig from "../config/cors.js";
+import logger from "../src/logger/logger.js";
+import auditRequestMiddleware from "../src/middlewares/audit-request-middleware.js";
+import requestContextMiddleware from "../src/middlewares/request-context-middleware.js";
 
 export default (app) => {
   app.use(

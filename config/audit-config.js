@@ -27,3 +27,11 @@ export const production = {
   ignorePaths: ["/health", "/metrics", "/static", "/public", "/uploads"],
   logMethods: ["POST", "PUT", "PATCH", "DELETE"], // Только модифицирующие запросы
 };
+
+const auditConfig = {
+  development,
+  staging,
+  production,
+};
+
+export default auditConfig;

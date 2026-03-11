@@ -1,10 +1,13 @@
-import ApiError from "../exceptions/api-error";
-import auditLogger from "../logger/auditLogger";
-import {
-  logNotification,
-  notifyUsersAboutConsentUpdate,
-} from "../services/consentNotificationService";
-import {
+import ApiError from "../exceptions/api-error.js";
+import auditLogger from "../logger/auditLogger.js";
+import consentNotificationService from "../services/consentNotificationService.js";
+
+const { logNotification, notifyUsersAboutConsentUpdate } =
+  consentNotificationService;
+
+import consentService from "../services/consentService.js";
+
+const {
   activateConsent,
   createConsent,
   deactivateConsent,
@@ -14,11 +17,11 @@ import {
   getConsentsRequiringAcceptance,
   listConsents,
   updateConsent,
-} from "../services/consentService";
-import {
-  createConsentSchema,
-  updateConsentSchema,
-} from "../validators/consent.validators";
+} = consentService;
+
+import consentValidators from "../validators/consent.validators.js";
+
+const { createConsentSchema, updateConsentSchema } = consentValidators;
 
 class ConsentController {
   async create(req, res, next) {

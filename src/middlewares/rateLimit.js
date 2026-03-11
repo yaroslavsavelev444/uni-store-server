@@ -1,21 +1,21 @@
 // middlewares/rateLimit.js
 
 import { default as rateLimit } from "express-rate-limit";
-import logger from "../logger/logger";
-import redisClient from "../redis/redis.client";
+import logger from "../logger/logger.js";
+import redisClient from "../redis/redis.client.js";
 
 const createIpRateLimiter = ({ windowMs = 60_000, max = 10, message }) => {
-  return rateLimit({
-    windowMs,
-    max,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: (req, res) => {
-      res
-        .status(429)
-        .json({ error: message || "Слишком много запросов с вашего IP" });
-    },
-  });
+	return rateLimit({
+		windowMs,
+		max,
+		standardHeaders: true,
+		legacyHeaders: false,
+		handler: (req, res) => {
+			res
+				.status(429)
+				.json({ error: message || "Слишком много запросов с вашего IP" });
+		},
+	});
 };
 
 /**
@@ -26,41 +26,41 @@ const createIpRateLimiter = ({ windowMs = 60_000, max = 10, message }) => {
  * @param {function} [options.getMax] - Функция, которая возвращает max лимит для ключа (email/userId)
  */
 const createRedisRateLimiter = ({ keyPrefix, windowSec = 60, getMax }) => {
-  return async (req, res, next) => {
-    try {
-      const keyValue =
-        req.body.email?.toLowerCase().trim() ||
-        req.body.userId?.toLowerCase().trim();
-      if (!keyValue) return next();
+	return async (req, res, next) => {
+		try {
+			const keyValue =
+				req.body.email?.toLowerCase().trim() ||
+				req.body.userId?.toLowerCase().trim();
+			if (!keyValue) return next();
 
-      const key = `${keyPrefix}:${keyValue}`;
+			const key = `${keyPrefix}:${keyValue}`;
 
-      // Определяем лимит
-      const max = typeof getMax === "function" ? getMax(req) : 5;
+			// Определяем лимит
+			const max = typeof getMax === "function" ? getMax(req) : 5;
 
-      // Атомарный инкремент + установка TTL при первом использовании
-      const current = await redisClient.client.incr(key);
-      if (current === 1) {
-        await redisClient.expire(key, windowSec);
-      }
+			// Атомарный инкремент + установка TTL при первом использовании
+			const current = await redisClient.client.incr(key);
+			if (current === 1) {
+				await redisClient.expire(key, windowSec);
+			}
 
-      // Проверка превышения
-      if (current > max) {
-        const ttl = await redisClient.client.ttl(key); // сколько секунд до сброса
-        logger.warn(
-          `[RATE LIMIT] ${key} превысил лимит (${current}/${max}). Retry after ${ttl}s`,
-        );
-        return res.status(429).json({
-          error: "Слишком много попыток. Попробуйте позже.",
-          retryAfter: ttl,
-        });
-      }
+			// Проверка превышения
+			if (current > max) {
+				const ttl = await redisClient.client.ttl(key); // сколько секунд до сброса
+				logger.warn(
+					`[RATE LIMIT] ${key} превысил лимит (${current}/${max}). Retry after ${ttl}s`,
+				);
+				return res.status(429).json({
+					error: "Слишком много попыток. Попробуйте позже.",
+					retryAfter: ttl,
+				});
+			}
 
-      next();
-    } catch (err) {
-      next(err);
-    }
-  };
+			next();
+		} catch (err) {
+			next(err);
+		}
+	};
 };
 
 export default { createRedisRateLimiter, createIpRateLimiter };

@@ -1,9 +1,11 @@
-import ApiError from "../exceptions/api-error";
-import {
-  markClicked as _markClicked,
-  markDismissed as _markDismissed,
-  markViewed as _markViewed,
-} from "../services/bannerStatsService";
+import ApiError from "../exceptions/api-error.js";
+import bannerStatsService from "../services/bannerStatsService.js";
+
+const {
+  markClicked: _markClicked,
+  markDismissed: _markDismissed,
+  markViewed: _markViewed,
+} = bannerStatsService;
 
 class BannerStatsController {
   async markViewed(req, res, next) {

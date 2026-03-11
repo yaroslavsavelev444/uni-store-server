@@ -1,14 +1,17 @@
-import { array, object, string } from "joi";
-import { isAlpha, isStrongPassword } from "validator";
+import joi from "joi";
+import validator from "validator";
 import xss from "xss";
+
+const { isAlpha, isStrongPassword } = validator;
 
 const sanitizeString = (value) => {
   if (typeof value !== "string") return value;
   return xss(value.trim());
 };
 
-const acceptedConsentSchema = object({
-  slug: string()
+const acceptedConsentSchema = joi.object({
+  slug: joi
+    .string()
     .custom((value, helpers) => {
       return sanitizeString(value);
     }, "Slug sanitization")
@@ -16,15 +19,17 @@ const acceptedConsentSchema = object({
     .max(100)
     .required(),
 
-  version: string()
+  version: joi
+    .string()
     .custom((value) => sanitizeString(value))
     .min(1)
     .max(20)
     .required(),
 });
 
-const registerSchema = object({
-  name: string()
+const registerSchema = joi.object({
+  name: joi
+    .string()
     .custom((value, helpers) => {
       const clean = sanitizeString(value);
 
@@ -43,12 +48,14 @@ const registerSchema = object({
     .max(50)
     .required(),
 
-  email: string()
+  email: joi
+    .string()
     .email({ tlds: { allow: false } })
     .custom((value) => sanitizeString(value))
     .required(),
 
-  password: string()
+  password: joi
+    .string()
     .custom((value, helpers) => {
       if (
         !isStrongPassword(value, {
@@ -63,7 +70,7 @@ const registerSchema = object({
     .max(64)
     .required(),
 
-  acceptedConsents: array().items(acceptedConsentSchema).min(1).required(),
+  acceptedConsents: joi.array().items(acceptedConsentSchema).min(1).required(),
 });
 
 export default { registerSchema };

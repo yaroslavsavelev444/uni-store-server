@@ -2,9 +2,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import TopicController from "../controllers/topicController";
-import authMiddleware from "../middlewares/auth-middleware";
-import multerSlugMiddleware from "../middlewares/multerSlugMiddleware";
+import TopicController from "../controllers/topicController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import multerSlugMiddleware from "../middlewares/multerSlugMiddleware.js";
 
 // Инициализация контроллера
 const topicController = new TopicController();
@@ -15,21 +15,21 @@ router.get("/:slug", topicController.getBySlug.bind(topicController));
 
 // ==== Административные маршруты ====
 router.post(
-  "/",
-  authMiddleware(["admin"]),
-  multerSlugMiddleware,
-  topicController.create.bind(topicController),
+	"/",
+	authMiddleware(["admin"]),
+	multerSlugMiddleware,
+	topicController.create.bind(topicController),
 );
 router.patch(
-  "/:id",
-  authMiddleware(["admin"]),
-  multerSlugMiddleware,
-  topicController.update.bind(topicController),
+	"/:id",
+	authMiddleware(["admin"]),
+	multerSlugMiddleware,
+	topicController.update.bind(topicController),
 );
 router.delete(
-  "/:id",
-  authMiddleware(["admin"]),
-  topicController.delete.bind(topicController),
+	"/:id",
+	authMiddleware(["admin"]),
+	topicController.delete.bind(topicController),
 );
 
 export default router;

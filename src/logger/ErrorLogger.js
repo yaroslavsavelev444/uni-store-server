@@ -1,10 +1,6 @@
-import getIp from "../utils/getIp";
-import auditLogger, {
-  logAdminEvent,
-  loggers,
-  logUserEvent,
-} from "./auditLogger";
-import logger from "./logger";
+import getIp from "../utils/getIp.js";
+import auditLogger from "./auditLogger.js";
+import logger from "./logger.js";
 
 class ErrorLogger {
   /**
@@ -23,7 +19,7 @@ class ErrorLogger {
       });
 
       // 2. В файл ошибок через auditLogger
-      loggers.error.error({
+      auditLogger.loggers.error.error({
         ...errorData,
         ...context,
         errorType,
@@ -33,7 +29,7 @@ class ErrorLogger {
       // 3. Если это ошибка пользователя - логируем как USER_ACTION_FAILED
       if (req && req.user && error.status >= 400 && error.status < 500) {
         const event = ErrorLogger.mapStatusCodeToEvent(error.status);
-        logUserEvent(
+        auditLogger.logUserEvent(
           req.user.id,
           req.user.email,
           event,
@@ -50,7 +46,7 @@ class ErrorLogger {
 
       // 4. Если это ошибка админа
       if (req && req.user && req.user.role !== "user") {
-        logAdminEvent(
+        auditLogger.logAdminEvent(
           req.user.id || "system",
           req.user.email || "system@error",
           req.user.role || "system",
@@ -94,7 +90,7 @@ class ErrorLogger {
       });
 
       // В файл ошибок
-      loggers.error.error({
+      auditLogger.loggers.error.error({
         event: "UNEXPECTED_ERROR",
         error: error.message,
         stack: ErrorLogger.sanitizeStack(error.stack),
@@ -358,8 +354,8 @@ class ErrorLogger {
       console.error("🔴 Error:", errorInfo);
 
       // Если есть аудит логгер, логируем и туда
-      if (auditLogger && loggers && loggers.error) {
-        loggers.error.error(errorInfo);
+      if (auditLogger && auditLogger.loggers && auditLogger.loggers.error) {
+        auditLogger.loggers.error.error(errorInfo);
       }
     } catch (logError) {
       // Абсолютный fallback

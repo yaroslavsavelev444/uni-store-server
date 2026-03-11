@@ -2,14 +2,12 @@ import { Router } from "express";
 
 const router = Router();
 
-import ContentBlockController from "../controllers/contentBlockController";
-import authMiddleware from "../middlewares/auth-middleware";
-import validate from "../middlewares/validation-middleware";
-import {
-  contentBlockSchema,
-  idSchema,
-  updateSchema,
-} from "../validators/contentBlock.validator";
+import ContentBlockController from "../controllers/contentBlockController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import validate from "../middlewares/validation-middleware.js";
+import contentBlockValidator from "../validators/contentBlock.validator.js";
+
+const { contentBlockSchema, idSchema, updateSchema } = contentBlockValidator;
 
 // Инициализация контроллера
 const contentBlockController = new ContentBlockController();

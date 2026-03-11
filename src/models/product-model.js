@@ -1,5 +1,5 @@
 import { model, Schema, Types } from "mongoose";
-import { getFileUrl } from "../utils/fileManager";
+import fileManager from "../utils/fileManager.js";
 
 const ProductStatus = {
   AVAILABLE: "available",
@@ -401,7 +401,7 @@ const processProductDocument = (doc) => {
 
   // 1. Обработка изображений
   if (doc.mainImage && shouldProcessUrl(doc.mainImage)) {
-    doc.mainImage = getFileUrl(doc.mainImage);
+    doc.mainImage = fileManager.getFileUrl(doc.mainImage);
   }
 
   // 2. Обработка массива images
@@ -410,7 +410,7 @@ const processProductDocument = (doc) => {
       if (image && image.url && shouldProcessUrl(image.url)) {
         return {
           ...image,
-          url: getFileUrl(image.url),
+          url: fileManager.getFileUrl(image.url),
         };
       }
       return image;
@@ -426,7 +426,7 @@ const processProductDocument = (doc) => {
   ) {
     doc.instruction = {
       ...doc.instruction,
-      url: getFileUrl(doc.instruction.url),
+      url: fileManager.getFileUrl(doc.instruction.url),
     };
   }
 
@@ -440,7 +440,7 @@ const processProductDocument = (doc) => {
       ) {
         return {
           ...spec,
-          value: getFileUrl(spec.value),
+          value: fileManager.getFileUrl(spec.value),
         };
       }
       return spec;

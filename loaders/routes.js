@@ -1,50 +1,59 @@
-import authMiddleware from "../src/middlewares/auth-middleware";
+import authMiddleware from "../src/middlewares/auth-middleware.js";
+import bullBoard from "../src/queues/bullBoard.js";
+import adminRoutes from "../src/routes/adminRoutes.js";
+// Импортируем все роуты
+import authRoutes from "../src/routes/authRoutes.js";
+import bannerRoutes from "../src/routes/bannerRoutes.js";
+import bannerStatsRoutes from "../src/routes/bannerStatsRoutes.js";
+import cartRoutes from "../src/routes/cartRoutes.js";
+import categoriesRoutes from "../src/routes/categoriesRoutes.js";
+import companyRoutes from "../src/routes/companyRoutes.js";
+import consentRoutes from "../src/routes/consentRoutes.js";
+import contactsRoutes from "../src/routes/contactsRoutes.js";
+import contentBlockRoutes from "../src/routes/contentBlockRoutes.js";
+import deliveryRoutes from "../src/routes/deliveryRoutes.js";
+import discountRoutes from "../src/routes/discountRoutes.js";
+import faqRoutes from "../src/routes/faqRoutes.js";
+import feedbackRoutes from "../src/routes/feedbackRoutes.js";
+import filesRoutes from "../src/routes/filesRoutes.js";
+import healthcheckRoutes from "../src/routes/healthcheckRoutes.js";
+import notificationsRoutes from "../src/routes/notificationsRoutes.js";
+import ordersRoutes from "../src/routes/ordersRoutes.js";
+import productsRoutes from "../src/routes/productsRoutes.js";
+import promoBlocksRoutes from "../src/routes/promoBlocksRoutes.js";
+import refundRoutes from "../src/routes/refundRoutes.js";
+import reviewsRoutes from "../src/routes/reviewsRoutes.js";
+import sitemapRoutes from "../src/routes/sitemapRoutes.js";
+import topicRoutes from "../src/routes/topicRoutes.js";
+import usersRoutes from "../src/routes/usersRoutes.js";
+import wishlistRoutes from "../src/routes/wishlistRoutes.js";
 
 export default (app) => {
-  app.use("/auth", require("../src/routes/authRoutes"));
-  app.use("/health", require("../src/routes/healthcheckRoutes").default);
-  app.use("/consent", require("../src/routes/consentRoutes").default);
-  app.use("/contacts", require("../src/routes/contactsRoutes").default);
-  app.use(
-    "/notifications",
-    authMiddleware(["all"]),
-    require("../src/routes/notificationsRoutes").default,
-  );
-  app.use("/feedback", require("../src/routes/feedbackRoutes").default);
-  app.use("/topics", require("../src/routes/topicRoutes").default);
-  app.use("/files", require("../src/routes/filesRoutes").default);
-  app.use("/categories", require("../src/routes/categoriesRoutes").default);
-  app.use("/products", require("../src/routes/productsRoutes"));
-  app.use("/reviews", require("../src/routes/reviewsRoutes").default);
-  app.use("/company", require("../src/routes/companyRoutes").default);
-  app.use("/faq", require("../src/routes/faqRoutes").default);
-  app.use("/bannerStats", require("../src/routes/bannerStatsRoutes").default);
-  app.use("/refund", require("../src/routes/refundRoutes").default);
-  app.use("/sitemap", require("../src/routes/sitemapRoutes").default);
-  app.use(
-    "/content-blocks",
-    require("../src/routes/contentBlockRoutes").default,
-  );
-  app.use("/users", require("../src/routes/usersRoutes").default);
-  app.use("/banners", require("../src/routes/bannerRoutes").default);
-  app.use("/delivery", require("../src/routes/deliveryRoutes").default);
-  app.use("/discounts", require("../src/routes/discountRoutes").default);
-  app.use("/promoBlocks", require("../src/routes/promoBlocksRoutes").default);
-  app.use("/orders", require("../src/routes/ordersRoutes").default);
-  app.use(
-    "/cart",
-    authMiddleware(["all"]),
-    require("../src/routes/cartRoutes").default,
-  );
-  app.use(
-    "/wishlist",
-    authMiddleware(["all"]),
-    require("../src/routes/wishlistRoutes").default,
-  );
-  app.use("/admin/queues", require("../src/queues/bullBoard"));
-  app.use(
-    "/admin",
-    authMiddleware(["admin"]),
-    require("../src/routes/adminRoutes").default,
-  );
+  app.use("/auth", authRoutes);
+  app.use("/health", healthcheckRoutes);
+  app.use("/consent", consentRoutes);
+  app.use("/contacts", contactsRoutes);
+  app.use("/notifications", authMiddleware(["all"]), notificationsRoutes);
+  app.use("/feedback", feedbackRoutes);
+  app.use("/topics", topicRoutes);
+  app.use("/files", filesRoutes);
+  app.use("/categories", categoriesRoutes);
+  app.use("/products", productsRoutes);
+  app.use("/reviews", reviewsRoutes);
+  app.use("/company", companyRoutes);
+  app.use("/faq", faqRoutes);
+  app.use("/bannerStats", bannerStatsRoutes);
+  app.use("/refund", refundRoutes);
+  app.use("/sitemap", sitemapRoutes);
+  app.use("/content-blocks", contentBlockRoutes);
+  app.use("/users", usersRoutes);
+  app.use("/banners", bannerRoutes);
+  app.use("/delivery", deliveryRoutes);
+  app.use("/discounts", discountRoutes);
+  app.use("/promoBlocks", promoBlocksRoutes);
+  app.use("/orders", ordersRoutes);
+  app.use("/cart", authMiddleware(["all"]), cartRoutes);
+  app.use("/wishlist", authMiddleware(["all"]), wishlistRoutes);
+  app.use("/admin/queues", bullBoard);
+  app.use("/admin", authMiddleware(["admin"]), adminRoutes);
 };

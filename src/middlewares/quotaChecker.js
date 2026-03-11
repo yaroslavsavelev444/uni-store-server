@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
-import logger from "../logger/logger";
-import { checkUserQuota } from "../services/fileService";
+import logger from "../logger/logger.js";
+import fileService from "../services/fileService.js";
+
+const { checkUserQuota } = fileService;
 
 export default (options = {}) => {
   const maxBytes = (options.maxTotalSizeMB || 100) * 1024 * 1024;

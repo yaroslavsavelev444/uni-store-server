@@ -1,8 +1,13 @@
 import { basename } from "node:path";
 import { Types } from "mongoose";
-import { BadRequest, NotFound, NotFoundError } from "../exceptions/api-error";
-import { CategoryModel, ProductModel } from "../models/index.models";
-import { deleteFile, moveFile, validateFileExists } from "../utils/fileManager";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFound } = ApiError;
+
+import { CategoryModel, ProductModel } from "../models/index.models.js";
+import fileManager from "../utils/fileManager.js";
+
+const { moveFile, deleteFile, validateFileExists } = fileManager;
 
 class CategoryService {
   // Получить все категории с фильтрацией

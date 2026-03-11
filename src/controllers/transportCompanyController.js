@@ -1,10 +1,12 @@
-import {
-  create as _create,
-  delete as _delete,
-  getActive as _getActive,
-  getAll as _getAll,
-  update as _update,
-} from "../services/transportCompanyService";
+import transportCompanyService from "../services/transportCompanyService.js";
+
+const {
+  create: _create,
+  delete: _delete,
+  getActive: _getActive,
+  getAll: _getAll,
+  update: _update,
+} = transportCompanyService;
 
 class TransportCompanyController {
   // Для пользователя: получить только активные компании

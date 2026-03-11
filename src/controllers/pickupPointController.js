@@ -1,16 +1,18 @@
 // controllers/pickup-point.controller.js
-import ApiError from "../exceptions/api-error";
-import {
-  createPickupPoint as _createPickupPoint,
-  deletePickupPoint as _deletePickupPoint,
-  getMainPickupPoint as _getMainPickupPoint,
-  setAsMainPickupPoint as _setAsMainPickupPoint,
-  togglePickupPointStatus as _togglePickupPointStatus,
-  updatePickupPoint as _updatePickupPoint,
-  updatePickupPointsOrder as _updatePickupPointsOrder,
+import ApiError from "../exceptions/api-error.js";
+import pickupPointService from "../services/pickupPointService.js";
+
+const {
+  createPickupPoint: _createPickupPoint,
+  deletePickupPoint: _deletePickupPoint,
+  getMainPickupPoint: _getMainPickupPoint,
+  setAsMainPickupPoint: _setAsMainPickupPoint,
+  togglePickupPointStatus: _togglePickupPointStatus,
+  updatePickupPoint: _updatePickupPoint,
+  updatePickupPointsOrder: _updatePickupPointsOrder,
   getAllPickupPoints,
   getPickupPointById,
-} from "../services/pickupPointService";
+} = pickupPointService;
 
 class PickupPointController {
   /**

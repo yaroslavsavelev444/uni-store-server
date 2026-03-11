@@ -1,10 +1,12 @@
-import {
-  addOrUpdateItem as _addOrUpdateItem,
-  clearCart as _clearCart,
-  decreaseQuantity as _decreaseQuantity,
-  getCart as _getCart,
-  removeItem as _removeItem,
-} from "../services/cartService";
+import cartService from "../services/cartService.js";
+
+const {
+  addOrUpdateItem: _addOrUpdateItem,
+  clearCart: _clearCart,
+  decreaseQuantity: _decreaseQuantity,
+  getCart: _getCart,
+  removeItem: _removeItem,
+} = cartService;
 
 class CartController {
   async getCart(req, res, next) {

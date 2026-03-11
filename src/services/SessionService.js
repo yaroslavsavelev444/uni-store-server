@@ -1,17 +1,13 @@
 // services/sessionService.js
 
-import { InternalError, NotFoundError } from "../exceptions/api-error";
-import { error as _error, debug, info, warn } from "../logger/logger";
-import { UserSessionModel } from "../models/index.models";
-import {
-  exists as _exists,
-  keys as _keys,
-  ttl as _ttl,
-  ping,
-  pipeline,
-  setex,
-} from "../redis/redis.client";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
 
+import { UserSessionModel } from "../models/index.models.js";
+import redis from "../redis/redis.client.js";
+
+const { pipeline, setex, _exists, _ttl, _keys } = redis;
+const { info, warn, error: _error, debug } = logger;
 class SessionService {
   async checkRedisHealth() {
     return await this.safeRedisOperation(async () => {
@@ -114,7 +110,7 @@ class SessionService {
         error: error.message,
         stack: error.stack,
       });
-      throw InternalError("Ошибка при обновлении сессий");
+      throw ApiError.InternalServerError("Ошибка при обновлении сессий");
     } finally {
       session.endSession();
     }
@@ -216,7 +212,7 @@ class SessionService {
         userId,
         error: error.message,
       });
-      throw InternalError("Ошибка при получении сессий");
+      throw ApiError.InternalServerError("Ошибка при получении сессий");
     }
   }
 
@@ -233,7 +229,7 @@ class SessionService {
       const sessionToInvalidate =
         await UserSessionModel.findById(sessionId).session(session);
       if (!sessionToInvalidate) {
-        throw NotFoundError("Сессия не найдена");
+        throw ApiError.NotFoundError("Сессия не найдена");
       }
 
       // 2. Атомарно обновляем сессию в MongoDB
@@ -526,5 +522,4 @@ class SessionService {
     }
   }
 }
-
 export default new SessionService();

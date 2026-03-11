@@ -1,14 +1,23 @@
 // services/reviews.service.js
-import { BadRequest, NotFound } from "../exceptions/api-error";
-import { ProductModel, ProductReviewModel } from "../models/index.models";
-import { sendEmailNotification } from "../queues/taskQueues";
-import { del, deletePattern, getJson, setJson } from "../redis/redis.client";
-import {
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFound } = ApiError;
+
+import { ProductModel, ProductReviewModel } from "../models/index.models.js";
+import { sendEmailNotification } from "../queues/taskQueues.js";
+import redis from "../redis/redis.client.js";
+
+const { del, deletePattern, getJson, setJson } = redis;
+
+import purchaseCheckService from "./purchaseCheckService.js";
+
+const {
   hasUserPurchasedProduct,
   hasUserPurchasedProductBySku,
   hasUserPurchasedProducts,
-} from "./purchaseCheckService";
-import RatingService from "./ratingService";
+} = purchaseCheckService;
+
+import RatingService from "./ratingService.js";
 
 class ReviewsService {
   constructor() {

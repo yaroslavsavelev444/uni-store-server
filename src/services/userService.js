@@ -1,5 +1,8 @@
-import { InternalServerError, NotFoundError } from "../exceptions/api-error";
-import { UserModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+
+const { NotFoundError, InternalServerError } = ApiError;
+
+import { UserModel } from "../models/index.models.js";
 
 const updateUserRole = async (userId) => {
   try {
@@ -34,8 +37,4 @@ const deleteUser = async (userId) => {
   }
 };
 
-export default {
-  updateUserRole,
-  deleteUser,
-  getUsers,
-};
+export { updateUserRole, deleteUser, getUsers };

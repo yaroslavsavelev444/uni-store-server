@@ -1,16 +1,18 @@
 // controllers/faqController.js
-import {
-  addQuestion as _addQuestion,
-  createTopic as _createTopic,
-  deleteQuestion as _deleteQuestion,
-  deleteTopic as _deleteTopic,
-  getAllFaqForAdmin as _getAllFaqForAdmin,
-  getPublicFaq as _getPublicFaq,
-  reorderQuestions as _reorderQuestions,
-  reorderTopics as _reorderTopics,
-  updateQuestion as _updateQuestion,
-  updateTopic as _updateTopic,
-} from "../services/faqService";
+import faqService from "../services/faqService.js";
+
+const {
+  addQuestion: _addQuestion,
+  createTopic: _createTopic,
+  deleteQuestion: _deleteQuestion,
+  deleteTopic: _deleteTopic,
+  getAllFaqForAdmin: _getAllFaqForAdmin,
+  getPublicFaq: _getPublicFaq,
+  reorderQuestions: _reorderQuestions,
+  reorderTopics: _reorderTopics,
+  updateQuestion: _updateQuestion,
+  updateTopic: _updateTopic,
+} = faqService;
 
 class FaqController {
   async getPublicFaq(req, res, next) {

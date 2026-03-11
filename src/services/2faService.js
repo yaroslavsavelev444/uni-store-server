@@ -1,21 +1,28 @@
 import { Types } from "mongoose";
-import UserDTO from "../dtos/user.dto";
-import ApiError, {
-  BadRequest,
-  InternalServerError,
-  NotFoundError,
-  TooManyRequests,
-} from "../exceptions/api-error";
-import { error as _error, info, warn } from "../logger/logger";
+import UserDTO from "../dtos/user.dto.js";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, InternalServerError, NotFoundError, TooManyRequestsError } =
+  ApiError;
+
+import logger from "../logger/logger.js";
+
+const { error: _error, info, warn } = logger;
+
 import {
   UserModel,
   UserSecurityModel,
   UserSessionModel,
-} from "../models/index.models";
-import { sendEmailNotification } from "../queues/taskQueues";
-import { del } from "../redis/redis.client";
-import { generate2FACode, hashCode, isCodeMatch } from "../utils/generators";
-import { generateToken } from "./tokenService";
+} from "../models/index.models.js";
+import { sendEmailNotification } from "../queues/taskQueues.js";
+import redis from "../redis/redis.client.js";
+
+const { del } = redis;
+
+import { generate2FACode, hashCode, isCodeMatch } from "../utils/generators.js";
+import tokenService from "./tokenService.js";
+
+const { generateToken } = tokenService;
 
 const create2FACodeAndNotify = async (userId, expiresInMinutes = 5) => {
   try {
@@ -109,7 +116,7 @@ const verify2FACodeOnly = async (userId, inputCode) => {
         userId,
         attempts: userSecurity.twoFAAttempts,
       });
-      throw TooManyRequests("Превышено количество попыток ввода кода");
+      throw TooManyRequestsError("Превышено количество попыток ввода кода");
     }
 
     if (userSecurity.twoFACodeExpiresAt < new Date()) {

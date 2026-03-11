@@ -1,60 +1,60 @@
 import { model, Schema } from "mongoose";
 
 const questionSchema = new Schema({
-  question: {
-    type: String,
-    required: [true, "Вопрос обязателен для заполнения"],
-    trim: true,
-  },
-  answer: {
-    type: String,
-    required: [true, "Ответ обязателен для заполнения"],
-  },
-  order: {
-    type: Number,
-    default: 0,
-  },
-  isActive: {
-    type: Boolean,
-    default: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
+	question: {
+		type: String,
+		required: [true, "Вопрос обязателен для заполнения"],
+		trim: true,
+	},
+	answer: {
+		type: String,
+		required: [true, "Ответ обязателен для заполнения"],
+	},
+	order: {
+		type: Number,
+		default: 0,
+	},
+	isActive: {
+		type: Boolean,
+		default: true,
+	},
+	createdAt: {
+		type: Date,
+		default: Date.now,
+	},
+	updatedAt: {
+		type: Date,
+		default: Date.now,
+	},
 });
 
 const topicSchema = new Schema({
-  title: {
-    type: String,
-    required: [true, "Название темы обязательно для заполнения"],
-    trim: true,
-  },
-  description: {
-    type: String,
-    trim: true,
-  },
-  questions: [questionSchema],
-  order: {
-    type: Number,
-    default: 0,
-  },
-  isActive: {
-    type: Boolean,
-    default: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
+	title: {
+		type: String,
+		required: [true, "Название темы обязательно для заполнения"],
+		trim: true,
+	},
+	description: {
+		type: String,
+		trim: true,
+	},
+	questions: [questionSchema],
+	order: {
+		type: Number,
+		default: 0,
+	},
+	isActive: {
+		type: Boolean,
+		default: true,
+	},
+	createdAt: {
+		type: Date,
+		default: Date.now,
+	},
+	updatedAt: {
+		type: Date,
+		default: Date.now,
+	},
 });
 
 // Индексы для оптимизации запросов
@@ -63,13 +63,13 @@ questionSchema.index({ order: 1, isActive: 1 });
 
 // Middleware для обновления даты изменения
 topicSchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
-  next();
+	this.updatedAt = Date.now();
+	next();
 });
 
 questionSchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
-  next();
+	this.updatedAt = Date.now();
+	next();
 });
 
 // Экспортируем модели КАК ОДИН ОБЪЕКТ

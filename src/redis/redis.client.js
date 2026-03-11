@@ -1,6 +1,6 @@
 // redis/redis.client.js
 import Redis from "ioredis";
-import { info as _info, error, warn } from "../logger/logger";
+import logger from "../logger/logger.js";
 
 class RedisClient {
   constructor() {
@@ -24,22 +24,22 @@ class RedisClient {
     return new Promise((resolve, reject) => {
       this.client.on("connect", () => {
         this.isConnected = true;
-        _info("[Redis] Connected successfully");
+        logger.info("[Redis] Connected successfully");
         resolve(this.client);
       });
 
       this.client.on("error", (err) => {
-        error(`[Redis] Connection error: ${err.message}`);
+        logger.error(`[Redis] Connection error: ${err.message}`);
         if (!this.isConnected) reject(err);
       });
 
       this.client.on("reconnecting", () => {
-        warn("[Redis] Reconnecting...");
+        logger.warn("[Redis] Reconnecting...");
       });
 
       this.client.on("end", () => {
         this.isConnected = false;
-        _info("[Redis] Connection closed");
+        logger.info("[Redis] Connection closed");
       });
     });
   }
@@ -48,7 +48,7 @@ class RedisClient {
     if (this.client && this.isConnected) {
       await this.client.quit();
       this.isConnected = false;
-      _info("[Redis] Disconnected gracefully");
+      logger.info("[Redis] Disconnected gracefully");
       return true;
     }
     return false;

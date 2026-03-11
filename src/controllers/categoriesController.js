@@ -1,13 +1,15 @@
-import {
-  createCategory as _createCategory,
-  deleteCategory as _deleteCategory,
-  getAllCategories as _getAllCategories,
-  getCategoryById as _getCategoryById,
-  getCategoryBySlug as _getCategoryBySlug,
-  getCategoryList as _getCategoryList,
-  getProductCount as _getProductCount,
-  updateCategory as _updateCategory,
-} from "../services/categoryService";
+import categoryService from "../services/categoryService.js";
+
+const {
+  createCategory: _createCategory,
+  deleteCategory: _deleteCategory,
+  getAllCategories: _getAllCategories,
+  getCategoryById: _getCategoryById,
+  getCategoryBySlug: _getCategoryBySlug,
+  getCategoryList: _getCategoryList,
+  getProductCount: _getProductCount,
+  updateCategory: _updateCategory,
+} = categoryService;
 
 class CategoryController {
   // Получить все категории

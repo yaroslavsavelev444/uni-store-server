@@ -3,8 +3,12 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
+import { fileURLToPath } from "node:url"; // Добавляем для __dirname
 import { schedule as _schedule } from "node-cron";
-import logger from "../logger/logger";
+import logger from "../logger/logger.js";
+import { FeedbackModel } from "../models/index.models.js"; // Импортируем модели
+
+const __dirname = join(fileURLToPath(import.meta.url), ".."); // Создаём __dirname для ES modules
 
 class CronService {
   constructor() {
@@ -221,7 +225,6 @@ class CronService {
     logger.info("[CRON:FEEDBACK_CLEANUP] Начало очистки старых фидбеков");
 
     try {
-      const { FeedbackModel } = require("../models/index.models").default;
       const retentionDays =
         parseInt(process.env.FEEDBACK_RETENTION_DAYS) || 365;
       const cutoffDate = new Date(

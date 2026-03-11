@@ -1,13 +1,11 @@
 import { Types } from "mongoose";
-import ApiError, {
-  BadRequest,
-  DatabaseError,
-  Forbidden,
-  NotFound,
-} from "../exceptions/api-error";
-import { RefundModel } from "../models/index.models";
-import { RefundStatus } from "../models/refund-model";
-import redisClient from "../redis/redis.client";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, DatabaseError, Forbidden, NotFound } = ApiError;
+
+import { RefundModel } from "../models/index.models.js";
+import { RefundStatus } from "../models/refund-model.js";
+import redisClient from "../redis/redis.client.js";
 
 class RefundService {
   constructor() {

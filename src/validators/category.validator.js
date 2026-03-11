@@ -1,97 +1,103 @@
-import {
-  alternatives,
-  array,
-  boolean,
-  number,
-  object,
-  string,
-  valid,
-} from "joi";
+import joi from "joi";
 
 // Упрощенная схема для изображения
-const imageSchema = object({
-  url: string().required(),
-  alt: string().max(255).optional(),
-  size: number().integer().positive().optional(),
-  mimetype: string()
-    .valid("image/jpeg", "image/png", "image/webp", "image/gif")
-    .optional(),
-}).optional();
+const imageSchema = joi
+  .object({
+    url: joi.string().required(),
+    alt: joi.string().max(255).optional(),
+    size: joi.number().integer().positive().optional(),
+    mimetype: joi
+      .string()
+      .valid("image/jpeg", "image/png", "image/webp", "image/gif")
+      .optional(),
+  })
+  .optional();
 
 // Схема для создания категории
-const createCategorySchema = object({
-  name: string().required().min(2).max(100).trim().messages({
+const createCategorySchema = joi.object({
+  name: joi.string().required().min(2).max(100).trim().messages({
     "string.empty": "Название категории обязательно",
     "string.min": "Название категории должно содержать минимум 2 символа",
     "string.max": "Название категории не должно превышать 100 символов",
   }),
 
-  slug: string()
+  slug: joi
+    .string()
     .optional()
     .trim()
     .lowercase()
     .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .message("Slug может содержать только латинские буквы, цифры и дефисы"),
 
-  subtitle: string().optional().max(200).trim(),
+  subtitle: joi.string().optional().max(200).trim(),
 
-  description: string().optional().max(2000).trim(),
+  description: joi.string().optional().max(2000).trim(),
 
   // Упрощаем - изображение полностью опциональное
-  image: alternatives().try(imageSchema, string(), valid(null, "")).optional(),
+  image: joi
+    .alternatives()
+    .try(imageSchema, joi.string(), joi.valid(null, ""))
+    .optional(),
 
-  order: number().integer().min(0).default(0),
+  order: joi.number().integer().min(0).default(0),
 
-  isActive: boolean().default(true),
+  isActive: joi.boolean().default(true),
 
-  metaTitle: string().max(255).optional(),
+  metaTitle: joi.string().max(255).optional(),
 
-  metaDescription: string().max(500).optional(),
+  metaDescription: joi.string().max(500).optional(),
 
-  keywords: array().items(string().max(50)).optional(),
+  keywords: joi.array().items(joi.string().max(50)).optional(),
 });
 
 // Схема для обновления категории
-const updateCategorySchema = object({
-  name: string().min(2).max(100).trim().optional(),
+const updateCategorySchema = joi
+  .object({
+    name: joi.string().min(2).max(100).trim().optional(),
 
-  slug: string()
-    .trim()
-    .lowercase()
-    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .message("Slug может содержать только латинские буквы, цифры и дефисы")
-    .optional(),
+    slug: joi
+      .string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .message("Slug может содержать только латинские буквы, цифры и дефисы")
+      .optional(),
 
-  subtitle: string().max(200).trim().optional(),
+    subtitle: joi.string().max(200).trim().optional(),
 
-  description: string().max(2000).trim().optional(),
+    description: joi.string().max(2000).trim().optional(),
 
-  // Аналогично для обновления
-  image: alternatives().try(imageSchema, string(), valid(null, "")).optional(),
+    // Аналогично для обновления
+    image: joi
+      .alternatives()
+      .try(imageSchema, joi.string(), joi.valid(null, ""))
+      .optional(),
 
-  order: number().integer().min(0).optional(),
+    order: joi.number().integer().min(0).optional(),
 
-  isActive: boolean().optional(),
+    isActive: joi.boolean().optional(),
 
-  metaTitle: string().max(255).optional(),
+    metaTitle: joi.string().max(255).optional(),
 
-  metaDescription: string().max(500).optional(),
+    metaDescription: joi.string().max(500).optional(),
 
-  keywords: array().items(string().max(50)).optional(),
-}).min(1);
+    keywords: joi.array().items(joi.string().max(50)).optional(),
+  })
+  .min(1);
+
 // Схема для запроса списка категорий
-const categoryQuerySchema = object({
-  active: boolean(),
-  search: string(),
-  sortBy: string().valid("name", "order", "createdAt", "productCount"),
-  sortOrder: string().valid("asc", "desc").default("asc"),
-  includeInactive: boolean().default(false),
-  withProductCount: boolean().default(true),
+const categoryQuerySchema = joi.object({
+  active: joi.boolean(),
+  search: joi.string(),
+  sortBy: joi.string().valid("name", "order", "createdAt", "productCount"),
+  sortOrder: joi.string().valid("asc", "desc").default("asc"),
+  includeInactive: joi.boolean().default(false),
+  withProductCount: joi.boolean().default(true),
 });
 
 // Схема для list запроса (вместо tree)
-const categoryListQuerySchema = object({
-  includeInactive: boolean().default(false),
+const categoryListQuerySchema = joi.object({
+  includeInactive: joi.boolean().default(false),
 });
 
 // Middleware валидации

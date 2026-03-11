@@ -1,11 +1,11 @@
-require("dotenv").config();
-
 import { hash } from "bcryptjs";
-import { UserModel, UserSecurityModel } from "../models/index.models";
+import dotenv from "dotenv";
+import { UserModel, UserSecurityModel } from "../models/index.models.js";
 
+dotenv.config();
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10) || 10;
 
-import { connectDB, disconnect } from "../config/mongo";
+import { connectDB, disconnect } from "../config/mongo.js";
 
 async function createAdmin() {
   await connectDB();

@@ -2,9 +2,11 @@ import { Router } from "express";
 
 const router = Router();
 
-import cartController from "../controllers/cartController";
-import authMiddleware from "../middlewares/auth-middleware";
-import { validateCartItem } from "../validators/cart.validator";
+import cartController from "../controllers/cartController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import cartValidator from "../validators/cart.validator.js";
+
+const { validateCartItem } = cartValidator;
 
 router.use(authMiddleware(["all"]));
 

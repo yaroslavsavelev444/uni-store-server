@@ -1,11 +1,15 @@
-import ApiError, {
-  BadRequest,
-  InternalServerError,
-  NotFoundError,
-} from "../exceptions/api-error";
-import { error as _error, debug, info, warn } from "../logger/logger";
-import { ContactModel } from "../models/index.models";
-import { bulkDel, getJson, ping, setJson } from "../redis/redis.client";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFoundError, InternalServerError } = ApiError;
+
+import logger from "../logger/logger.js";
+
+const { error: _error, warn, info, debug } = logger;
+
+import { ContactModel } from "../models/index.models.js";
+import redis from "../redis/redis.client.js";
+
+const { getJson, setJson, bulkDel, ping } = redis;
 
 // Ключи для Redis
 const CACHE_KEYS = {

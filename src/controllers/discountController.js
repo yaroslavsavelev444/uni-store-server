@@ -1,6 +1,8 @@
 import { Types } from "mongoose";
-import ApiError from "../exceptions/api-error";
-import {
+import ApiError from "../exceptions/api-error.js";
+import discountService from "../services/discountService.js";
+
+const {
   changeDiscountStatus,
   createDiscount,
   deleteDiscount,
@@ -8,7 +10,7 @@ import {
   getDiscountById,
   listDiscounts,
   updateDiscount,
-} from "../services/discountService";
+} = discountService;
 
 class DiscountController {
   /**

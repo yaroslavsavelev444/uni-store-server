@@ -1,13 +1,15 @@
 // services/delivery/pickup-point.service.js
 
-import DeliveryCacheService from "../cache-service/delivery-cache.service";
-import ApiError, {
-  BadRequest,
-  DatabaseError,
-  NotFound,
-} from "../exceptions/api-error";
-import { error as _error, info } from "../logger/logger";
-import { PickupPointModel } from "../models/index.models";
+import DeliveryCacheService from "../cache-service/delivery-cache.service.js";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, DatabaseError, NotFoundError } = ApiError;
+
+import logger from "../logger/logger.js";
+
+const { error: _error, info } = logger;
+
+import { PickupPointModel } from "../models/index.models.js";
 
 class PickupPointService {
   constructor() {
@@ -68,7 +70,7 @@ class PickupPointService {
       const point = await PickupPointModel.findById(id).lean();
 
       if (!point) {
-        throw NotFound("Пункт самовывоза не найден");
+        throw NotFoundError("Пункт самовывоза не найден");
       }
 
       return point;
@@ -126,7 +128,7 @@ class PickupPointService {
       const point = await PickupPointModel.findById(id);
 
       if (!point) {
-        throw NotFound("Пункт самовывоза не найден");
+        throw NotFoundError("Пункт самовывоза не найден");
       }
 
       // Обновляем поля
@@ -162,7 +164,7 @@ class PickupPointService {
       const point = await PickupPointModel.findById(id);
 
       if (!point) {
-        throw NotFound("Пункт самовывоза не найден");
+        throw NotFoundError("Пункт самовывоза не найден");
       }
 
       // Если удаляем главный пункт, назначаем новый главный
@@ -203,7 +205,7 @@ class PickupPointService {
       const point = await PickupPointModel.findById(id);
 
       if (!point) {
-        throw NotFound("Пункт самовывоза не найден");
+        throw NotFoundError("Пункт самовывоза не найден");
       }
 
       point.isActive = !point.isActive;
@@ -246,7 +248,7 @@ class PickupPointService {
       const point = await PickupPointModel.findById(id);
 
       if (!point) {
-        throw NotFound("Пункт самовывоза не найден");
+        throw NotFoundError("Пункт самовывоза не найден");
       }
 
       if (!point.isActive) {

@@ -1,7 +1,15 @@
-import { BadRequest, NotFoundError } from "../exceptions/api-error";
-import { CartModel, ProductModel } from "../models/index.models";
-import { getApplicableDiscounts } from "../services/discountService"; // Добавляем импорт
-import { getFileUrl } from "../utils/fileManager";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFoundError } = ApiError;
+
+import { CartModel, ProductModel } from "../models/index.models.js";
+import discountService from "../services/discountService.js"; // Добавляем импорт
+
+const { getApplicableDiscounts } = discountService;
+
+import fileManager from "../utils/fileManager.js";
+
+const { getFileUrl } = fileManager;
 
 class CartService {
   async getCart(userId) {

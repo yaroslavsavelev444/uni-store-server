@@ -1,9 +1,10 @@
 // services/encryptionService.js
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { warn } from "../logger/logger";
-import { KeyEncryptModel } from "../models/index.models";
+import dotenv from "dotenv";
+import { warn } from "../logger/logger.js";
+import { KeyEncryptModel } from "../models/index.models.js";
 
-require("dotenv").config({ path: "../../.env" });
+dotenv.config();
 
 const KEK = process.env.KEY_ENCRYPTION_KEY; // must be 32 bytes base64 or hex; see below
 if (!KEK) {

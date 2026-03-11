@@ -2,8 +2,8 @@ import { Router } from "express";
 
 const router = Router();
 
-import bannerController from "../controllers/bannerController";
-import authMiddleware from "../middlewares/auth-middleware";
+import bannerController from "../controllers/bannerController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Публичный роут для пользователей
 router.get("/for-user", authMiddleware(["all"]), bannerController.getForUser);

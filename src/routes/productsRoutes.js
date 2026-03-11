@@ -1,15 +1,19 @@
 import express from "express";
 import Joi from "joi";
 import productController from "../controllers/productsController.js";
-import authMiddleware from "../middlewares/auth-middleware.js";
+import authMiddleware, {
+  optionalAuth,
+} from "../middlewares/auth-middleware.js";
 import validationMiddleware from "../middlewares/validation.middleware.js";
-import {
+import prodValidator from "../validators/product.validator.js";
+
+const {
   createProductSchema,
   productQuerySchema,
   productSearchSchema,
   updateProductSchema,
   validateProduct,
-} from "../validators/product.validator.js";
+} = prodValidator;
 
 const { validateObjectId, validateQueryParams } = validationMiddleware;
 const router = express.Router();
@@ -51,7 +55,7 @@ router.post(
 router.get(
   "/",
   validateQueryParams(productQuerySchema),
-  authMiddleware.optionalAuth({
+  optionalAuth({
     allowedRoles: ["user", "admin"],
     checkBlock: true,
   }),
@@ -70,7 +74,7 @@ router.get("/:id", validateObjectId("id"), productController.getProductById);
 
 router.get(
   "/sku/:sku",
-  authMiddleware.optionalAuth("all", true),
+  optionalAuth("all", true),
   productController.getProductBySku,
 );
 

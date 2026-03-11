@@ -1,20 +1,21 @@
 // services/feedbackService.js
 
 import { startSession, Types } from "mongoose";
-import ApiError, {
-  BadRequest,
-  ForbiddenError,
-  InternalServerError,
-  NotFoundError,
-} from "../exceptions/api-error";
-import { error as _error, info, warn } from "../logger/logger";
-import { FeedbackModel, UserModel } from "../models/index.models";
-import { sendEmailNotification } from "../queues/taskQueues";
-import {
-  cleanupTempFiles,
-  moveTempFilesToPermanent,
-  normalizeFileName,
-} from "../utils/fileManager";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, ForbiddenError, InternalServerError, NotFoundError } =
+  ApiError;
+
+import logger from "../logger/logger.js";
+
+const { error: _error, info, warn } = logger;
+
+import { FeedbackModel, UserModel } from "../models/index.models.js";
+import { sendEmailNotification } from "../queues/taskQueues.js";
+import fileManager from "../utils/fileManager.js";
+
+const { cleanupTempFiles, moveTempFilesToPermanent, normalizeFileName } =
+  fileManager;
 
 class FeedbackService {
   // Пользовательские методы

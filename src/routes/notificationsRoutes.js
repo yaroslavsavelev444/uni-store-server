@@ -2,18 +2,18 @@ import { Router } from "express";
 
 const router = Router();
 
-import notificationsController from "../controllers/notificationsController";
+import notificationsController from "../controllers/notificationsController.js";
 
 router.get("/getNotifications", notificationsController.getNotifications);
 router.get("/getUnreadCount", notificationsController.getUnreadCount);
 
 router.put(
-  "/markNotificationsAsRead",
-  notificationsController.markNotificationAsRead,
+	"/markNotificationsAsRead",
+	notificationsController.markNotificationAsRead,
 );
 router.delete(
-  "/deleteNotifications",
-  notificationsController.deleteNotifications,
+	"/deleteNotifications",
+	notificationsController.deleteNotifications,
 );
 
 export default router;

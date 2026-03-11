@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import handlebars, {
-  compile,
-  registerHelper,
-  registerPartial,
+	compile,
+	registerHelper,
+	registerPartial,
 } from "handlebars";
 import layouts from "handlebars-layouts";
 import juice from "juice";
@@ -17,9 +17,9 @@ const styles = readFileSync(join(__dirname, "styles", "email.css"), "utf8");
 // Регистрация partials
 const partialsDir = join(__dirname, "partials");
 readdirSync(partialsDir).forEach((file) => {
-  const name = basename(file, ".hbs");
-  const content = readFileSync(join(partialsDir, file), "utf8");
-  registerPartial(name, content);
+	const name = basename(file, ".hbs");
+	const content = readFileSync(join(partialsDir, file), "utf8");
+	registerPartial(name, content);
 });
 
 // Регистрация baseLayout как partial
@@ -29,17 +29,17 @@ registerPartial("baseLayout", layoutContent);
 
 // Рендер шаблона
 const renderTemplate = (templateName, data = {}) => {
-  const filePath = join(__dirname, "templates", `${templateName}.hbs`);
-  const source = readFileSync(filePath, "utf8");
+	const filePath = join(__dirname, "templates", `${templateName}.hbs`);
+	const source = readFileSync(filePath, "utf8");
 
-  const template = compile(source);
-  const htmlWithStyles = template({
-    ...data,
-    inlineStyles: styles,
-    year: new Date().getFullYear(),
-  });
+	const template = compile(source);
+	const htmlWithStyles = template({
+		...data,
+		inlineStyles: styles,
+		year: new Date().getFullYear(),
+	});
 
-  return juice(htmlWithStyles);
+	return juice(htmlWithStyles);
 };
 
 export default renderTemplate;

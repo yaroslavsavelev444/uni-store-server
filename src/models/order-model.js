@@ -349,9 +349,4 @@ OrderSchema.index({ "payment.method": 1 });
 
 const OrderModel = model("Order", OrderSchema);
 
-export default {
-  OrderModel,
-  OrderStatus,
-  DeliveryMethod,
-  PaymentMethod,
-};
+export { OrderModel, OrderStatus, DeliveryMethod, PaymentMethod };

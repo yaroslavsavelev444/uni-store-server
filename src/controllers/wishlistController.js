@@ -1,15 +1,17 @@
-import {
-  addProduct as _addProduct,
-  clearWishlist as _clearWishlist,
-  getWishlist as _getWishlist,
-  isInWishlist as _isInWishlist,
-  removeProduct as _removeProduct,
-  toggleProduct as _toggleProduct,
+import wishlistService from "../services/wishlistService.js";
+
+const {
+  addProduct: _addProduct,
+  clearWishlist: _clearWishlist,
+  getWishlist: _getWishlist,
+  isInWishlist: _isInWishlist,
+  removeProduct: _removeProduct,
+  toggleProduct: _toggleProduct,
   getWishlistCount,
   getWishlistPaginated,
   getWishlistProductIds,
   getWishlistSummary,
-} from "../services/wishlistService";
+} = wishlistService;
 
 class WishlistController {
   async getWishlist(req, res, next) {

@@ -2,9 +2,11 @@ import { Router } from "express";
 
 const router = Router();
 
-import wishlistController from "../controllers/wishlistController";
-import authMiddleware from "../middlewares/auth-middleware";
-import { addOrRemoveProduct } from "../validators/wishlist.validator";
+import wishlistController from "../controllers/wishlistController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import wishlistValidator from "../validators/wishlist.validator.js";
+
+const { addOrRemoveProduct } = wishlistValidator;
 
 // Все роуты требуют авторизации
 router.use(authMiddleware(["all"]));

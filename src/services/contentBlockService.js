@@ -1,15 +1,16 @@
 import { basename } from "node:path";
 import { startSession, Types } from "mongoose";
-import { BadRequest } from "../exceptions/api-error";
-import { debug, error, warn } from "../logger/logger";
-import { ContentBlockModel } from "../models/index.models";
-import redisClient from "../redis/redis.client";
-import {
-  deleteFile,
-  getFileUrl,
-  moveFile,
-  validateFileExists,
-} from "../utils/fileManager";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest } = ApiError;
+
+import logger from "../logger/logger.js";
+
+import { ContentBlockModel } from "../models/index.models.js";
+import redisClient from "../redis/redis.client.js";
+import fileManager from "../utils/fileManager.js";
+
+const { moveFile, deleteFile, validateFileExists } = fileManager;
 
 class ContentBlockService {
   constructor() {
@@ -32,10 +33,14 @@ class ContentBlockService {
     try {
       for (const pattern of patterns) {
         await this.redisClient.deletePattern(pattern);
-        debug(`[ContentBlockService] Invalidated cache pattern: ${pattern}`);
+        logger.debug(
+          `[ContentBlockService] Invalidated cache pattern: ${pattern}`,
+        );
       }
     } catch (err) {
-      error(`[ContentBlockService] Error invalidating cache: ${err.message}`);
+      logger.error(
+        `[ContentBlockService] Error invalidating cache: ${err.message}`,
+      );
     }
   }
 
@@ -48,7 +53,7 @@ class ContentBlockService {
     try {
       const cached = await this.redisClient.getJson(cacheKey);
       if (cached) {
-        debug(
+        logger.debug(
           `[ContentBlockService] getAll from cache (includeInactive: ${includeInactive})`,
         );
         // Добавляем полные URL к изображениям в кешированных данных
@@ -60,7 +65,7 @@ class ContentBlockService {
         });
       }
     } catch (err) {
-      warn(`[ContentBlockService] Cache get error: ${err.message}`);
+      logger.warn(`[ContentBlockService] Cache get error: ${err.message}`);
     }
 
     const query = includeInactive ? {} : { isActive: true };
@@ -74,11 +79,11 @@ class ContentBlockService {
         items, // Сохраняем в кеш без fullUrl, чтобы не кешировать абсолютные URL
         includeInactive ? this.CACHE_TTL.ALL : this.CACHE_TTL.ACTIVE,
       );
-      debug(
+      logger.debug(
         `[ContentBlockService] getAll cached (includeInactive: ${includeInactive})`,
       );
     } catch (err) {
-      warn(`[ContentBlockService] Cache set error: ${err.message}`);
+      logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
     }
 
     return items;
@@ -91,11 +96,11 @@ class ContentBlockService {
     try {
       const cached = await this.redisClient.getJson(cacheKey);
       if (cached) {
-        debug(`[ContentBlockService] getById ${id} from cache`);
+        logger.debug(`[ContentBlockService] getById ${id} from cache`);
         return cached;
       }
     } catch (err) {
-      warn(`[ContentBlockService] Cache get error: ${err.message}`);
+      logger.warn(`[ContentBlockService] Cache get error: ${err.message}`);
     }
 
     const item = await ContentBlockModel.findById(id).lean();
@@ -103,9 +108,9 @@ class ContentBlockService {
     if (item) {
       try {
         await this.redisClient.setJson(cacheKey, item, this.CACHE_TTL.SINGLE);
-        debug(`[ContentBlockService] getById ${id} cached`);
+        logger.debug(`[ContentBlockService] getById ${id} cached`);
       } catch (err) {
-        warn(`[ContentBlockService] Cache set error: ${err.message}`);
+        logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
       }
     }
 
@@ -120,11 +125,11 @@ class ContentBlockService {
     try {
       const cached = await this.redisClient.getJson(cacheKey);
       if (cached) {
-        debug(`[ContentBlockService] getByTag ${tag} from cache`);
+        logger.debug(`[ContentBlockService] getByTag ${tag} from cache`);
         return cached;
       }
     } catch (err) {
-      warn(`[ContentBlockService] Cache get error: ${err.message}`);
+      logger.warn(`[ContentBlockService] Cache get error: ${err.message}`);
     }
 
     const items = await ContentBlockModel.find({
@@ -136,9 +141,9 @@ class ContentBlockService {
 
     try {
       await this.redisClient.setJson(cacheKey, items, this.CACHE_TTL.ACTIVE);
-      debug(`[ContentBlockService] getByTag ${tag} cached`);
+      logger.debug(`[ContentBlockService] getByTag ${tag} cached`);
     } catch (err) {
-      warn(`[ContentBlockService] Cache set error: ${err.message}`);
+      logger.warn(`[ContentBlockService] Cache set error: ${err.message}`);
     }
 
     return items;
@@ -146,7 +151,7 @@ class ContentBlockService {
 
   // Создание блока
   async create(contentBlockData, userId) {
-    console.log("contentBlockData, userId", contentBlockData, userId);
+    logger.info("contentBlockData, userId", contentBlockData, userId);
 
     try {
       // Обрабатываем изображение
@@ -172,7 +177,9 @@ class ContentBlockService {
 
       return newBlock.toObject();
     } catch (err) {
-      error(`[ContentBlockService] Error creating block: ${err.message}`);
+      logger.error(
+        `[ContentBlockService] Error creating block: ${err.message}`,
+      );
       throw err;
     }
   }
@@ -227,7 +234,9 @@ class ContentBlockService {
 
       return existingBlock.toObject();
     } catch (err) {
-      error(`[ContentBlockService] Error updating block ${id}: ${err.message}`);
+      logger.error(
+        `[ContentBlockService] Error updating block ${id}: ${err.message}`,
+      );
       throw err;
     }
   }
@@ -300,7 +309,9 @@ class ContentBlockService {
 
       return true;
     } catch (err) {
-      error(`[ContentBlockService] Error deleting block ${id}: ${err.message}`);
+      logger.error(
+        `[ContentBlockService] Error deleting block ${id}: ${err.message}`,
+      );
       throw err;
     }
   }
@@ -335,10 +346,10 @@ class ContentBlockService {
     try {
       if (imageUrl && imageUrl.startsWith("/uploads/content-blocks/")) {
         await deleteFile(imageUrl);
-        debug(`[ContentBlockService] Old image deleted: ${imageUrl}`);
+        logger.debug(`[ContentBlockService] Old image deleted: ${imageUrl}`);
       }
     } catch (err) {
-      warn(
+      logger.warn(
         `[ContentBlockService] Error deleting old image ${imageUrl}: ${err.message}`,
       );
       // Не прерываем выполнение если не удалось удалить файл
@@ -367,7 +378,7 @@ class ContentBlockService {
         withoutButtons: total - withButtons,
       };
     } catch (err) {
-      error(`[ContentBlockService] Error getting stats: ${err.message}`);
+      logger.error(`[ContentBlockService] Error getting stats: ${err.message}`);
       throw err;
     }
   }
@@ -404,7 +415,9 @@ class ContentBlockService {
         session.endSession();
       }
     } catch (err) {
-      error(`[ContentBlockService] Error updating positions: ${err.message}`);
+      logger.error(
+        `[ContentBlockService] Error updating positions: ${err.message}`,
+      );
       throw err;
     }
   }

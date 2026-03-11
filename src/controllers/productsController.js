@@ -1,23 +1,26 @@
 import { promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
-import ApiError from "../exceptions/api-error";
-import { ProductStatus } from "../models/product-model";
-import {
-  addRelatedProduct as _addRelatedProduct,
-  clearSearchHistory as _clearSearchHistory,
-  createProduct as _createProduct,
-  getAllProducts as _getAllProducts,
-  getHints as _getHints,
-  getProductById as _getProductById,
-  getProductBySku as _getProductBySku,
-  getRelatedProducts as _getRelatedProducts,
-  getSearchHistory as _getSearchHistory,
-  saveSearchHistory as _saveSearchHistory,
-  searchProducts as _searchProducts,
-  updateProduct as _updateProduct,
-  updateProductStatus as _updateProductStatus,
-} from "../services/productService";
-import { processProductFiles } from "../utils/productFileProcessor";
+import ApiError from "../exceptions/api-error.js";
+import { ProductStatus } from "../models/product-model.js";
+import productService from "../services/productService.js";
+
+const {
+  addRelatedProduct: _addRelatedProduct,
+  clearSearchHistory: _clearSearchHistory,
+  createProduct: _createProduct,
+  getAllProducts: _getAllProducts,
+  getHints: _getHints,
+  getProductById: _getProductById,
+  getProductBySku: _getProductBySku,
+  getRelatedProducts: _getRelatedProducts,
+  getSearchHistory: _getSearchHistory,
+  saveSearchHistory: _saveSearchHistory,
+  searchProducts: _searchProducts,
+  updateProduct: _updateProduct,
+  updateProductStatus: _updateProductStatus,
+} = productService;
+
+import { processProductFiles } from "../utils/productFileProcessor.js";
 
 const productController = {
   async getAllProducts(req, res, next) {

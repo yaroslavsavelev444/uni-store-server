@@ -1,16 +1,19 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { fromFile } from "file-type";
-import { uploadsDir } from "../config/serverConfig";
-import { error as _error, info } from "../logger/logger";
-import File, {
-  aggregate,
-  countDocuments,
-  deleteOne,
-  find,
-  findById,
-  findOne,
-} from "../models/fileModel";
+import { fileTypeFromFile } from "file-type"; // Изменено: fromFile -> fileTypeFromFile
+
+import serverConfig from "../config/serverConfig.js";
+
+const { uploadsDir } = serverConfig;
+
+import logger from "../logger/logger.js";
+
+const { error: _error, info } = logger;
+
+import { FileModel } from "../models/index.models.js";
+
+const { aggregate, countDocuments, deleteOne, find, findById, findOne } =
+  FileModel;
 
 // Заглушка для сервиса проверки прав на сущности
 // В реальном проекте импортируйте нужный сервис (orderService, productService)
@@ -38,9 +41,13 @@ class FileService {
       await fs.mkdir(this.uploadsDir, { recursive: true });
       await fs.mkdir(this.tempDir, { recursive: true });
       await fs.mkdir(this.permanentDir, { recursive: true });
-      info(`[FILE_SERVICE] Директории созданы`);
+      // Исправление: вызываем info как метод logger, а не как деструктурированную функцию
+      logger.info(`[FILE_SERVICE] Директории созданы`);
     } catch (error) {
-      _error(`[FILE_SERVICE] Ошибка создания директорий: ${error.message}`);
+      // Исправление: вызываем error как метод logger, а не как деструктурированную функцию
+      logger.error(
+        `[FILE_SERVICE] Ошибка создания директорий: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -60,7 +67,7 @@ class FileService {
       }
 
       // Проверка сигнатуры файла
-      const type = await fromFile(file.path);
+      const type = await fileTypeFromFile(file.path);
       const allowedMime = [
         "image/jpeg",
         "image/png",
@@ -88,11 +95,14 @@ class FileService {
         entityId,
       };
 
-      const savedFile = await new File(fileMeta).save();
-      info(`[FILE_SERVICE] Файл сохранён: ${tempName} для ${userId}`);
+      const savedFile = await new FileModel(fileMeta).save();
+      logger.info(`[FILE_SERVICE] Файл сохранён: ${tempName} для ${userId}`);
       return savedFile;
     } catch (error) {
-      _error(`[FILE_SERVICE] Ошибка сохранения файла: ${error.message}`, error);
+      logger.error(
+        `[FILE_SERVICE] Ошибка сохранения файла: ${error.message}`,
+        error,
+      );
       throw error;
     }
   }
@@ -106,7 +116,7 @@ class FileService {
     maxBytes = 100 * 1024 * 1024,
   ) {
     // Используем агрегацию для быстрого подсчёта
-    const result = await aggregate([
+    const result = await aggregate.call(FileModel, [
       { $match: { userId } },
       { $group: { _id: null, total: { $sum: "$size" } } },
     ]);
@@ -129,7 +139,7 @@ class FileService {
     const results = [];
     for (const fileId of fileIds) {
       try {
-        const file = await findById(fileId);
+        const file = await findById.call(FileModel, fileId);
         if (!file) {
           results.push({ success: false, fileId, error: "Файл не найден" });
           continue;
@@ -143,12 +153,12 @@ class FileService {
         }
 
         await fs.unlink(file.path);
-        await deleteOne({ _id: fileId });
+        await deleteOne.call(FileModel, { _id: fileId });
         results.push({ success: true, fileId });
-        info(`[FILE_SERVICE] Файл удалён: ${file.tempName}`);
+        logger.info(`[FILE_SERVICE] Файл удалён: ${file.tempName}`);
       } catch (error) {
         results.push({ success: false, fileId, error: error.message });
-        _error(`[FILE_SERVICE] Ошибка удаления: ${error.message}`);
+        logger.error(`[FILE_SERVICE] Ошибка удаления: ${error.message}`);
       }
     }
     return results;
@@ -167,7 +177,7 @@ class FileService {
     { isPublic = false, entityType = null, entityId = null } = {},
   ) {
     try {
-      const file = await findOne({ _id: fileId, userId });
+      const file = await findOne.call(FileModel, { _id: fileId, userId });
       if (!file || file.status !== "temp") {
         throw new Error(
           "Файл не найден, не является временным или доступ запрещён",
@@ -185,10 +195,12 @@ class FileService {
       file.expiresAt = null;
       // Если файл публичный, но токен ещё не сгенерирован – сработает pre-save
       await file.save();
-      info(`[FILE_SERVICE] Файл перемещён в permanent: ${file.tempName}`);
+      logger.info(
+        `[FILE_SERVICE] Файл перемещён в permanent: ${file.tempName}`,
+      );
       return file;
     } catch (error) {
-      _error(`[FILE_SERVICE] Ошибка перемещения: ${error.message}`);
+      logger.error(`[FILE_SERVICE] Ошибка перемещения: ${error.message}`);
       throw error;
     }
   }
@@ -200,7 +212,7 @@ class FileService {
    * @returns {Promise<Object|null>}
    */
   async getFileInfo(fileId, user = null) {
-    const file = await findById(fileId);
+    const file = await findById.call(FileModel, fileId);
     if (!file) return null;
 
     // Публичный файл доступен всем
@@ -239,7 +251,7 @@ class FileService {
    * @returns {Promise<Object|null>}
    */
   async getPublicFileByToken(token) {
-    return findOne({
+    return findOne.call(FileModel, {
       publicToken: token,
       isPublic: true,
       status: "permanent",
@@ -256,8 +268,12 @@ class FileService {
   async getUserFiles(userId, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     const [files, total] = await Promise.all([
-      find({ userId }).sort({ uploadedAt: -1 }).skip(skip).limit(limit),
-      countDocuments({ userId }),
+      find
+        .call(FileModel, { userId })
+        .sort({ uploadedAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      countDocuments.call(FileModel, { userId }),
     ]);
     return {
       files,
@@ -271,14 +287,16 @@ class FileService {
    * Очистка устаревших временных файлов (запускается по cron)
    */
   async cleanupOldFiles() {
-    const oldFiles = await find({ expiresAt: { $lt: new Date() } });
+    const oldFiles = await find.call(FileModel, {
+      expiresAt: { $lt: new Date() },
+    });
     for (const file of oldFiles) {
       try {
         await fs.unlink(file.path);
-        await deleteOne({ _id: file._id });
-        info(`[CLEANUP] Удалён старый файл: ${file.tempName}`);
+        await deleteOne.call(FileModel, { _id: file._id });
+        logger.info(`[CLEANUP] Удалён старый файл: ${file.tempName}`);
       } catch (error) {
-        _error(`[CLEANUP] Ошибка: ${error.message}`);
+        logger.error(`[CLEANUP] Ошибка: ${error.message}`);
       }
     }
   }

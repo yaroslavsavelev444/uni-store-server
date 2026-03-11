@@ -12,8 +12,4 @@ function isCodeMatch(inputCode, storedHash) {
   return timingSafeEqual(Buffer.from(inputHash), Buffer.from(storedHash));
 }
 
-export default {
-  generate2FACode,
-  hashCode,
-  isCodeMatch,
-};
+export { generate2FACode, hashCode, isCodeMatch };

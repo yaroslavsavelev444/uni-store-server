@@ -5,10 +5,16 @@ EventEmitter.defaultMaxListeners = 20;
 import { createServer } from "node:http";
 
 import app from "./app.js";
-import { HOST, NODE_ENV, PORT } from "./config/env";
-import { connectDB } from "./src/config/mongo";
-import cronInit from "./src/cron";
-import logger from "./src/logger/logger";
+import env from "./config/env.js";
+
+const { NODE_ENV, PORT, HOST } = env;
+
+import mongo from "./src/config/mongo.js";
+
+const { connectDB } = mongo;
+
+import cronInit from "./src/cron/index.js";
+import logger from "./src/logger/logger.js";
 
 const server = createServer(app);
 

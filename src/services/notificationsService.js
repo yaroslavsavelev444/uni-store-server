@@ -1,5 +1,7 @@
-import { NotificationModel } from "../models/index.models";
-import { validateNotification } from "../utils/validateNotificationData";
+import { NotificationModel } from "../models/index.models.js";
+import validateNotificationData from "../utils/validateNotificationData.js";
+
+const { validateNotification } = validateNotificationData;
 
 const getNotificationsService = async (userData, limit = 10, skip = 0) => {
   const notifications = await NotificationModel.find({ userId: userData.id })

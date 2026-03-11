@@ -1,44 +1,63 @@
 import { compare, hash } from "bcryptjs";
-import UserDTO from "../dtos/user.dto";
-import ApiError, {
+import UserDTO from "../dtos/user.dto.js";
+import ApiError from "../exceptions/api-error.js";
+
+const {
   BadRequest,
   ForbiddenError,
   InternalServerError,
   NotFoundError,
   UnauthorizedError,
-} from "../exceptions/api-error";
-import { error as _error, info, warn } from "../logger/logger";
+} = ApiError;
+
+import logger from "../logger/logger.js";
+
+const { info, warn, error: _error } = logger;
+
 import {
   UserAcceptedConsentModel,
   UserModel,
   UserSecurityModel,
   UserSessionModel,
-} from "../models/index.models";
+} from "../models/index.models.js";
 import {
   sendEmailNotification,
   sendPushNotification,
-} from "../queues/taskQueues";
-import { del } from "../redis/redis.client";
-import moveFileToFinal from "../utils/moveFileToFinal";
-import { registerSchema } from "../validators/user.validator";
-import {
-  create2FACodeAndNotify,
-  verify2FACode,
-  verify2FACodeOnly,
-} from "./2faService";
-import {
+} from "../queues/taskQueues.js";
+import redis from "../redis/redis.client.js";
+
+const { del } = redis;
+
+import moveFileToFinal from "../utils/moveFileToFinal.js";
+import userValidator from "../validators/user.validator.js";
+
+const { registerSchema } = userValidator;
+
+import faService from "./2faService.js";
+
+const { create2FACodeAndNotify, verify2FACode, verify2FACodeOnly } = faService;
+
+import SessionService from "./SessionService.js";
+
+const {
   addToTempBlacklist,
   invalidateAllSessionsExceptCurrent,
   isSessionRevoked,
-} from "./SessionService";
-import {
+} = SessionService;
+
+import tokenService from "./tokenService.js";
+
+const {
   generatePasswordResetToken,
   generateToken,
   validateAccessToken,
   validateRefreshToken,
   verifyPasswordResetToken,
-} from "./tokenService";
-import { checkUserBlockStatus } from "./userSanctionService";
+} = tokenService;
+
+import userSanctionService from "./userSanctionService.js";
+
+const { checkUserBlockStatus } = userSanctionService;
 
 const login = async (userData) => {
   try {

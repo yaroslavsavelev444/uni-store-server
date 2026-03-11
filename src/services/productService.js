@@ -1,29 +1,48 @@
 import { Types } from "mongoose";
-import ApiError, {
-  BadRequest,
-  DatabaseError,
-  NotFound,
-} from "../exceptions/api-error";
-import { findById, findOne } from "../models/category-model"; // ДОБАВЛЕНО
-import { ProductModel, UserSearchModel } from "../models/index.models";
-import { ProductStatus } from "../models/product-model";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFound, DatabaseError } = ApiError;
+
 import {
-  getFileUrl as _getFileUrl,
-  deleteFile,
-  getFileUrl,
-  validateFileExists,
-} from "../utils/fileManager";
-import {
-  getCartDiscountInfoForProduct,
-  getDiscountsForProducts,
-} from "./ProductDiscountService";
-import { hasUserPurchasedProduct } from "./purchaseCheckService";
-import {
-  checkIfUserHasReviewedStatic,
-  getProductReviewsCountStatic,
-} from "./reviewService";
+  CategoryModel,
+  ProductModel,
+  UserSearchModel,
+} from "../models/index.models.js";
+
+const { findById, findOne } = CategoryModel;
+
+import { ProductStatus } from "../models/product-model.js";
+import fileManager from "../utils/fileManager.js";
+
+const { getFileUrl: _getFileUrl, deleteFile, validateFileExists } = fileManager;
+
+import ProductDiscountService from "./ProductDiscountService.js";
+
+const { getCartDiscountInfoForProduct, getDiscountsForProducts } =
+  ProductDiscountService;
+
+import PurchaseCheckService from "./purchaseCheckService.js";
+
+const { hasUserPurchasedProduct } = PurchaseCheckService;
+
+import reviewService from "./reviewService.js";
+
+const { checkIfUserHasReviewedStatic, getProductReviewsCountStatic } =
+  reviewService;
 
 class ProductService {
+  getSortField = (sortBy) => {
+    const sortMap = {
+      price: "priceForIndividual",
+      title: "title",
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
+      popularity: "viewsCount",
+    };
+
+    return sortMap[sortBy] || "createdAt";
+  };
+
   async getAllProducts(query = {}) {
     const {
       category,
@@ -103,7 +122,7 @@ class ProductService {
         categoryIdFromSlug = categoryDoc._id;
         filter.category = categoryIdFromSlug;
       } catch (error) {
-        throw DatabaseError("Ошибка при поиске категории");
+        throw DatabaseError(error);
       }
     }
 
@@ -146,7 +165,9 @@ class ProductService {
 
     // 10. Сортировка
     const sortOptions = {};
+
     const sortField = this.getSortField(sortBy);
+
     sortOptions[sortField] = sortOrder === "asc" ? 1 : -1;
 
     // Для сортировки по популярности добавляем сортировку по названию как вторичную
@@ -870,18 +891,18 @@ class ProductService {
 
     // Преобразуем пути файлов в полные URL
     if (productObj.mainImage && productObj.mainImage.url) {
-      productObj.mainImage.url = getFileUrl(productObj.mainImage.url);
+      productObj.mainImage.url = _getFileUrl(productObj.mainImage.url);
     }
 
     if (productObj.images && Array.isArray(productObj.images)) {
       productObj.images = productObj.images.map((img) => ({
         ...img,
-        url: getFileUrl(img.url),
+        url: _getFileUrl(img.url),
       }));
     }
 
     if (productObj.instructionFile && productObj.instructionFile.url) {
-      productObj.instructionFile.url = getFileUrl(
+      productObj.instructionFile.url = _getFileUrl(
         productObj.instructionFile.url,
       );
     }
@@ -1287,18 +1308,6 @@ class ProductService {
   ) {
     // Реализация логирования изменений склада
     // Можно использовать отдельную модель StockLog
-  }
-
-  getSortField(sortBy) {
-    const sortMap = {
-      price: "priceForIndividual",
-      title: "title",
-      createdAt: "createdAt",
-      updatedAt: "updatedAt",
-      popularity: "viewsCount",
-    };
-
-    return sortMap[sortBy] || "createdAt";
   }
 }
 

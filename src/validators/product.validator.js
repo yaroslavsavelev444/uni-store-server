@@ -1,168 +1,179 @@
-import {
-  alternatives,
-  any,
-  array,
-  boolean,
-  number,
-  object,
-  ref,
-  string,
-} from "joi";
-import { ProductStatus } from "../models/product-model";
+import joi from "joi";
+
+import { ProductStatus } from "../models/product-model.js";
 
 console.log("[VALIDATOR] Загрузка схем валидации продуктов...");
 
 // Вспомогательные схемы для валидации файлов
-const imageSchema = object({
-  url: string()
+const imageSchema = joi.object({
+  url: joi
+    .string()
     .required()
     .uri()
     .pattern(/^(\/uploads\/products\/images\/|https?:\/\/)/)
     .message("Некорректный формат изображения"),
-  alt: string().max(255).optional().allow("", null).default(""),
-  order: number().integer().min(0).optional().default(0),
+  alt: joi.string().max(255).optional().allow("", null).default(""),
+  order: joi.number().integer().min(0).optional().default(0),
 });
 
 // Схема для инструкции-файла
-const instructionFileSchema = object({
-  type: string().valid("file").required(),
-  url: string()
+const instructionFileSchema = joi.object({
+  type: joi.string().valid("file").required(),
+  url: joi
+    .string()
     .required()
     .uri()
     .pattern(/^(\/uploads\/products\/instructions\/|https?:\/\/)/)
     .message("Некорректный формат файла инструкции"),
-  originalName: string().max(255).required(),
-  size: number()
+  originalName: joi.string().max(255).required(),
+  size: joi
+    .number()
     .integer()
     .positive()
     .max(50 * 1024 * 1024)
     .required(),
-  alt: string().max(255).optional().allow("", null),
-  mimetype: string().optional(),
+  alt: joi.string().max(255).optional().allow("", null),
+  mimetype: joi.string().optional(),
 });
 
 // Схема для инструкции-ссылки
-const instructionLinkSchema = object({
-  type: string().valid("link").required(),
-  url: string().required().uri().message("Некорректный формат ссылки"),
-  title: string().max(255).optional().allow("", null).default("Инструкция"),
+const instructionLinkSchema = joi.object({
+  type: joi.string().valid("link").required(),
+  url: joi.string().required().uri().message("Некорректный формат ссылки"),
+  title: joi.string().max(255).optional().allow("", null).default("Инструкция"),
 });
 
 // Общая схема для инструкции (либо файл, либо ссылка)
-const instructionSchema = alternatives()
+const instructionSchema = joi
+  .alternatives()
   .try(instructionFileSchema, instructionLinkSchema)
   .optional()
   .allow(null)
   .default(null);
 
-const createProductSchema = object({
-  sku: string()
-    .required()
-    .min(3)
-    .max(50)
-    .pattern(/^[a-zA-Z0-9_-]+$/)
-    .messages({
-      "string.pattern.base":
-        "SKU может содержать только буквы, цифры, дефисы и подчеркивания",
-    }),
-
-  title: string().required().min(3).max(200).trim(),
-
-  description: string().required().min(10).max(5000),
-
-  priceForIndividual: number()
-    .required()
-    .positive()
-    .precision(2)
-    .max(100000000),
-
-  status: string()
-    .valid(...Object.values(ProductStatus))
-    .default(ProductStatus.AVAILABLE),
-
-  category: string()
-    .required()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .message("Некорректный ID категории"),
-
-  mainImage: string()
-    .uri()
-    .pattern(/^(\/uploads\/products\/images\/|https?:\/\/)/)
-    .message("Некорректный формат основного изображения")
-    .optional()
-    .allow("", null),
-
-  showOnMainPage: boolean().default(false),
-
-  images: array().items(imageSchema).max(20).optional().default([]),
-
-  instruction: instructionSchema,
-
-  specifications: array()
-    .items(
-      object({
-        name: string().required().max(100),
-        value: any().required(),
-        unit: string().max(20).optional(),
-        group: string().max(50).optional(),
-        isVisible: boolean().default(true),
+const createProductSchema = joi
+  .object({
+    sku: joi
+      .string()
+      .required()
+      .min(3)
+      .max(50)
+      .pattern(/^[a-zA-Z0-9_-]+$/)
+      .messages({
+        "string.pattern.base":
+          "SKU может содержать только буквы, цифры, дефисы и подчеркивания",
       }),
-    )
-    .max(50)
-    .optional()
-    .default([]),
 
-  customAttributes: object()
-    .pattern(/^[a-zA-Z0-9_]+$/, any())
-    .max(20)
-    .optional(),
+    title: joi.string().required().min(3).max(200).trim(),
 
-  relatedProducts: array()
-    .items(string().pattern(/^[0-9a-fA-F]{24}$/))
-    .unique()
-    .max(20)
-    .optional(),
+    description: joi.string().required().min(10).max(5000),
 
-  upsellProducts: array()
-    .items(string().pattern(/^[0-9a-fA-F]{24}$/))
-    .unique()
-    .max(10)
-    .optional(),
+    priceForIndividual: joi
+      .number()
+      .required()
+      .positive()
+      .precision(2)
+      .max(100000000),
 
-  crossSellProducts: array()
-    .items(string().pattern(/^[0-9a-fA-F]{24}$/))
-    .unique()
-    .max(10)
-    .optional(),
+    status: joi
+      .string()
+      .valid(...Object.values(ProductStatus))
+      .default(ProductStatus.AVAILABLE),
 
-  weight: number().positive().max(100000).optional(),
+    category: joi
+      .string()
+      .required()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .message("Некорректный ID категории"),
 
-  dimensions: object({
-    length: number().positive().max(10000).optional(),
-    width: number().positive().max(10000).optional(),
-    height: number().positive().max(10000).optional(),
-  }).optional(),
+    mainImage: joi
+      .string()
+      .uri()
+      .pattern(/^(\/uploads\/products\/images\/|https?:\/\/)/)
+      .message("Некорректный формат основного изображения")
+      .optional()
+      .allow("", null),
 
-  manufacturer: string().max(100).optional().allow("").default(""),
+    showOnMainPage: joi.boolean().default(false),
 
-  warrantyMonths: number().integer().min(0).max(120).optional(),
+    images: joi.array().items(imageSchema).max(20).optional().default([]),
 
-  minOrderQuantity: number().integer().min(1).max(1000).default(1),
+    instruction: instructionSchema,
 
-  maxOrderQuantity: number()
-    .integer()
-    .min(ref("minOrderQuantity"))
-    .max(10000)
-    .optional(),
+    specifications: joi
+      .array()
+      .items(
+        joi.object({
+          name: joi.string().required().max(100),
+          value: joi.any().required(),
+          unit: joi.string().max(20).optional(),
+          group: joi.string().max(50).optional(),
+          isVisible: joi.boolean().default(true),
+        }),
+      )
+      .max(50)
+      .optional()
+      .default([]),
 
-  isVisible: boolean().default(true),
+    customAttributes: joi
+      .object()
+      .pattern(/^[a-zA-Z0-9_]+$/, joi.any())
+      .max(20)
+      .optional(),
 
-  metaTitle: string().max(255).optional().allow(""),
+    relatedProducts: joi
+      .array()
+      .items(joi.string().pattern(/^[0-9a-fA-F]{24}$/))
+      .unique()
+      .max(20)
+      .optional(),
 
-  metaDescription: string().max(500).optional().allow(""),
+    upsellProducts: joi
+      .array()
+      .items(joi.string().pattern(/^[0-9a-fA-F]{24}$/))
+      .unique()
+      .max(10)
+      .optional(),
 
-  keywords: array().items(string().max(50)).max(20).optional(),
-}).with("maxOrderQuantity", "minOrderQuantity");
+    crossSellProducts: joi
+      .array()
+      .items(joi.string().pattern(/^[0-9a-fA-F]{24}$/))
+      .unique()
+      .max(10)
+      .optional(),
+
+    weight: joi.number().positive().max(100000).optional(),
+
+    dimensions: joi
+      .object({
+        length: joi.number().positive().max(10000).optional(),
+        width: joi.number().positive().max(10000).optional(),
+        height: joi.number().positive().max(10000).optional(),
+      })
+      .optional(),
+
+    manufacturer: joi.string().max(100).optional().allow("").default(""),
+
+    warrantyMonths: joi.number().integer().min(0).max(120).optional(),
+
+    minOrderQuantity: joi.number().integer().min(1).max(1000).default(1),
+
+    maxOrderQuantity: joi
+      .number()
+      .integer()
+      .min(joi.ref("minOrderQuantity"))
+      .max(10000)
+      .optional(),
+
+    isVisible: joi.boolean().default(true),
+
+    metaTitle: joi.string().max(255).optional().allow(""),
+
+    metaDescription: joi.string().max(500).optional().allow(""),
+
+    keywords: joi.array().items(joi.string().max(50)).max(20).optional(),
+  })
+  .with("maxOrderQuantity", "minOrderQuantity");
 
 const updateProductSchema = createProductSchema
   .fork(Object.keys(createProductSchema.describe().keys), (schema) =>
@@ -170,52 +181,54 @@ const updateProductSchema = createProductSchema
   )
   .min(1);
 
-const productQuerySchema = object({
-  category: string().pattern(/^[0-9a-fA-F]{24}$/),
-  status: string().valid(...Object.values(ProductStatus)),
-  minPrice: number().positive().max(1000000),
-  maxPrice: number().positive().max(1000000).min(ref("minPrice")),
-  inStock: boolean(),
-  isAdmin: boolean(),
-  slug: string().max(100),
-  search: string().max(100),
-  sortBy: string().valid(
-    "price",
-    "title",
-    "createdAt",
-    "updatedAt",
-    "popularity",
-  ),
-  sortOrder: string().valid("asc", "desc").default("desc"),
-  page: number().integer().min(1).default(1),
-  limit: number().integer().min(1).max(100).default(50),
-  showOnMainPage: boolean().default(false),
-  populate: string()
-    .valid("category", "relatedProducts", "all", "none")
-    .default("none"),
-  excludeIds: alternatives().try(
-    string().pattern(/^[0-9a-fA-F]{24}$/),
-    array().items(string().pattern(/^[0-9a-fA-F]{24}$/)),
-  ),
-}).with("maxPrice", "minPrice");
+const productQuerySchema = joi
+  .object({
+    category: joi.string().pattern(/^[0-9a-fA-F]{24}$/),
+    status: joi.string().valid(...Object.values(ProductStatus)),
+    minPrice: joi.number().positive().max(1000000),
+    maxPrice: joi.number().positive().max(1000000).min(joi.ref("minPrice")),
+    inStock: joi.boolean(),
+    isAdmin: joi.boolean(),
+    slug: joi.string().max(100),
+    search: joi.string().max(100),
+    sortBy: joi
+      .string()
+      .valid("price", "title", "createdAt", "updatedAt", "popularity"),
+    sortOrder: joi.string().valid("asc", "desc").default("desc"),
+    page: joi.number().integer().min(1).default(1),
+    limit: joi.number().integer().min(1).max(100).default(50),
+    showOnMainPage: joi.boolean().default(false),
+    populate: joi
+      .string()
+      .valid("category", "relatedProducts", "all", "none")
+      .default("none"),
+    excludeIds: joi
+      .alternatives()
+      .try(
+        joi.string().pattern(/^[0-9a-fA-F]{24}$/),
+        joi.array().items(joi.string().pattern(/^[0-9a-fA-F]{24}$/)),
+      ),
+  })
+  .with("maxPrice", "minPrice");
 
-const productSearchSchema = object({
-  q: string().min(1).max(100).required(),
-  category: string().pattern(/^[0-9a-fA-F]{24}$/),
-  limit: number().integer().min(1).max(50).default(10),
-  page: number().integer().min(1).default(1),
+const productSearchSchema = joi.object({
+  q: joi.string().min(1).max(100).required(),
+  category: joi.string().pattern(/^[0-9a-fA-F]{24}$/),
+  limit: joi.number().integer().min(1).max(50).default(10),
+  page: joi.number().integer().min(1).default(1),
 });
 
-const updateStatusSchema = object({
-  status: string()
+const updateStatusSchema = joi.object({
+  status: joi
+    .string()
     .valid(...Object.values(ProductStatus))
     .required(),
 });
 
-const updateStockSchema = object({
-  quantity: number().integer().required(),
-  operation: string().valid("set", "add", "subtract").default("set"),
-  reason: string().max(500).optional(),
+const updateStockSchema = joi.object({
+  quantity: joi.number().integer().required(),
+  operation: joi.string().valid("set", "add", "subtract").default("set"),
+  reason: joi.string().max(500).optional(),
 });
 
 // Функция для логирования данных и ошибок валидации

@@ -1,5 +1,8 @@
-import { BadRequest, NotFoundError } from "../exceptions/api-error";
-import { BannerModel, BannerViewModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+
+const { BadRequest, NotFoundError } = ApiError;
+
+import { BannerModel, BannerViewModel } from "../models/index.models.js";
 
 class BannerStatsService {
   /**

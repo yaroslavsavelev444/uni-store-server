@@ -3,7 +3,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import {
+import companyController from "../controllers/companyController.js";
+
+const {
   createCompany,
   deleteCompany,
   getCompanies,
@@ -13,8 +15,9 @@ import {
   searchCompanies,
   syncCache,
   updateCompany,
-} from "../controllers/companyController";
-import authMiddleware from "../middlewares/auth-middleware";
+} = companyController;
+
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // ========== USER ROUTES ==========
 

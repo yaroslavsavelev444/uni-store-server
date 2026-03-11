@@ -1,16 +1,18 @@
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import {
-  getChangeHistory as _getChangeHistory,
-  getContacts as _getContacts,
-  healthCheck as _healthCheck,
-  toggleActive as _toggleActive,
-  updateContacts as _updateContacts,
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import contactsService from "../services/contactsService.js";
+
+const {
+  getChangeHistory: _getChangeHistory,
+  getContacts: _getContacts,
+  healthCheck: _healthCheck,
+  toggleActive: _toggleActive,
+  updateContacts: _updateContacts,
   exportAsVCard,
   generateEmptyVCard,
   getContactsForAdmin,
   getEmptyStructureForUsers,
-} from "../services/contactsService";
+} = contactsService;
 
 class СontactsController {
   /**
