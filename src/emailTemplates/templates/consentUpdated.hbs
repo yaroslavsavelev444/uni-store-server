@@ -1,63 +1,105 @@
-{{#extend "baseLayout" title="Обновление соглашения"}}
+{{#extend "baseLayout" title="Обновление условий"}}
   {{#content "body"}}
     <tr>
-      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #1a1a1a; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
-        <h2 style="color: #ff8c42; font-size: 22px; margin-bottom: 20px; text-align: center;">
-          📄 Обновлено {{consentTitle}}
-        </h2>
-        
-        <div style="background-color: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff8c42;">
-          <p style="font-size: 16px; color: #ccc; margin-bottom: 10px;">
-            <strong>Версия:</strong> {{version}}
-          </p>
-          <p style="font-size: 16px; color: #ccc; margin-bottom: 10px;">
-            <strong>Дата обновления:</strong> {{updateDate}}
-          </p>
-          <p style="font-size: 16px; color: #ccc; margin-bottom: 10px;">
-            <strong>Вступает в силу:</strong> {{effectiveDate}}
-          </p>
-        </div>
+      <td style="
+        padding: 28px;
+        font-family: Arial, sans-serif;
+        background-color: #1A1D24;
+        border-radius: 10px;
+        color: #ffffff;
+      ">
 
-        <div style="margin-bottom: 25px;">
-          <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px;">Основные изменения:</h3>
-          <p style="font-size: 16px; color: #ccc; line-height: 1.6; background-color: #2a2a2a; padding: 15px; border-radius: 6px;">
+        <h2 style="
+          font-size: 20px;
+          margin: 0 0 14px 0;
+          color: #FF4500;
+          font-weight: 600;
+        ">
+          Обновлены условия использования
+        </h2>
+
+        <p style="
+          font-size: 14px;
+          margin: 0 0 20px 0;
+          color: #d1d5db;
+          line-height: 1.5;
+        ">
+          Обновлена следующая документация: {{consentTitle}} (версия {{version}}).
+        </p>
+
+        <table style="
+          width: 100%;
+          font-size: 14px;
+          color: #e5e7eb;
+          border-collapse: collapse;
+          margin-bottom: 18px;
+        ">
+          <tr>
+            <td style="padding: 6px 0; width: 45%; color: #9ca3af;">Версия</td>
+            <td style="padding: 6px 0;">{{version}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Дата обновления</td>
+            <td style="padding: 6px 0;">{{updateDate}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Вступает в силу</td>
+            <td style="padding: 6px 0;">{{effectiveDate}}</td>
+          </tr>
+        </table>
+
+        <div style="
+          background-color: #111318;
+          padding: 16px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        ">
+          <p style="
+            font-size: 14px;
+            color: #e5e7eb;
+            line-height: 1.6;
+            margin: 0;
+          ">
             {{changeDescription}}
           </p>
         </div>
 
         {{#if documentUrl}}
-        <div style="text-align: center; margin-bottom: 25px;">
-          <a href="{{documentUrl}}" style="
-            display: inline-block;
-            background-color: #ff8c42;
-            color: #fff;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 16px;
-            transition: background-color 0.3s;
-          " onmouseover="this.style.backgroundColor='#ff9e5e'" onmouseout="this.style.backgroundColor='#ff8c42'">
-            📖 Прочитать полный текст
+        <div style="text-align: center; margin-bottom: 20px;">
+          <a href="{{documentUrl}}"
+             style="
+              display: inline-block;
+              padding: 10px 16px;
+              background-color: #FF4500;
+              color: #ffffff;
+              text-decoration: none;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: 500;
+             ">
+            Открыть документ
           </a>
         </div>
         {{/if}}
 
-        <div style="background-color: #2a2a2a; padding: 15px; border-radius: 6px; margin-bottom: 25px;">
-          <p style="font-size: 14px; color: #888; text-align: center; margin: 0;">
-            Продолжение использования сайта после {{effectiveDate}} означает ваше согласие с обновленными условиями.
-          </p>
+        <div style="
+          font-size: 12px;
+          color: #9ca3af;
+          line-height: 1.5;
+          border-top: 1px solid #2a2f3a;
+          padding-top: 14px;
+        ">
+          Продолжение использования сервиса после {{effectiveDate}} означает согласие с обновленными условиями.
         </div>
 
-        <div style="border-top: 1px solid #333; padding-top: 20px; font-size: 14px; color: #999;">
-          <p style="margin-bottom: 10px;">
-            <strong>Если вы не согласны с изменениями:</strong><br>
-            Вы можете удалить свой аккаунт в разделе настроек профиля или прекратить использование сайта.
-          </p>
-          <p style="margin-bottom: 0;">
-            Это уведомление отправлено в соответствии с требованиями законодательства РФ и вашими пользовательскими соглашениями.
-          </p>
+        <div style="
+          margin-top: 12px;
+          font-size: 12px;
+          color: #9ca3af;
+        ">
+          При несогласии с изменениями вы можете прекратить использование сервиса и удалить аккаунт в настройках профиля.
         </div>
+
       </td>
     </tr>
   {{/content}}
