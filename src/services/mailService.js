@@ -59,14 +59,13 @@ const sendNotification = async ({ email, type, data }) => {
     }
 
     case "newOrderUser": {
-      subject = `📝 Ваш заказ No${data.orderNumber}`;
+      subject = `Ваш заказ No${data.orderNumber}`;
       text = `Ваш заказ был создан.
 Номер заказа: ${data.orderNumber}
 Имя: ${data.customer.name}
 Email: ${data.customer.email}
 Телефон: ${data.customer.phone}
-Итоговая сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderData._id}`;
+Итоговая сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}`;
 
       html = renderTemplate("newOrderUser", {
         ...data,
@@ -74,15 +73,25 @@ Email: ${data.customer.email}
       break;
     }
 
+    case "orderAwaitingPayment":{
+      subject = `Ожидание оплаты для заказа No${data.orderNumber}`;
+      text = `Ваш заказ No${data.orderNumber} ожидает оплаты.
+Итоговая сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}`; //yookassa
+
+      html = renderTemplate("orderAwaitingPayment", {
+        ...data,
+      });
+      break;
+    }
+
     case "newOrderAdmin": {
-      subject = `📝 Новый заказ от клиента No${data.orderNumber}`;
+      subject = `Новый заказ от клиента No${data.orderNumber}`;
       text = `Поступил новый заказ.
 Номер заказа: ${data.orderNumber}
 Имя клиента: ${data.customer.name}
 Email: ${data.customer.email}
 Телефон: ${data.customer.phone}
-Итоговая сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}
-Ссылка на заказ: https://yourdomain.com/admin/orders/${data.orderData._id}`;
+Итоговая сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}`;
 
       html = renderTemplate("newOrderAdmin", {
         ...data,
@@ -100,18 +109,18 @@ Email: ${data.customer.email}
       break;
     }
 
-    case "orderCancelledByUser": {
-      subject = "📝 Заказ отменен";
-      html = renderTemplate("orderCancelledByUser", {
-        ...data,
-        formattedDate: formattedDate(data.createdAt),
-      });
-      break;
-    }
+    // case "orderCancelledByUser": {
+    //   subject = "📝 Заказ отменен";
+    //   html = renderTemplate("orderCancelledByUser", {
+    //     ...data,
+    //     formattedDate: formattedDate(data.createdAt),
+    //   });
+    //   break;
+    // }
 
 
     case "orderCancelledByAdmin": {
-      subject = `❌ Ваш заказ No${data.orderNumber} отменен`;
+      subject = `Ваш заказ No${data.orderNumber} отменен`;
       text = `Ваш заказ No${data.orderNumber} был отменен.
 Причина: ${data.reason}
 ${
@@ -119,9 +128,7 @@ ${
     ? `Сумма возврата: ${data.refundAmount} ${data.orderData.pricing.currency}`
     : ""
 }
-Дата отмены: ${data.orderData.cancellation.cancelledAt}
-
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderNumber}`;
+Дата отмены: ${data.orderData.cancellation.cancelledAt}`;
 
       html = renderTemplate("orderCancelledByAdmin", {
         ...data,
@@ -129,28 +136,24 @@ ${
       break;
     }
     case "newProductReview": {
-      subject = `📝 Новый отзыв на товар: ${data.productTitle}`;
+      subject = `Новый отзыв на товар: ${data.productTitle}`;
       text = `Пользователь оставил новый отзыв на товар: ${data.productTitle}
 Имя пользователя: ${data.userName}
 Оценка: ${data.rating} / 5
 Комментарий: ${data.comment}
 ${data.pros ? `Достоинства: ${data.pros.join(", ")}` : ""}
-${data.cons ? `Недостатки: ${data.cons.join(", ")}` : ""}
-
-Ссылка для модерации: https://yourdomain.com/admin/reviews/${data.reviewId}`;
+${data.cons ? `Недостатки: ${data.cons.join(", ")}` : ""}`;
 
       html = renderTemplate("newProductReview", { ...data });
       break;
     }
 
     case "orderShipped": {
-      subject = `🚚 Ваш заказ No${data.orderNumber} отправлен`;
+      subject = `Ваш заказ No${data.orderNumber} отправлен`;
       text = `Ваш заказ No${data.orderNumber} уже в пути.
 Трек-номер: ${data.trackingNumber}
 Служба доставки: ${data.carrier}
-Ожидаемая дата доставки: ${data.estimatedDelivery}
-
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderNumber}`;
+Ожидаемая дата доставки: ${data.estimatedDelivery}`;
 
       html = renderTemplate("orderShipped", {
         ...data,
@@ -159,12 +162,10 @@ ${data.cons ? `Недостатки: ${data.cons.join(", ")}` : ""}
     }
 
     case "orderReadyForPickup": {
-      subject = `🏬 Ваш заказ No${data.orderNumber} готов к выдаче`;
+      subject = `Ваш заказ No${data.orderNumber} готов к выдаче`;
       text = `Ваш заказ No${data.orderNumber} ожидает вас в пункте выдачи.
 Пункт выдачи: ${data.pickupPoint.name}, ${data.pickupPoint.address}
-Часы работы: ${data.pickupPoint.hours}
-
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderNumber}`;
+Часы работы: ${data.pickupPoint.hours}`;
 
       html = renderTemplate("orderReadyForPickup", {
         ...data,
@@ -173,14 +174,12 @@ ${data.cons ? `Недостатки: ${data.cons.join(", ")}` : ""}
     }
 
     case "newAttachment": {
-      subject = `📎 Новый файл в заказе No${data.orderNumber}`;
+      subject = `Новый файл в заказе No${data.orderNumber}`;
       text = `Менеджер прикрепил новый файл к вашему заказу No${data.orderNumber}.
 Название файла: ${data.attachment.name}
 Размер: ${data.attachment.size} байт
 Тип файла: ${data.attachment.mimeType}
-Дата загрузки: ${data.attachment.uploadedAt}
-
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderNumber}`;
+Дата загрузки: ${data.attachment.uploadedAt}`;
 
       html = renderTemplate("newAttachment", {
         ...data,
@@ -189,7 +188,7 @@ ${data.cons ? `Недостатки: ${data.cons.join(", ")}` : ""}
     }
 
     case "newLogin": {
-      subject = "🔔 Новый вход в аккаунт";
+      subject = "Новый вход в аккаунт";
       text = `В ваш аккаунт был выполнен вход с нового устройства.
 IP: ${data.ip}
 Устройство: ${data.deviceType} ${data.deviceModel}
@@ -210,7 +209,7 @@ IP: ${data.ip}
     }
 
     case "consentUpdated": {
-  subject = `📄 Обновлено ${data.consentTitle}`;
+  subject = `Обновлено ${data.consentTitle}`;
   text = `Уважаемый пользователь!
 Мы обновили ${data.consentTitle} (редакция ${data.version} от ${data.updateDate}).
 
@@ -237,7 +236,7 @@ IP: ${data.ip}
 
 
     case "newFeedback": {
-      subject = "📬 Новый фидбек от пользователя";
+      subject = "Новый фидбек от пользователя";
       text = `Поступил новый фидбек:
 Название: ${data.title}
 Тип: ${data.type}
@@ -260,7 +259,7 @@ IP: ${data.ip}
     }
 
     case "feedbackStatusChanged": {
-      subject = "📢 Статус вашего фидбека изменён";
+      subject = "Статус вашего фидбека изменён";
       text = `Статус вашего фидбека "${data.title}" изменён:
 Старый статус: ${data.oldStatus}
 Новый статус: ${data.newStatus}
@@ -278,13 +277,12 @@ IP: ${data.ip}
     }
 
     case "feedbackAssigned": {
-      subject = "📌 Вам назначен фидбек";
+      subject = "Вам назначен фидбек";
       text = `Вам назначен фидбек "${data.title}".
 Тип: ${data.type}
 Приоритет: ${data.priority}
 Краткое описание: ${data.description}
-Дата создания: ${formattedDate(data.createdAt)}
-Перейти к фидбеку: https://yourdomain.com/user/feedback/${data.feedbackId}`;
+Дата создания: ${formattedDate(data.createdAt)}`;
 
       html = renderTemplate("feedbackAssigned", {
         feedbackId: data.feedbackId,
@@ -300,15 +298,14 @@ IP: ${data.ip}
     }
 
     case "orderCancelledByUser": {
-      subject = "❌ Заказ отменен пользователем";
+      subject = "Заказ отменен пользователем";
       text = `Заказ No${data.orderData.orderNumber} был отменен пользователем.
 Причина: ${data.orderData.cancellation.reason}
 Отменил пользователь: ${data.orderData.cancellation.cancelledBy}
 Дата отмены: ${formattedDate(data.orderData.cancellation.cancelledAt)}
 Итоговая сумма: ${data.orderData.pricing.total} ${
         data.orderData.pricing.currency
-      }
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderData._id}`;
+      }`;
 
       html = renderTemplate("orderCancelledByUser", {
         ...data.orderData,
@@ -321,7 +318,7 @@ IP: ${data.ip}
     }
 
     case "resetPasswordCompleted": {
-      subject = "🔒 Ваш пароль успешно обновлен";
+      subject = "Ваш пароль успешно обновлен";
       text = `Ваш пароль был успешно обновлен.
 Если это были не вы, срочно смените пароль.`;
 
@@ -346,7 +343,7 @@ IP: ${data.ip}
     html,
   });
 
-  console.log(`📨 Уведомление "${type}" отправлено на ${email}`);
+  console.log(`Уведомление "${type}" отправлено на ${email}`);
 };
 
 module.exports = {

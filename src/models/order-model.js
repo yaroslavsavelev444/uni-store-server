@@ -3,7 +3,7 @@ const { Schema, model } = require("mongoose");
 const OrderStatus = {
   PENDING: "pending",
   CONFIRMED: "confirmed",
-  PROCESSING: "processing",
+  PAID: "paid",
   PACKED: "packed",
   SHIPPED: "shipped",
   DELIVERED: "delivered",
@@ -20,7 +20,8 @@ const DeliveryMethod = {
 };
 
 const PaymentMethod = {
-  INVOICE: "invoice",
+  // INVOICE: "invoice",
+  CARD_ONLINE: "card_online",
   COURIER_CASH: "courier_cash",
   PICKUP_POINT_CASH: "pickup_point_cash",
   SELF_PICKUP_CARD: "self_pickup_card",
@@ -182,6 +183,7 @@ const OrderSchema = new Schema(
 
 
     },
+    readyDate: Date, // Новое поле для даты готовности заказа
     
     // Платежная информация (ОБНОВЛЕНО)
     payment: {
@@ -191,10 +193,10 @@ const OrderSchema = new Schema(
         required: true
       },
       status: {
-        type: String,
-        enum: ["pending", "paid", "failed", "refunded"],
-        default: "pending"
-      },
+  type: String,
+  enum: ["pending", "paid", "failed", "refunded", "canceled"], // добавлен "canceled"
+  default: "pending",
+},
       transactionId: String,
       paidAt: Date,
       paymentDetails: Schema.Types.Mixed

@@ -20,9 +20,10 @@ const {
   UserModel,
 } = require("../models/index.models");
 const fileService = require("../utils/fileManager");
-const path = require("path");
+const path = require("node:path");
 const CompanyService = require("./companyService");
-const fs = require("fs").promises;
+const { PaymentMethod } = require("../models/order-model");
+const fs = require("node:fs").promises;
 class OrderService {
   constructor() {
     this.cartService = CartService;
@@ -285,7 +286,7 @@ class OrderService {
             changedAt: new Date(),
             changedBy: user.id,
             comment: orderData.awaitingInvoice 
-              ? "Заказ создан, ожидает выставления счета" 
+              ? "Заказ создан, ожидает оплаты" 
               : "Заказ создан",
           },
         ],
@@ -360,7 +361,7 @@ class OrderService {
     // Базовая логика расчета
     const baseCost = 500; // Базовая стоимость
 
-    if (deliveryMethod === DeliveryMethod.PICKUP) {
+    if (deliveryMethod === DeliveryMethod.SELF_PICKUP) {
       return 0;
     }
 
@@ -762,7 +763,7 @@ class OrderService {
   /**
    * Обновление статуса заказа (админом)
    */
-  async updateOrderStatus(orderId, status, userId, comment = "") {
+  async updateOrderStatus(orderId, status, userId, comment = "", readyDate = null) {
     const session = await mongoose.startSession();
 
     try {
@@ -775,15 +776,18 @@ class OrderService {
       }
 
       // Проверяем валидность перехода статусов
-      if (!this.isValidStatusTransition(order.status, status)) {
-        throw ApiError.BadRequest(
-          `Невозможно сменить статус с ${order.status} на ${status}`
-        );
-      }
+     // Стало
+if (!this.canTransitionTo(order, status)) {
+  throw ApiError.BadRequest(
+    `Невозможно сменить статус с ${order.status} на ${status} для данного типа доставки/оплаты`
+  );
+}
+
 
       // Обновляем статус
       const previousStatus = order.status;
       order.status = status;
+      order.readyDate = readyDate; // Устанавливаем дату готовности, если передана
 
       // Добавляем в историю
       order.statusHistory.push({
@@ -793,6 +797,10 @@ class OrderService {
         comment,
         metadata: { previousStatus },
       });
+
+      if(status === OrderStatus.CONFIRMED && readyDate) {
+          await this.sendAwaitingPaymentNotification(order);
+      }
 
       // Обработка специфичных статусов
       if (status === OrderStatus.CANCELLED) {
@@ -807,7 +815,7 @@ class OrderService {
 
       if (
         status === OrderStatus.READY_FOR_PICKUP &&
-        order.delivery.method === DeliveryMethod.PICKUP
+        order.delivery.method === DeliveryMethod.SELF_PICKUP
       ) {
         // Отправляем уведомление о готовности к выдаче
         await this.sendPickupReadyNotification(order);
@@ -924,12 +932,81 @@ class OrderService {
   canCancelOrder(order) {
     const cancellableStatuses = [
       OrderStatus.PENDING,
-      OrderStatus.AWAITING_INVOICE,
       OrderStatus.CONFIRMED,
-      OrderStatus.PROCESSING,
     ];
     return cancellableStatuses.includes(order.status);
   }
+
+
+  /**
+ * Проверка возможности перехода в новый статус с учётом способа доставки и оплаты
+ * @param {Object} order - объект заказа (должен содержать status, delivery.method, payment.method)
+ * @param {string} toStatus - целевой статус
+ * @returns {boolean}
+ */
+canTransitionTo(order, toStatus) {
+  const fromStatus = order.status;
+  const isSelfPickup = order.delivery?.method === DeliveryMethod.SELF_PICKUP;
+  const isOnlinePayment = order.payment?.method === PaymentMethod.CARD_ONLINE;
+
+  // Базовые переходы (без учёта контекста)
+  const baseTransitions = {
+    [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+    [OrderStatus.CONFIRMED]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+    [OrderStatus.PAID]: [OrderStatus.PACKED, OrderStatus.CANCELLED],
+    [OrderStatus.PACKED]: [
+      OrderStatus.SHIPPED,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.CANCELLED,
+    ],
+    [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+    [OrderStatus.READY_FOR_PICKUP]: [
+      OrderStatus.DELIVERED,
+      OrderStatus.CANCELLED,
+    ],
+    [OrderStatus.CANCELLED]: [],
+    [OrderStatus.DELIVERED]: [OrderStatus.REFUNDED],
+    [OrderStatus.REFUNDED]: [],
+  };
+
+  // 1. Проверка, что целевой статус вообще возможен из текущего (базовое правило)
+  if (!baseTransitions[fromStatus]?.includes(toStatus)) {
+    // Особый случай: из CONFIRMED при не онлайн-оплате можно перейти сразу в PACKED
+    if (!(fromStatus === OrderStatus.CONFIRMED && !isOnlinePayment && toStatus === OrderStatus.PACKED)) {
+      return false;
+    }
+  }
+
+  // 2. Правила для самовывоза
+  if (isSelfPickup) {
+    // При самовывозе нельзя использовать SHIPPED и DELIVERED
+    if (toStatus === OrderStatus.SHIPPED || toStatus === OrderStatus.DELIVERED) {
+      return false;
+    }
+  } else {
+    // При доставке нельзя использовать READY_FOR_PICKUP
+    if (toStatus === OrderStatus.READY_FOR_PICKUP) {
+      return false;
+    }
+  }
+
+  // 3. Статус PAID доступен только при онлайн-оплате
+  if (toStatus === OrderStatus.PAID && !isOnlinePayment) {
+    return false;
+  }
+
+  // 4. Уточнение для статуса PACKED: выбор следующего шага зависит от типа доставки
+  if (fromStatus === OrderStatus.PACKED) {
+    if (isSelfPickup && toStatus !== OrderStatus.READY_FOR_PICKUP) {
+      return false;
+    }
+    if (!isSelfPickup && toStatus !== OrderStatus.SHIPPED) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
   /**
    * Проверка валидности перехода статусов
@@ -937,8 +1014,8 @@ class OrderService {
   isValidStatusTransition(fromStatus, toStatus) {
     const transitions = {
       [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-      [OrderStatus.CONFIRMED]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
-      [OrderStatus.PROCESSING]: [OrderStatus.PACKED, OrderStatus.CANCELLED],
+      [OrderStatus.CONFIRMED]: [OrderStatus.CANCELLED , OrderStatus.PAID],
+      [OrderStatus.PAID]: [OrderStatus.PACKED, OrderStatus.CANCELLED],
       [OrderStatus.PACKED]: [
         OrderStatus.SHIPPED,
         OrderStatus.READY_FOR_PICKUP,
@@ -1063,6 +1140,36 @@ async sendOrderNotifications(order, user) {
       );
     }
   }
+
+
+/**
+   * Отправка уведомления о ожидании оплаты 
+   */
+async sendAwaitingPaymentNotification(order) {
+  try {
+    const populatedOrder = await OrderModel.findById(order._id)
+      .populate("user", "email name");
+    
+    if (populatedOrder.user) {
+      await sendEmailNotification(
+        populatedOrder.user.email,
+        "orderAwaitingPayment",
+        {
+          orderNumber: order.orderNumber,
+          orderData: {
+            ...order.toObject(),
+            readyDate: order.readyDate || null
+          }
+        }
+      );
+    }
+  } catch (error) {
+    logger.error(
+      `[OrderService] Ошибка отправки уведомления о ожидании оплаты ${order.orderNumber}:`,
+      error
+    );
+  }
+}
 
   /**
    * Отправка уведомления о готовности к выдаче

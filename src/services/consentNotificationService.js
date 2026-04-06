@@ -3,6 +3,8 @@ const { format } = require("date-fns");
 const { ru } = require("date-fns/locale");
 const { UserModel } = require("../models/index.models");
 const { sendEmailNotification, sendPushNotification } = require("../queues/taskQueues");
+
+
 class ConsentNotificationService {
   // Получаем всех активных пользователей
   async getActiveUsers() {
