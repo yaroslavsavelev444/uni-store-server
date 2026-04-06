@@ -59,14 +59,14 @@ const sendNotification = async ({ email, type, data }) => {
     }
 
     case "newOrderUser": {
-      subject = `📝 Ваш заказ No${data.orderNumber}`;
-      text = `Ваш заказ был создан.
-Номер заказа: ${data.orderNumber}
-Имя: ${data.customer.name}
-Email: ${data.customer.email}
-Телефон: ${data.customer.phone}
-Итоговая сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderData._id}`;
+      subject = `Заказ №${order.orderNumber} создан`;
+      text = `Заказ №${order.orderNumber} создан.
+
+Сумма: ${order.pricing.total} ${order.pricing.currency}
+
+Детали заказа доступны в личном кабинете.
+
+ООО НПО Полет`;
 
       html = renderTemplate("newOrderUser", {
         ...data,
@@ -75,153 +75,186 @@ Email: ${data.customer.email}
     }
 
     case "newOrderAdmin": {
-      subject = `📝 Новый заказ от клиента No${data.orderNumber}`;
-      text = `Поступил новый заказ.
-Номер заказа: ${data.orderNumber}
-Имя клиента: ${data.customer.name}
+  subject = `Новый заказ №${data.orderNumber}`;
+
+  text = `Новый заказ.
+
+Номер: ${data.orderNumber}
+Клиент: ${data.customer.name}
 Email: ${data.customer.email}
 Телефон: ${data.customer.phone}
-Итоговая сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}
-Ссылка на заказ: https://yourdomain.com/admin/orders/${data.orderData._id}`;
+Сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}
 
-      html = renderTemplate("newOrderAdmin", {
-        ...data,
-      });
-      break;
-    }
+Ссылка: https://yourdomain.com/admin/orders/${data.orderData._id}
+
+ООО НПО ПОЛЕТ`;
+
+  html = renderTemplate("newOrderAdmin", {
+    ...data,
+    companyName: "ООО НПО ПОЛЕТ",
+  });
+
+  break;
+}
     case "twofaCode": {
-      subject = "🔑 Ваш код 2FA";
-      text = `Ваш код подтверждения: ${data.code} (действителен ${data.expiresInMinutes} минут)`;
-      html = renderTemplate("twofaCode", {
-        code: data.code,
-        expiresInMinutes: data.expiresInMinutes,
-        year: new Date().getFullYear(),
-      });
-      break;
-    }
+  subject = "Код подтверждения входа";
 
-    case "orderCancelledByUser": {
-      subject = "📝 Заказ отменен";
-      html = renderTemplate("orderCancelledByUser", {
-        ...data,
-        formattedDate: formattedDate(data.createdAt),
-      });
-      break;
-    }
+  text = `Код подтверждения: ${data.code}
+
+Срок действия: ${data.expiresInMinutes} мин.
+
+Если вы не выполняли вход, не используйте код.
+
+ООО НПО ПОЛЕТ`;
+
+  html = renderTemplate("twofaCode", {
+    code: data.code,
+    expiresInMinutes: data.expiresInMinutes,
+    companyName: "ООО НПО ПОЛЕТ",
+  });
+
+  break;
+}
 
 
     case "orderCancelledByAdmin": {
-      subject = `❌ Ваш заказ No${data.orderNumber} отменен`;
-      text = `Ваш заказ No${data.orderNumber} был отменен.
+  subject = `Заказ №${data.orderNumber} отменен`;
+
+  text = `Заказ №${data.orderNumber} отменен.
+
 Причина: ${data.reason}
-${
-  data.refundAmount
-    ? `Сумма возврата: ${data.refundAmount} ${data.orderData.pricing.currency}`
-    : ""
-}
 Дата отмены: ${data.orderData.cancellation.cancelledAt}
 
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderNumber}`;
+ООО НПО ПОЛЕТ`;
 
-      html = renderTemplate("orderCancelledByAdmin", {
-        ...data,
-      });
-      break;
-    }
+  html = renderTemplate("orderCancelledByAdmin", {
+    ...data,
+    companyName: "ООО НПО ПОЛЕТ",
+  });
+
+  break;
+}
     case "newProductReview": {
-      subject = `📝 Новый отзыв на товар: ${data.productTitle}`;
-      text = `Пользователь оставил новый отзыв на товар: ${data.productTitle}
-Имя пользователя: ${data.userName}
-Оценка: ${data.rating} / 5
+  subject = `Новый отзыв на товар`;
+
+  text = `Новый отзыв на товар: ${data.productTitle}
+
+Пользователь: ${data.userName}
+Оценка: ${data.rating}/5
 Комментарий: ${data.comment}
-${data.pros ? `Достоинства: ${data.pros.join(", ")}` : ""}
-${data.cons ? `Недостатки: ${data.cons.join(", ")}` : ""}
+${data.pros ? `Достоинства: ${data.pros.join(", ")}\n` : ""}${data.cons ? `Недостатки: ${data.cons.join(", ")}\n` : ""}
+Ссылка: https://yourdomain.com/admin/reviews/${data.reviewId}
 
-Ссылка для модерации: https://yourdomain.com/admin/reviews/${data.reviewId}`;
+ООО НПО ПОЛЕТ`;
 
-      html = renderTemplate("newProductReview", { ...data });
-      break;
-    }
+  html = renderTemplate("newProductReview", {
+    ...data,
+    companyName: "ООО НПО ПОЛЕТ",
+  });
+
+  break;
+}
 
     case "orderShipped": {
-      subject = `🚚 Ваш заказ No${data.orderNumber} отправлен`;
-      text = `Ваш заказ No${data.orderNumber} уже в пути.
+  subject = `Заказ №${data.orderNumber} отправлен`;
+
+  text = `Заказ №${data.orderNumber} передан в доставку.
+
 Трек-номер: ${data.trackingNumber}
 Служба доставки: ${data.carrier}
 Ожидаемая дата доставки: ${data.estimatedDelivery}
 
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderNumber}`;
+ООО НПО ПОЛЕТ`;
 
-      html = renderTemplate("orderShipped", {
-        ...data,
-      });
-      break;
-    }
+  html = renderTemplate("orderShipped", {
+    ...data,
+    companyName: "ООО НПО ПОЛЕТ",
+  });
 
-    case "orderReadyForPickup": {
-      subject = `🏬 Ваш заказ No${data.orderNumber} готов к выдаче`;
-      text = `Ваш заказ No${data.orderNumber} ожидает вас в пункте выдачи.
-Пункт выдачи: ${data.pickupPoint.name}, ${data.pickupPoint.address}
+  break;
+}
+
+   case "orderReadyForPickup": {
+  subject = `Заказ №${data.orderNumber} готов к выдаче`;
+
+  text = `Заказ №${data.orderNumber} готов к выдаче.
+
+Пункт выдачи: ${data.pickupPoint.name}
+Адрес: ${data.pickupPoint.address}
 Часы работы: ${data.pickupPoint.hours}
 
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderNumber}`;
+ООО НПО ПОЛЕТ`;
 
-      html = renderTemplate("orderReadyForPickup", {
-        ...data,
-      });
-      break;
-    }
+  html = renderTemplate("orderReadyForPickup", {
+    ...data,
+    companyName: "ООО НПО ПОЛЕТ",
+  });
 
-    case "newAttachment": {
-      subject = `📎 Новый файл в заказе No${data.orderNumber}`;
-      text = `Менеджер прикрепил новый файл к вашему заказу No${data.orderNumber}.
-Название файла: ${data.attachment.name}
+  break;
+}
+
+   case "newAttachment": {
+  subject = `Новый файл в заказе №${data.orderNumber}`;
+
+  text = `В заказ №${data.orderNumber} добавлен новый файл.
+
+Название: ${data.attachment.name}
 Размер: ${data.attachment.size} байт
-Тип файла: ${data.attachment.mimeType}
-Дата загрузки: ${data.attachment.uploadedAt}
+Тип: ${data.attachment.mimeType}
+Дата загрузки: ${data.attachment.uploadedAt}`;
 
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderNumber}`;
+  html = renderTemplate("newAttachment", {
+    orderNumber: data.orderNumber,
+    attachment: {
+      name: data.attachment.name,
+      size: data.attachment.size,
+      mimeType: data.attachment.mimeType,
+      uploadedAt: data.attachment.uploadedAt,
+    },
+  });
 
-      html = renderTemplate("newAttachment", {
-        ...data,
-      });
-      break;
-    }
+  break;
+}
 
     case "newLogin": {
-      subject = "🔔 Новый вход в аккаунт";
-      text = `В ваш аккаунт был выполнен вход с нового устройства.
-IP: ${data.ip}
+  subject = "Новый вход в аккаунт";
+
+  text = `В аккаунт выполнен вход с нового устройства.
+
+IP-адрес: ${data.ip}
 Устройство: ${data.deviceType} ${data.deviceModel}
-ОС: ${data.os} ${data.osVersion}
-Дата: ${data.date}
+Операционная система: ${data.os} ${data.osVersion}
+Дата и время: ${data.date}
 
-Если это были не вы, смените пароль.`;
+Если это были не вы, немедленно смените пароль и проверьте активные сессии.`;
 
-      html = renderTemplate("newLogin", {
-        ip: data.ip,
-        deviceType: data.deviceType,
-        deviceModel: data.deviceModel,
-        os: data.os,
-        osVersion: data.osVersion,
-        date: formattedDate(data.date), // дата уже форматированная
-      });
-      break;
-    }
+  html = renderTemplate("newLogin", {
+    ip: data.ip,
+    deviceType: data.deviceType,
+    deviceModel: data.deviceModel,
+    os: data.os,
+    osVersion: data.osVersion,
+    date: formattedDate(data.date),
+  });
+
+  break;
+}
 
     case "consentUpdated": {
-  subject = `📄 Обновлено ${data.consentTitle}`;
-  text = `Уважаемый пользователь!
-Мы обновили ${data.consentTitle} (редакция ${data.version} от ${data.updateDate}).
+  subject = `Обновлены условия: ${data.consentTitle}`;
 
-Ключевые изменения: ${data.changeDescription}
+  text = `Обновлены условия: ${data.consentTitle} (версия ${data.version} от ${data.updateDate}).
 
-Новая версия доступна по ссылке: ${data.documentUrl || "на нашем сайте в разделе документов"}
+Изменения:
+${data.changeDescription}
 
-Изменения вступают в силу с ${data.effectiveDate}.
-Продолжение использования сайта означает ваше согласие с обновленными условиями.
+Новая версия документа: ${data.documentUrl || "доступна на сайте"}
 
-Если вы не согласны с изменениями, вы можете удалить свой аккаунт в разделе настроек профиля.`;
+Дата вступления в силу: ${data.effectiveDate}
+
+Продолжение использования сервиса после указанной даты означает согласие с обновленными условиями.
+
+Если вы не согласны с изменениями, вы можете прекратить использование сервиса и удалить аккаунт в настройках.`;
 
   html = renderTemplate("consentUpdated", {
     consentTitle: data.consentTitle,
@@ -230,107 +263,126 @@ IP: ${data.ip}
     changeDescription: data.changeDescription,
     documentUrl: data.documentUrl,
     effectiveDate: data.effectiveDate,
-    notificationTypes: data.notificationTypes || ['email']
   });
+
   break;
 }
 
 
     case "newFeedback": {
-      subject = "📬 Новый фидбек от пользователя";
-      text = `Поступил новый фидбек:
+  subject = "Новый фидбек";
+
+  text = `Новый фидбек.
+
+ID: ${data.feedbackId}
 Название: ${data.title}
 Тип: ${data.type}
 Пользователь: ${data.userName} (${data.userEmail})
 Приоритет: ${data.priority}
 Дата: ${formattedDate(data.createdAt)}
-Описание: ${data.description}`;
 
-      html = renderTemplate("newFeedback", {
-        feedbackId: data.feedbackId,
-        title: data.title,
-        type: data.type,
-        userName: data.userName,
-        userEmail: data.userEmail,
-        priority: data.priority,
-        createdAt: formattedDate(data.createdAt),
-        description: data.description,
-      });
-      break;
-    }
+Описание:
+${data.description}`;
+
+  html = renderTemplate("newFeedback", {
+    feedbackId: data.feedbackId,
+    title: data.title,
+    type: data.type,
+    userName: data.userName,
+    userEmail: data.userEmail,
+    priority: data.priority,
+    createdAt: formattedDate(data.createdAt),
+    description: data.description,
+  });
+
+  break;
+}
 
     case "feedbackStatusChanged": {
-      subject = "📢 Статус вашего фидбека изменён";
-      text = `Статус вашего фидбека "${data.title}" изменён:
+  subject = "Обновлён статус фидбека";
+
+  text = `Статус фидбека "${data.title}" изменён.
+
+ID: ${data.feedbackId}
 Старый статус: ${data.oldStatus}
 Новый статус: ${data.newStatus}
 Дата обновления: ${formattedDate(data.updatedAt)}`;
 
-      html = renderTemplate("feedbackStatusChanged", {
-        feedbackId: data.feedbackId,
-        title: data.title,
-        oldStatus: data.oldStatus,
-        newStatus: data.newStatus,
-        userName: data.userName,
-        updatedAt: formattedDate(data.updatedAt),
-      });
-      break;
-    }
+  html = renderTemplate("feedbackStatusChanged", {
+    feedbackId: data.feedbackId,
+    title: data.title,
+    oldStatus: data.oldStatus,
+    newStatus: data.newStatus,
+    userName: data.userName,
+    updatedAt: formattedDate(data.updatedAt),
+  });
+
+  break;
+}
 
     case "feedbackAssigned": {
-      subject = "📌 Вам назначен фидбек";
-      text = `Вам назначен фидбек "${data.title}".
+  subject = "Назначен новый фидбек";
+
+  text = `Вам назначен фидбек: "${data.title}"
+
 Тип: ${data.type}
 Приоритет: ${data.priority}
-Краткое описание: ${data.description}
+Описание: ${data.description}
 Дата создания: ${formattedDate(data.createdAt)}
+
 Перейти к фидбеку: https://yourdomain.com/user/feedback/${data.feedbackId}`;
 
-      html = renderTemplate("feedbackAssigned", {
-        feedbackId: data.feedbackId,
-        title: data.title,
-        type: data.type,
-        priority: data.priority,
-        description: data.description,
-        createdAt: formattedDate(data.createdAt),
-        userName: data.userName,
-        assignedBy: data.assignedBy,
-      });
-      break;
-    }
+  html = renderTemplate("feedbackAssigned", {
+    feedbackId: data.feedbackId,
+    title: data.title,
+    type: data.type,
+    priority: data.priority,
+    description: data.description,
+    createdAt: formattedDate(data.createdAt),
+    userName: data.userName,
+    assignedBy: data.assignedBy,
+  });
+
+  break;
+}
 
     case "orderCancelledByUser": {
-      subject = "❌ Заказ отменен пользователем";
-      text = `Заказ No${data.orderData.orderNumber} был отменен пользователем.
-Причина: ${data.orderData.cancellation.reason}
-Отменил пользователь: ${data.orderData.cancellation.cancelledBy}
-Дата отмены: ${formattedDate(data.orderData.cancellation.cancelledAt)}
-Итоговая сумма: ${data.orderData.pricing.total} ${
-        data.orderData.pricing.currency
-      }
-Ссылка на заказ: https://yourdomain.com/orders/${data.orderData._id}`;
+  subject = "Заказ отменен";
 
-      html = renderTemplate("orderCancelledByUser", {
-        ...data.orderData,
-        cancellation: data.orderData.cancellation,
-        pricing: data.orderData.pricing,
-        orderNumber: data.orderData.orderNumber,
-        _id: data.orderData._id,
-      });
-      break;
-    }
+  text = `Заказ №${data.orderData.orderNumber} отменен.
+
+Статус: отменен пользователем
+Причина: ${data.orderData.cancellation?.reason || "не указана"}
+Отменившая сторона: ${data.orderData.cancellation?.cancelledBy || "не указано"}
+Дата отмены: ${formattedDate(data.orderData.cancellation?.cancelledAt)}
+Сумма заказа: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}
+
+Заказ: https://yourdomain.com/orders/${data.orderData._id}`;
+
+  html = renderTemplate("orderCancelledByUser", {
+    orderNumber: data.orderData.orderNumber,
+    cancellation: data.orderData.cancellation,
+    pricing: data.orderData.pricing,
+    _id: data.orderData._id,
+  });
+
+  break;
+}
 
     case "resetPasswordCompleted": {
-      subject = "🔒 Ваш пароль успешно обновлен";
-      text = `Ваш пароль был успешно обновлен.
-Если это были не вы, срочно смените пароль.`;
+  subject = "Пароль учетной записи изменен";
 
-      html = renderTemplate("resetPasswordCompleted", {
-        name: data.name,
-        email: data.email,
-      });
-      break;
-    }
+  text = `Пароль учетной записи ${data.email} был изменен.
+
+Если это действие совершили не вы, выполните немедленную смену пароля и проверьте безопасность аккаунта.`;
+
+  html = renderTemplate("resetPasswordCompleted", {
+    name: data.name,
+    email: data.email,
+  });
+
+  break;
+}
 
 
     default:
