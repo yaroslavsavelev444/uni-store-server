@@ -169,7 +169,7 @@ class PaymentService {
   //     order.payment.status = 'canceled';
   //     order.statusHistory.push({
   //       status: OrderStatus.CANCELLED,
-  //       changedAt: new Date(),
+  //       changedAt: new Date(),//
   //       changedBy: order.user,
   //       comment: 'Платёж отменён ЮKassa',
   //       metadata: { yooPaymentId: yooId },
