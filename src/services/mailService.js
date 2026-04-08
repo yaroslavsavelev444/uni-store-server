@@ -74,6 +74,17 @@ const sendNotification = async ({ email, type, data }) => {
       break;
     }
 
+    case "orderAwaitingPayment":{
+      subject = `Ожидание оплаты для заказа No${data.orderNumber}`;
+      text = `Ваш заказ No${data.orderNumber} ожидает оплаты.
+Итоговая сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}`; //yookassa
+
+      html = renderTemplate("orderAwaitingPayment", {
+        ...data,
+      });
+      break;
+    }
+
     case "newOrderAdmin": {
   subject = `Новый заказ №${data.orderNumber}`;
 
@@ -398,7 +409,7 @@ ID: ${data.feedbackId}
     html,
   });
 
-  console.log(`📨 Уведомление "${type}" отправлено на ${email}`);
+  console.log(`Уведомление "${type}" отправлено на ${email}`);
 };
 
 module.exports = {

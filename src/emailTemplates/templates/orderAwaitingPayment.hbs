@@ -1,0 +1,69 @@
+{{#extend "baseLayout" title="Ожидание оплаты заказа"}}
+  {{#content "body"}}
+    <tr>
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #e6f7ff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        
+        <h2 style="color: #1890ff; font-size: 22px; margin-bottom: 15px;">Ваш заказ ожидает оплаты</h2>
+        
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Здравствуйте! Ваш заказ №{{orderNumber}} оформлен и ожидает оплаты.
+        </p>
+
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+          <h3 style="color: #333; font-size: 18px; margin-top: 0; margin-bottom: 15px;">Детали заказа</h3>
+          
+          <table style="width: 100%; font-size: 15px; color: #444; border-collapse: collapse;">
+            {{#if orderData.recipient.fullName}}
+            <tr style="border-bottom: 1px solid #f0f0f0;">
+              <td style="padding: 8px 0;"><strong>Получатель:</strong></td>
+              <td style="padding: 8px 0;">{{orderData.recipient.fullName}}</td>
+            </tr>
+            {{/if}}
+            
+            <tr style="border-bottom: 1px solid #f0f0f0;">
+              <td style="padding: 8px 0;"><strong>Сумма к оплате:</strong></td>
+              <td style="padding: 8px 0; font-size: 18px; color: #1890ff;">
+                <strong>{{orderData.pricing.total}} {{orderData.pricing.currency}}</strong>
+              </td>
+            </tr>
+
+            {{#if orderData.readyDate}}
+            <tr style="border-bottom: 1px solid #f0f0f0;">
+              <td style="padding: 8px 0;"><strong>📅 Примерная готовность заказа:</strong></td>
+              <td style="padding: 8px 0;">
+                <strong>{{formatDate orderData.readyDate "DD MMMM YYYY" "ru"}}</strong>
+                <br>
+                <span style="font-size: 13px; color: #666;">(дата готовности без учёта доставки)</span>
+              </td>
+            </tr>
+            {{/if}}
+          </table>
+        </div>
+
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
+          <p style="margin: 0; color: #666; font-size: 14px;">
+            После оплаты заказ автоматически перейдет в обработку. 
+            Вы получите уведомление о подтверждении оплаты.
+          </p>
+          {{#if orderData.readyDate}}
+          <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">
+            Заказ будет готов к выдаче/отправке {{formatDate orderData.readyDate "DD MMMM YYYY" "ru"}}.
+            Это дата готовности заказа, доставка рассчитывается отдельно.
+          </p>
+          {{/if}}
+        </div>
+
+        <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #d9d9d9;">
+          <p style="color: #999; font-size: 13px; margin: 0;">
+            Если у вас возникли вопросы по оплате, пожалуйста, свяжитесь с нами:
+            <br>
+            +7 (910) 577-57-51
+            <br>
+            npo-polet@yandex.ru
+          </p>
+        </div>
+
+      </td>
+    </tr>
+  {{/content}}
+{{/extend}}

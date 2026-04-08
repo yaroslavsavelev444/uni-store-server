@@ -291,29 +291,29 @@ const createOrderValidator = Joi.object({
     
     // Проверка для DOOR_TO_DOOR
     if (deliveryMethod === DeliveryMethod.DOOR_TO_DOOR) {
-      if (paymentMethod !== PaymentMethod.INVOICE) {
+      if (paymentMethod !== PaymentMethod.CARD_ONLINE) {
         return helpers.error('any.invalid', {
-          message: 'Для доставки до двери доступна только оплата по счету или курьеру'
+          message: 'Для доставки до двери доступна только онлайн-оплата картой'
         });
       }
     }
     
     // Проверка для PICKUP_POINT
     if (deliveryMethod === DeliveryMethod.PICKUP_POINT) {
-      if (paymentMethod !== PaymentMethod.INVOICE) {
+      if (paymentMethod !== PaymentMethod.CARD_ONLINE) {
         return helpers.error('any.invalid', {
-          message: 'Для доставки в ПВЗ доступна только оплата по счету или при получении в ПВЗ'
+          message: 'Для доставки в ПВЗ доступна только онлайн-оплата картой'
         });
       }
     }
     
     // Проверка для SELF_PICKUP
     if (deliveryMethod === DeliveryMethod.SELF_PICKUP) {
-      if (paymentMethod !== PaymentMethod.INVOICE && 
+      if (paymentMethod !== PaymentMethod.CARD_ONLINE && 
           paymentMethod !== PaymentMethod.SELF_PICKUP_CARD && 
           paymentMethod !== PaymentMethod.SELF_PICKUP_CASH) {
         return helpers.error('any.invalid', {
-          message: 'Для самовывоза доступна только оплата по счету, картой или наличными при самовывозе'
+          message: 'Для самовывоза доступна онлайн-оплата картой, картой или наличными при получении'
         });
       }
     }

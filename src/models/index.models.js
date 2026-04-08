@@ -32,6 +32,7 @@ const RefundModel = require("./refund-model");
 const BannerViewModel = require("./banner-view-model");
 const BannerModel = require("./banner-model");
 const DiscountModel = require("./discount-model");
+const PaymentModel = require("./payment-model");
 module.exports = {
   CartModel,
   ProductModel,
@@ -49,6 +50,7 @@ module.exports = {
   UserSessionModel,
   UserSecurityModel,
   NotificationModel,
+  PaymentModel,
   ConsentModel,
   TopicModelCommon,
   FeedbackModel,

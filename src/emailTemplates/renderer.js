@@ -1,11 +1,34 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require("node:fs");
+const path = require("node:path");
 const handlebars = require("handlebars");
 const layouts = require("handlebars-layouts");
 const juice = require("juice");
 
 // Регистрация хелперов
 handlebars.registerHelper(layouts(handlebars));
+
+handlebars.registerHelper('formatDate', function(date, format, locale) {
+  if (!date) return '';
+  
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  
+  // Базовая реализация для русского языка
+  const months = {
+    'ru': ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+           'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+  };
+  
+  if (format === 'DD MMMM YYYY' && locale === 'ru') {
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = months.ru[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  }
+  
+  return d.toLocaleDateString('ru-RU');
+});
+
 
 // Чтение CSS
 const styles = fs.readFileSync(path.join(__dirname, "styles", "email.css"), "utf8");
