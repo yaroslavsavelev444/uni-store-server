@@ -1,115 +1,70 @@
-const mongoose = require('mongoose'); // добавлено для транзакций
-const yooCheckout = require('../config/yookassa');
+const mongoose = require('mongoose');
 const ApiError = require('../exceptions/api-error');
-const { v4: uuid } = require('uuid');
 const { OrderModel, PaymentModel, OrderStatus, UserModel } = require('../models/index.models');
 const logger = require('../logger/logger');
 const OrderCacheService = require('./OrderCacheService');
 const { sendEmailNotification, sendPushNotification } = require('../queues/taskQueues');
+const robokassa = require('../services/robokassaService');
 
 class PaymentService {
-  async initPayment({ orderId, returnUrl, amount: clientAmount, currency: clientCurrency, description, userId }) {
-    // Все проверки и логика из контроллера перенесены сюда
-    if (!orderId || !returnUrl) {
-      throw ApiError.BadRequest('Отсутствуют orderId или returnUrl');
-    }
+  async initPayment({ orderId, amount: clientAmount, currency: clientCurrency, description, userId, isTest = false }) {
+    if (!orderId) throw ApiError.BadRequest('Отсутствует orderId');
 
     const order = await OrderModel.findById(orderId);
     if (!order) throw ApiError.BadRequest('Заказ не найден');
     if (order.user.toString() !== userId) throw ApiError.ForbiddenError('Это не ваш заказ');
-    if (order.payment.transactionId) {
-    const existingYooPayment = await yooCheckout.getPayment(order.payment.transactionId);
-    logger.info(`[PaymentService] Проверяем существующий платёж ${existingYooPayment.id}`);
-    switch (existingYooPayment.status) {
-      case 'succeeded':
-        throw ApiError.BadRequest('Заказ уже оплачен. Повторная оплата невозможна.');
 
-      case 'pending':
-      case 'waiting_for_capture':
-        // Возвращаем существующий платёж — пользователь просто переходит по старой ссылке
-        logger.info(`[PaymentService] Возвращаем существующий pending-платёж ${existingYooPayment.id}`);
-        return {
-          success: true,
-          paymentId: existingYooPayment.id,
-          confirmationUrl: existingYooPayment.confirmation.confirmation_url,
-          status: existingYooPayment.status,
-          message: 'Платёж уже создан. Перейдите по ссылке для оплаты.'
-        };
-
-      case 'canceled':
-        // Старый платеж отменён — очищаем и создаём новый
-        logger.info(`[PaymentService] Старый платёж отменён, создаём новый для заказа ${orderId}`);
-        order.payment.transactionId = null;
-        order.payment.status = 'pending';
-        await order.save();
-        break; // продолжаем создание нового платежа ниже
-
-      default:
-        throw ApiError.BadRequest('Неизвестный статус существующего платежа');
-    }
-  }
-    if (order.payment.status !== 'pending') {
-      throw ApiError.BadRequest('Платёж уже инициирован или обработан');
+    if (order.payment.status === 'paid') {
+      throw ApiError.BadRequest('Заказ уже оплачен. Повторная оплата невозможна.');
     }
 
-    // Жёсткая проверка суммы (защита от подмены)
+    // Жёсткая проверка суммы
     const expectedAmount = order.pricing.total;
     const expectedCurrency = order.pricing.currency || 'RUB';
     if (parseFloat(clientAmount) !== expectedAmount || clientCurrency !== expectedCurrency) {
       throw ApiError.BadRequest('Сумма или валюта не совпадает с заказом');
     }
 
-    const payload = {
-      amount: {
-        value: expectedAmount.toFixed(2), // строго строка!
-        currency: expectedCurrency,
-      },
+    const invId = parseInt(order.orderNumber.replace(/\D/g, ''));
+    if (isNaN(invId)) throw ApiError.BadRequest('Не удалось сгенерировать InvId');
+
+    // Если уже есть transactionId (предыдущая попытка) — просто возвращаем новую ссылку (InvId уникален)
+    const paymentUrl = robokassa.buildPaymentUrl({
+      invId,
+      outSum: expectedAmount,
       description: description || `Оплата заказа #${order.orderNumber}`,
-      confirmation: {
-        type: 'redirect',
-        return_url: returnUrl,
-      },
-      capture: true,
-      metadata: {
-        orderId: order._id.toString(),
-        userId: userId,
-        orderNumber: order.orderNumber,
-      },
-    };
-
-    const idempotenceKey = uuid();
-
-    const yooPayment = await yooCheckout.createPayment(payload, idempotenceKey);
-
-    // Сохраняем полный платёж
-    const paymentDoc = new PaymentModel({
-      yooPaymentId: yooPayment.id,
-      order: order._id,
-      user: userId,
-      amount: {
-        value: parseFloat(yooPayment.amount.value),
-        currency: yooPayment.amount.currency,
-      },
-      status: yooPayment.status,
-      metadata: yooPayment.metadata,
+      email: order.recipient.email,
+      isTest,
     });
-    await paymentDoc.save();
 
-    // Обновляем заказ
-    order.payment.transactionId = yooPayment.id;
-    order.payment.status = 'pending';
-    await order.save();
+    // Создаём запись Payment (один раз)
+    if (!order.payment.transactionId) {
+      const paymentDoc = new PaymentModel({
+        robokassaInvId: invId.toString(),
+        order: order._id,
+        user: userId,
+        amount: { value: expectedAmount, currency: expectedCurrency },
+        status: 'pending',
+      });
+      await paymentDoc.save();
+
+      order.payment.transactionId = invId.toString();
+      order.payment.status = 'pending';
+      await order.save();
+    }
 
     return {
       success: true,
-      paymentId: yooPayment.id,
-      confirmationUrl: yooPayment.confirmation.confirmation_url,
-      status: yooPayment.status,
+      paymentId: invId.toString(),
+      confirmationUrl: paymentUrl,
+      status: 'pending',
+      message: isTest ? 'Тестовый платёж создан' : 'Платёж создан. Перейдите по ссылке для оплаты.',
     };
   }
 
   async getPaymentStatus(paymentId) {
-    const payment = await yooCheckout.getPayment(paymentId);
+    const payment = await PaymentModel.findOne({ robokassaInvId: paymentId });
+    if (!payment) return { success: false, message: 'Платёж не найден' };
     return { success: true, payment };
   }
 
@@ -117,54 +72,52 @@ class PaymentService {
   /**
    * Выполняет ВСЕ действия от вебхука ЮKassa (успех, отмена, возврат и т.д.)
    */
-  async processYooKassaWebhook(notification) {
-    if (notification.type !== 'notification') return;
+  // async processYooKassaWebhook(notification) {
+  //   if (notification.type !== 'notification') return;
 
-    const eventType = notification.event;
-    const yooObject = notification.object;
+  //   const eventType = notification.event;
+  //   const yooObject = notification.object;
 
-    logger.info(`[PaymentService] Webhook: ${eventType} | yooId: ${yooObject.id}`);
+  //   logger.info(`[PaymentService] Webhook: ${eventType} | yooId: ${yooObject.id}`);
 
-    switch (eventType) {
-      case 'payment.succeeded':
-        await this.handlePaymentSucceeded(yooObject);
-        break;
-      case 'payment.canceled':
-        await this.handlePaymentCanceled(yooObject);
-        break;
-      case 'payment.waiting_for_capture':
-        await this.handlePaymentWaitingForCapture(yooObject);
-        break;
-      case 'refund.succeeded':
-        await this.handleRefundSucceeded(yooObject);
-        break;
-      default:
-        logger.warn(`[PaymentService] Неизвестный event: ${eventType}`);
-    }
-  }
+  //   switch (eventType) {
+  //     case 'payment.succeeded':
+  //       await this.handlePaymentSucceeded(yooObject);
+  //       break;
+  //     case 'payment.canceled':
+  //       await this.handlePaymentCanceled(yooObject);
+  //       break;
+  //     case 'payment.waiting_for_capture':
+  //       await this.handlePaymentWaitingForCapture(yooObject);
+  //       break;
+  //     case 'refund.succeeded':
+  //       await this.handleRefundSucceeded(yooObject);
+  //       break;
+  //     default:
+  //       logger.warn(`[PaymentService] Неизвестный event: ${eventType}`);
+  //   }
+  // }
 
   // ==================== ДЕКОМПОЗИРОВАННЫЕ МЕТОДЫ (с побочными действиями) ====================
 
-  async handlePaymentSucceeded(yooPayment) {
-    const yooId = yooPayment.id;
-    const orderId = yooPayment.metadata?.orderId;
-    if (!orderId) return;
-
+ async handleRobokassaPaymentSuccess(invIdStr, receivedOutSum) {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      const order = await OrderModel.findById(orderId).session(session);
+      const order = await OrderModel.findOne({ 'payment.transactionId': invIdStr }).session(session);
       if (!order || order.payment.status === 'paid') {
         await session.abortTransaction();
         return;
       }
 
+      // Опциональная проверка суммы
+      if (parseFloat(receivedOutSum) !== order.pricing.total) {
+        logger.warn(`[PaymentService] Сумма в вебхуке не совпадает с заказом ${order.orderNumber}`);
+      }
+
       await PaymentModel.updateOne(
-        { yooPaymentId: yooId },
-        {
-          status: 'succeeded',
-          paidAt: yooPayment.paid_at ? new Date(yooPayment.paid_at) : new Date(),
-        }
+        { robokassaInvId: invIdStr },
+        { status: 'succeeded', paidAt: new Date() }
       ).session(session);
 
       order.payment.status = 'paid';
@@ -174,126 +127,124 @@ class PaymentService {
         status: OrderStatus.PAID,
         changedAt: new Date(),
         changedBy: order.user,
-        comment: 'Оплата успешно подтверждена через ЮKassa',
-        metadata: { yooPaymentId: yooId },
+        comment: 'Оплата успешно подтверждена через Robokassa',
+        metadata: { robokassaInvId: invIdStr },
       });
-      await order.save({ session });
 
+      await order.save({ session });
       await session.commitTransaction();
 
-      // Побочные действия после успешного коммита
-      await OrderCacheService.invalidateOrderCache(orderId);
+      await OrderCacheService.invalidateOrderCache(order._id);
       await OrderCacheService.invalidateUserCache(order.user.toString());
       await this._sendPaymentSuccessNotifications(order);
 
-      logger.info(`[PaymentService] Заказ ${order.orderNumber} успешно оплачен (yooId: ${yooId})`);
+      logger.info(`[PaymentService] Заказ ${order.orderNumber} успешно оплачен (InvId: ${invIdStr})`);
     } catch (err) {
       await session.abortTransaction();
-      logger.error(`[PaymentService] Error in handlePaymentSucceeded for yooId ${yooId}:`, err);
+      logger.error(`[PaymentService] Error in handleRobokassaPaymentSuccess for InvId ${invIdStr}:`, err);
       throw err;
     } finally {
       session.endSession();
     }
   }
+  // async handlePaymentCanceled(yooPayment) {
+  //   const yooId = yooPayment.id;
+  //   const orderId = yooPayment.metadata?.orderId;
+  //   if (!orderId) return;
 
-  async handlePaymentCanceled(yooPayment) {
-    const yooId = yooPayment.id;
-    const orderId = yooPayment.metadata?.orderId;
-    if (!orderId) return;
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
+  //   try {
+  //     const order = await OrderModel.findById(orderId).session(session);
+  //     if (!order) {
+  //       await session.abortTransaction();
+  //       return;
+  //     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      const order = await OrderModel.findById(orderId).session(session);
-      if (!order) {
-        await session.abortTransaction();
-        return;
-      }
+  //     await PaymentModel.updateOne(
+  //       { yooPaymentId: yooId },
+  //       { status: 'canceled' }
+  //     ).session(session);
 
-      await PaymentModel.updateOne(
-        { yooPaymentId: yooId },
-        { status: 'canceled' }
-      ).session(session);
+  //     order.payment.status = 'canceled';
+  //     order.statusHistory.push({
+  //       status: OrderStatus.CANCELLED,
+  //       changedAt: new Date(),
+  //       changedBy: order.user,
+  //       comment: 'Платёж отменён ЮKassa',
+  //       metadata: { yooPaymentId: yooId },
+  //     });
+  //     await order.save({ session });
 
-      order.payment.status = 'canceled';
-      order.statusHistory.push({
-        status: OrderStatus.CANCELLED,
-        changedAt: new Date(),
-        changedBy: order.user,
-        comment: 'Платёж отменён ЮKassa',
-        metadata: { yooPaymentId: yooId },
-      });
-      await order.save({ session });
+  //     await session.commitTransaction();
 
-      await session.commitTransaction();
+  //     await OrderCacheService.invalidateOrderCache(orderId);
+  //     await OrderCacheService.invalidateUserCache(order.user.toString());
+  //     await this._sendPaymentCanceledNotifications(order);
 
-      await OrderCacheService.invalidateOrderCache(orderId);
-      await OrderCacheService.invalidateUserCache(order.user.toString());
-      await this._sendPaymentCanceledNotifications(order);
+  //     logger.info(`[PaymentService] Платёж отменён для заказа ${order.orderNumber}`);
+  //   } catch (err) {
+  //     await session.abortTransaction();
+  //     logger.error(`[PaymentService] Error in handlePaymentCanceled for yooId ${yooId}:`, err);
+  //     throw err;
+  //   } finally {
+  //     session.endSession();
+  //   }
+  // }
 
-      logger.info(`[PaymentService] Платёж отменён для заказа ${order.orderNumber}`);
-    } catch (err) {
-      await session.abortTransaction();
-      logger.error(`[PaymentService] Error in handlePaymentCanceled for yooId ${yooId}:`, err);
-      throw err;
-    } finally {
-      session.endSession();
-    }
-  }
+  // async handlePaymentWaitingForCapture(yooPayment) {
+  //   const yooId = yooPayment.id;
+  //   await PaymentModel.updateOne({ yooPaymentId: yooId }, { status: 'waiting_for_capture' });
+  //   logger.info(`[PaymentService] Платёж в ожидании захвата: ${yooId}`);
+  // }
 
-  async handlePaymentWaitingForCapture(yooPayment) {
-    const yooId = yooPayment.id;
-    await PaymentModel.updateOne({ yooPaymentId: yooId }, { status: 'waiting_for_capture' });
-    logger.info(`[PaymentService] Платёж в ожидании захвата: ${yooId}`);
-  }
+  // async handleRefundSucceeded(refund) {
+  //   const yooPaymentId = refund.payment_id;
+  //   // Предварительная проверка наличия заказа (без транзакции)
+  //   const order = await OrderModel.findOne({ 'payment.transactionId': yooPaymentId });
+  //   if (!order) return;
 
-  async handleRefundSucceeded(refund) {
-    const yooPaymentId = refund.payment_id;
-    // Предварительная проверка наличия заказа (без транзакции)
-    const order = await OrderModel.findOne({ 'payment.transactionId': yooPaymentId });
-    if (!order) return;
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
+  //   try {
+  //     // Перезагружаем заказ внутри транзакции для согласованности
+  //     const orderInSession = await OrderModel.findById(order._id).session(session);
+  //     if (!orderInSession) {
+  //       await session.abortTransaction();
+  //       return;
+  //     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      // Перезагружаем заказ внутри транзакции для согласованности
-      const orderInSession = await OrderModel.findById(order._id).session(session);
-      if (!orderInSession) {
-        await session.abortTransaction();
-        return;
-      }
+  //     await PaymentModel.updateOne(
+  //       { yooPaymentId },
+  //       { status: 'refunded' }
+  //     ).session(session);
 
-      await PaymentModel.updateOne(
-        { yooPaymentId },
-        { status: 'refunded' }
-      ).session(session);
+  //     orderInSession.payment.status = 'refunded';
+  //     orderInSession.status = OrderStatus.REFUNDED;
+  //     orderInSession.statusHistory.push({
+  //       status: OrderStatus.REFUNDED,
+  //       changedAt: new Date(),
+  //       changedBy: orderInSession.user,
+  //       comment: `Возврат выполнен ЮKassa (refundId: ${refund.id})`,
+  //       metadata: { refundId: refund.id },
+  //     });
+  //     await orderInSession.save({ session });
 
-      orderInSession.payment.status = 'refunded';
-      orderInSession.status = OrderStatus.REFUNDED;
-      orderInSession.statusHistory.push({
-        status: OrderStatus.REFUNDED,
-        changedAt: new Date(),
-        changedBy: orderInSession.user,
-        comment: `Возврат выполнен ЮKassa (refundId: ${refund.id})`,
-        metadata: { refundId: refund.id },
-      });
-      await orderInSession.save({ session });
+  //     await session.commitTransaction();
 
-      await session.commitTransaction();
+  //     await OrderCacheService.invalidateOrderCache(orderInSession._id);
+  //     await OrderCacheService.invalidateUserCache(orderInSession.user.toString());
+  //     await this._sendRefundNotifications(orderInSession, refund);
 
-      await OrderCacheService.invalidateOrderCache(orderInSession._id);
-      await OrderCacheService.invalidateUserCache(orderInSession.user.toString());
-      await this._sendRefundNotifications(orderInSession, refund);
-
-      logger.info(`[PaymentService] Возврат выполнен для заказа ${orderInSession.orderNumber}`);
-    } catch (err) {
-      await session.abortTransaction();
-      logger.error(`[PaymentService] Error in handleRefundSucceeded for payment ${yooPaymentId}:`, err);
-      throw err;
-    } finally {
-      session.endSession();
-    }
-  }
+  //     logger.info(`[PaymentService] Возврат выполнен для заказа ${orderInSession.orderNumber}`);
+  //   } catch (err) {
+  //     await session.abortTransaction();
+  //     logger.error(`[PaymentService] Error in handleRefundSucceeded for payment ${yooPaymentId}:`, err);
+  //     throw err;
+  //   } finally {
+  //     session.endSession();
+  //   }
+  // }
 
   // ==================== ВНУТРЕННИЕ УВЕДОМЛЕНИЯ ====================
   async _sendPaymentSuccessNotifications(order) {

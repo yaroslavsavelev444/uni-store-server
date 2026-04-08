@@ -4,7 +4,6 @@ const webhookMiddleware = require('../middlewares/webhookMiddleware');
 
 const router = new Router();
 
-// ЮKassa будет отправлять POST на этот URL
-router.post('/yookassa', webhookMiddleware, webhookController.handleYooKassaWebhook);
+router.post('/robokassa', webhookMiddleware, webhookController.handleRobokassaWebhook); // ← новый путь
 
 module.exports = router;

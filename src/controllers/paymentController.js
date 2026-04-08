@@ -4,21 +4,19 @@ const paymentService = require('../services/paymentService');
 class PaymentController {
   async initPayment(req, res, next) {
     try {
-      const { orderId, returnUrl, amount, currency, description } = req.body;
+      const { orderId, amount, currency, description, isTest = true } = req.body;
       const userId = req.user.id;
 
-      // Все проверки и логика — в сервисе
       const result = await paymentService.initPayment({
         orderId,
-        returnUrl,
         amount,
         currency,
         description,
         userId,
+        isTest,    
       });
 
-      logger.info('initPayment', result)
-
+      console.log('initPayment Robokassa', result);
       res.json(result);
     } catch (error) {
       next(error);

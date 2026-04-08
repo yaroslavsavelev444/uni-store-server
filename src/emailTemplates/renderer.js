@@ -7,7 +7,7 @@ const juice = require("juice");
 // Регистрация хелперов
 handlebars.registerHelper(layouts(handlebars));
 
-Handlebars.registerHelper('formatDate', function(date, format, locale) {
+handlebars.registerHelper('formatDate', function(date, format, locale) {
   if (!date) return '';
   
   const d = new Date(date);

@@ -1,41 +1,26 @@
 const logger = require('../logger/logger');
 const webhookService = require('../services/webhookService');
+const robokassa = require('../services/robokassaService');
 
 class WebhookController {
-  async handleYooKassaWebhook(req, res) {
+  async handleRobokassaWebhook(req, res) {
     try {
-      const notification = req.body;
+      const params = req.body;
+      logger.info(`Robokassa webhook InvId=${params.InvId}`);
 
-      if (notification.type !== 'notification') {
+      if (!robokassa.verifySignature(params)) {
+        logger.warn('Неверная подпись Robokassa');
         return res.sendStatus(200);
       }
 
-      const eventType = notification.event;
-      const yooObject = notification.object;
+      const invId = params.InvId;
+      const outSum = params.OutSum;
 
-      logger.info(`YooKassa webhook: ${eventType}`);
-
-      switch (eventType) {
-        case 'payment.succeeded':
-          await webhookService.handlePaymentSucceeded(yooObject);
-          break;
-        case 'payment.canceled':
-          await webhookService.handlePaymentCanceled(yooObject);
-          break;
-        case 'payment.waiting_for_capture':
-          await webhookService.handlePaymentWaitingForCapture(yooObject);
-          break;
-        case 'refund.succeeded':
-          await webhookService.handleRefundSucceeded(yooObject);
-          break;
-        default:
-          console.log('Unhandled event:', eventType);
-      }
-
-      res.sendStatus(200); // ОБЯЗАТЕЛЬНО 200
+      await webhookService.handlePaymentSucceeded({ invId: invId.toString(), outSum });
+      res.send(`OK${invId}`); // ← обязательно по документации
     } catch (error) {
-      console.error('Webhook processing error:', error);
-      res.sendStatus(200); // даже при ошибке — не даём YooKassa повторять вечно
+      logger.error('Webhook Robokassa error:', error);
+      res.sendStatus(200);
     }
   }
 }
