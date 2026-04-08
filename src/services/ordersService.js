@@ -1096,10 +1096,10 @@ async sendOrderNotifications(order, user) {
 
     // Пользователю
     await sendEmailNotification(user.email, "newOrderUser", {
-      orderNumber: order.orderNumber,
-      orderData: order.toObject(),
-      customer: user,
-    });
+  orderNumber: order.orderNumber,
+  order: order.toObject(),
+  customer: user,
+});
 
     await sendPushNotification({
       userId: user._id,

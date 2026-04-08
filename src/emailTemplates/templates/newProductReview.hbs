@@ -1,49 +1,166 @@
-{{#extend "baseLayout" title="Новый отзыв на товар"}}
+{{#extend "baseLayout" title="Новый отзыв"}}
   {{#content "body"}}
+
     <tr>
-      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #f9f9f9; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
-        
-        <h2 style="color: #1a73e8; font-size: 22px; margin-bottom: 15px;">📝 Новый отзыв на товар</h2>
-        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
-          Пользователь оставил новый отзыв на товар <strong>{{productTitle}}</strong>.
-        </p>
+      <td style="
+        padding: 24px;
+        font-size: 14px;
+        color: #1E1E1E;
+        line-height: 1.5;
+      ">
 
-        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
-          <tr>
-            <td><strong>Имя пользователя:</strong></td>
-            <td>{{userName}}</td>
-          </tr>
-          <tr>
-            <td><strong>Оценка:</strong></td>
-            <td>{{rating}} / 5</td>
-          </tr>
-          <tr>
-            <td><strong>Заголовок:</strong></td>
-            <td>{{title}}</td>
-          </tr>
-          <tr>
-            <td><strong>Комментарий:</strong></td>
-            <td>{{comment}}</td>
-          </tr>
-          {{#if pros}}
-          <tr>
-            <td><strong>Достоинства:</strong></td>
-            <td>{{#each pros}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</td>
-          </tr>
-          {{/if}}
-          {{#if cons}}
-          <tr>
-            <td><strong>Недостатки:</strong></td>
-            <td>{{#each cons}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</td>
-          </tr>
-          {{/if}}
-        </table>
+        <h2 style="
+          margin: 0 0 16px;
+          font-size: 18px;
+          font-weight: 600;
+        ">
+          Новый отзыв
+        </h2>
 
-        <p style="font-size: 14px; color: #888; text-align: center;">
-          Отзыв требует модерации перед публикацией.
+        <p style="margin: 0 0 16px;">
+          Добавлен новый отзыв на товар «{{productTitle}}».
         </p>
 
       </td>
     </tr>
+
+    <!-- Основные данные -->
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+
+        <table width="100%" cellpadding="0" cellspacing="0"
+          style="border: 1px solid #e5e5e5; border-radius: 6px;"
+        >
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px; color: #666;">
+              Пользователь
+            </td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">
+              {{userName}}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px; color: #666;">
+              Оценка
+            </td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">
+              {{rating}} / 5
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+
+    <!-- Комментарий -->
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+
+        <table width="100%" cellpadding="0" cellspacing="0"
+          style="border: 1px solid #e5e5e5; border-radius: 6px;"
+        >
+
+          <tr>
+            <td style="
+              padding: 12px;
+              font-size: 13px;
+              color: #666;
+            ">
+              Комментарий
+            </td>
+          </tr>
+
+          <tr>
+            <td style="
+              padding: 12px;
+              font-size: 13px;
+              line-height: 1.5;
+              word-break: break-word;
+            ">
+              {{comment}}
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+
+    <!-- Достоинства -->
+    {{#if pros}}
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+
+        <table width="100%" cellpadding="0" cellspacing="0"
+          style="border: 1px solid #e5e5e5; border-radius: 6px;"
+        >
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px; color: #666;">
+              Достоинства
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px;">
+              {{#each pros}}
+                {{this}}{{#unless @last}}, {{/unless}}
+              {{/each}}
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+    {{/if}}
+
+    <!-- Недостатки -->
+    {{#if cons}}
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+
+        <table width="100%" cellpadding="0" cellspacing="0"
+          style="border: 1px solid #e5e5e5; border-radius: 6px;"
+        >
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px; color: #666;">
+              Недостатки
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px;">
+              {{#each cons}}
+                {{this}}{{#unless @last}}, {{/unless}}
+              {{/each}}
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+    {{/if}}
+
+    {{> button 
+      link=(concat "https://yourdomain.com/admin/reviews/" reviewId) 
+      text="Открыть отзыв"
+    }}
+
+    <tr>
+      <td style="
+        padding: 16px 24px 24px 24px;
+        font-size: 13px;
+        color: #666;
+      ">
+        Требуется модерация перед публикацией.
+      </td>
+    </tr>
+
   {{/content}}
 {{/extend}}
