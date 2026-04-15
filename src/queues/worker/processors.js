@@ -39,9 +39,22 @@ const initProcessors = async () => {
     } catch (error) {
       logger.error(
         `Error processing email notification (Job ID: ${job.id}):`,
-        error
+        error,
       );
       done(error);
+    }
+  });
+
+  taskQueues.process("processExpiredDeletionRequests", async (job) => {
+    logger.info(
+      "🕛 Запуск проверки истекших заявок на удаление (Job ID: " + job.id + ")",
+    );
+    try {
+      const count = await accountDeletionService.processExpiredRequests();
+      logger.info(`✅ Обработано истекших заявок: ${count}`);
+    } catch (error) {
+      logger.error("❌ Ошибка при обработке истекших заявок:", error);
+      throw error; // Bull повторит попытку согласно настройкам
     }
   });
 
@@ -56,7 +69,7 @@ const initProcessors = async () => {
         message,
         level,
         metadata,
-        options
+        options,
       );
 
       if (result === null) {
@@ -67,7 +80,7 @@ const initProcessors = async () => {
     } catch (error) {
       logger.error(
         `Error processing Telegram notification (Job ID: ${job.id}):`,
-        error.message
+        error.message,
       );
 
       // Для rate limit ошибок делаем повторную попытку
@@ -81,7 +94,7 @@ const initProcessors = async () => {
       if (job.attemptsMade >= job.opts.attempts - 1) {
         logger.error(
           `Telegram notification ${job.id} failed after ${job.attemptsMade} attempts:`,
-          error
+          error,
         );
       } else {
         throw error; // Пробрасываем для повторной попытки
@@ -98,7 +111,7 @@ const initProcessors = async () => {
     } catch (error) {
       logger.error(
         `Error processing email notification (Job ID: ${job.id}):`,
-        error
+        error,
       );
       done(error);
     }
@@ -107,8 +120,7 @@ const initProcessors = async () => {
   pushNotificationsQueues.process("sendPushNotification", 10, async (job) => {
     console.log("Mongo readyState:", mongoose.connection.readyState);
 
-    const {  title, body, data, options, dbSave, userId } =
-      job.data;
+    const { title, body, data, options, dbSave, userId } = job.data;
 
     console.log(`Processing push notification job ${job.id}`);
 
@@ -119,7 +131,7 @@ const initProcessors = async () => {
         data,
         options,
         dbSave,
-        userId
+        userId,
       );
 
       console.log(`✅ Push notification job ${job.id} completed`);
@@ -129,6 +141,39 @@ const initProcessors = async () => {
       throw error; // Важно пробросить ошибку для Bull
     }
   });
+
+  await scheduleExpiredRequestsCheck();
+};
+
+/**
+ * Очищает старые повторяющиеся задачи и добавляет новую (каждый день в 00:00)
+ */
+const scheduleExpiredRequestsCheck = async () => {
+  // Получаем все повторяющиеся задачи в очереди
+  const repeatableJobs = await taskQueues.getRepeatableJobs();
+  for (const job of repeatableJobs) {
+    if (job.name === "processExpiredDeletionRequests") {
+      await taskQueues.removeRepeatableByKey(job.key);
+      logger.info(
+        "Удалена старая повторяющаяся задача processExpiredDeletionRequests",
+      );
+    }
+  }
+
+  // Добавляем новую задачу на каждый день в 00:00 (время сервера)
+  await taskQueues.add(
+    "processExpiredDeletionRequests",
+    {}, // данные не нужны
+    {
+      repeat: { cron: "0 0 * * *" }, // https://crontab.guru/#0_0_*_*_*
+      removeOnComplete: true, // удалять после успешного выполнения
+      removeOnFail: false, // сохранять для анализа ошибок
+      jobId: "expired-deletion-check", // фиксированный ID, чтобы не дублировать
+    },
+  );
+  logger.info(
+    "✅ Запланирована ежедневная проверка истекших заявок на удаление (00:00)",
+  );
 };
 
 //4. Graceful shutdown

@@ -5,8 +5,13 @@ module.exports = (app) => {
   app.use("/health", require("../src/routes/healthcheckRoutes"));
   app.use("/consent", require("../src/routes/consentRoutes"));
   app.use("/contacts", require("../src/routes/contactsRoutes"));
-  app.use("/notifications", authMiddleware(["all"]), require("../src/routes/notificationsRoutes"));
+  app.use(
+    "/notifications",
+    authMiddleware(["all"]),
+    require("../src/routes/notificationsRoutes"),
+  );
   app.use("/feedback", require("../src/routes/feedbackRoutes"));
+  app.use("/account-deletion", require("../src/routes/accountDeletionRoutes"));
   app.use("/topics", require("../src/routes/topicRoutes"));
   app.use("/files", require("../src/routes/filesRoutes"));
   app.use("/categories", require("../src/routes/categoriesRoutes"));
@@ -26,9 +31,20 @@ module.exports = (app) => {
   app.use("/discounts", require("../src/routes/discountRoutes"));
   app.use("/promoBlocks", require("../src/routes/promoBlocksRoutes"));
   app.use("/orders", require("../src/routes/ordersRoutes"));
-  app.use("/cart", authMiddleware(["all"]), require("../src/routes/cartRoutes"));
-  app.use("/wishlist", authMiddleware(["all"]), require("../src/routes/wishlistRoutes"));
+  app.use(
+    "/cart",
+    authMiddleware(["all"]),
+    require("../src/routes/cartRoutes"),
+  );
+  app.use(
+    "/wishlist",
+    authMiddleware(["all"]),
+    require("../src/routes/wishlistRoutes"),
+  );
   app.use("/admin/queues", require("../src/queues/bullBoard"));
-  app.use("/admin", authMiddleware(["admin"]), require("../src/routes/adminRoutes"));
-
+  app.use(
+    "/admin",
+    authMiddleware(["admin"]),
+    require("../src/routes/adminRoutes"),
+  );
 };

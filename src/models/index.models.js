@@ -8,17 +8,13 @@ const CategoryModel = require("./category-model");
 const CompanyModel = require("./company-model");
 const TokenModel = require("./token-model");
 const UserModel = require("./user-model");
-const {OrderModel,
-  OrderStatus,
-  DeliveryMethod} = require("./order-model");
+const { OrderModel, OrderStatus, DeliveryMethod } = require("./order-model");
 const UserSessionModel = require("./user-session-model");
 const UserSecurityModel = require("./user-security-model");
 const NotificationModel = require("./notification-model");
 const ConsentModel = require("./consent-model");
 const TopicModelCommon = require("./topic-model-common");
 const FeedbackModel = require("./feedback-model");
-const MessageModel = require("./message-model");
-const RoomModel = require("./room-model");
 const KeyEncryptModel = require("./key-encrypt-model");
 const UserSearchModel = require("./user-search-model");
 const { FaqTopicModel, FaqQuestionModel } = require("./faq-model");
@@ -33,6 +29,8 @@ const BannerViewModel = require("./banner-view-model");
 const BannerModel = require("./banner-model");
 const DiscountModel = require("./discount-model");
 const PaymentModel = require("./payment-model");
+const AccountDeletionRequestModel = require("./account-deletion-request-model");
+
 module.exports = {
   CartModel,
   ProductModel,
@@ -54,8 +52,6 @@ module.exports = {
   ConsentModel,
   TopicModelCommon,
   FeedbackModel,
-  MessageModel,
-  RoomModel,
   KeyEncryptModel,
   UserSearchModel,
   FaqTopicModel,
@@ -69,5 +65,6 @@ module.exports = {
   RefundModel,
   BannerViewModel,
   BannerModel,
-  DiscountModel
+  DiscountModel,
+  AccountDeletionRequestModel,
 };

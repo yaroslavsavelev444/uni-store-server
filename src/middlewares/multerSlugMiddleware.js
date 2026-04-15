@@ -1,9 +1,14 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const logger = require('../logger/logger');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const logger = require("../logger/logger");
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+];
 
 const ensureDirExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
@@ -17,7 +22,7 @@ const fileFilterImagesOnly = (req, file, cb) => {
     cb(null, true);
   } else {
     logger.error(`[UPLOAD WARNING] Неразрешённый MIME: ${file.mimetype}`);
-    cb(new Error('Только изображения разрешены'));
+    cb(new Error("Только изображения разрешены"));
   }
 };
 
@@ -26,11 +31,11 @@ const storage = multer.diskStorage({
     // Получаем slug из тела запроса
     const slug = req.body.slug;
     if (!slug) {
-      return cb(new Error('Отсутствует поле slug в запросе'));
+      return cb(new Error("Отсутствует поле slug в запросе"));
     }
 
     // Путь для загрузки: ./uploads/articles/{slug}
-    const uploadDir = path.join(__dirname, '..', 'uploads', 'articles', slug);
+    const uploadDir = path.join(__dirname, "..", "uploads", "articles", slug);
     ensureDirExists(uploadDir);
     cb(null, uploadDir);
   },
@@ -55,8 +60,8 @@ const upload = multer({
 });
 
 const multerSlugMiddleware = upload.fields([
-  { name: 'cover', maxCount: 1 },
-  { name: 'contentImages', maxCount: maxContentImages },
+  { name: "cover", maxCount: 1 },
+  { name: "contentImages", maxCount: maxContentImages },
 ]);
 
 module.exports = multerSlugMiddleware;

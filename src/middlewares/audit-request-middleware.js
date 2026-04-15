@@ -93,7 +93,7 @@ const isPublicPath = (path) => {
   ];
 
   return publicPaths.some(
-    (publicPath) => path === publicPath || path.startsWith(publicPath)
+    (publicPath) => path === publicPath || path.startsWith(publicPath),
   );
 };
 
@@ -219,7 +219,7 @@ const auditRequestMiddleware = (options = {}) => {
     // Обработка завершения запроса
     const originalEnd = res.end;
     const originalWrite = res.write;
-    let responseBodyChunks = [];
+    const responseBodyChunks = [];
 
     // Перехватываем запись ответа для логирования тела (если нужно)
     if (config.logRequestBody) {
@@ -233,7 +233,7 @@ const auditRequestMiddleware = (options = {}) => {
           responseBodyChunks.push(chunk);
         }
 
-        return originalEnd.call(this, chunk, encoding, function () {
+        return originalEnd.call(this, chunk, encoding, () => {
           // Вызываем логирование после завершения ответа
           setTimeout(
             () =>
@@ -244,9 +244,9 @@ const auditRequestMiddleware = (options = {}) => {
                 clientIp,
                 requestId,
                 responseBodyChunks,
-                config
+                config,
               ),
-            0
+            0,
           );
 
           if (callback) {
@@ -267,9 +267,9 @@ const auditRequestMiddleware = (options = {}) => {
               clientIp,
               requestId,
               [],
-              config
+              config,
             ),
-          0
+          0,
         );
         return end;
       };
@@ -279,7 +279,7 @@ const auditRequestMiddleware = (options = {}) => {
     const originalErrorHandler = req.on;
     req.on = function (event, listener) {
       if (event === "error") {
-        return originalErrorHandler.call(this, event, function (err) {
+        return originalErrorHandler.call(this, event, (err) => {
           // Логируем ошибку запроса
           logRequestError(req, err, startTime, clientIp, requestId, config);
           listener(err);
@@ -302,7 +302,7 @@ const logRequestCompletion = (
   clientIp,
   requestId,
   responseBodyChunks,
-  config
+  config,
 ) => {
   try {
     const duration = Date.now() - startTime;
@@ -402,7 +402,7 @@ const logRequestCompletion = (
         action,
         null,
         [],
-        `${req.method} ${req.path} - ${statusCode} (${duration}ms)`
+        `${req.method} ${req.path} - ${statusCode} (${duration}ms)`,
       );
     }
 
@@ -417,10 +417,10 @@ const logRequestCompletion = (
       ];
 
       const isImportant = importantPaths.some((path) =>
-        req.path.startsWith(path)
+        req.path.startsWith(path),
       );
       const isWriteOperation = ["POST", "PUT", "PATCH", "DELETE"].includes(
-        req.method.toUpperCase()
+        req.method.toUpperCase(),
       );
 
       if ((isImportant || isWriteOperation) && !isError) {
@@ -436,7 +436,7 @@ const logRequestCompletion = (
             method: req.method,
             statusCode,
             duration: `${duration}ms`,
-          }
+          },
         );
       }
     }
@@ -460,7 +460,7 @@ const logRequestError = (
   startTime,
   clientIp,
   requestId,
-  config
+  config,
 ) => {
   const duration = Date.now() - startTime;
 
@@ -492,7 +492,7 @@ const logSuspiciousActivity = (req, statusCode, clientIp) => {
   ];
 
   const isSuspiciousPath = suspiciousPaths.some((path) =>
-    req.path.includes(path)
+    req.path.includes(path),
   );
 
   if (isSuspiciousPath) {

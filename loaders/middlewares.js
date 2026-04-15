@@ -15,7 +15,7 @@ module.exports = (app) => {
   app.use(
     helmet({
       crossOriginResourcePolicy: false,
-    })
+    }),
   );
 
   app.use(cors(corsConfig));

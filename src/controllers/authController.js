@@ -8,6 +8,10 @@ const consentService = require("../services/consentService");
 const { normalizeEmail } = require("../utils/normalizers");
 const { validatePassword } = require('../validators/passwordValidator');
 
+const COOKIE_DOMAIN = process.env.NODE_ENV === "production" 
+  ? ".npo-polet.ru"   // ← именно с точкой — так надёжнее для поддоменов
+  : undefined;
+
 const register = async (req, res, next) => {
   try {
     const userData = req.body;
@@ -171,7 +175,7 @@ const logout = async (req, res, next) => {
     // ВСЕГДА очищаем cookie и возвращаем подтверждение
     res.clearCookie("refreshToken", {
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".npo-polet.store" : undefined,
+      domain: COOKIE_DOMAIN,
     });
 
     // Логирование выхода
@@ -200,7 +204,7 @@ const logout = async (req, res, next) => {
     // Даже при ошибке очищаем cookie
     res.clearCookie("refreshToken", {
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".npo-polet.store" : undefined,
+      domain: COOKIE_DOMAIN,
     });
     
     logger.error(`[LOGOUT] ${error.message}`);
@@ -252,7 +256,7 @@ const refresh = async (req, res, next) => {
       httpOnly: true,
       secure: isProd || isHTTPS,
       sameSite: isProd ? "Strict" : "Lax",
-      domain: isProd ? ".npo-polet.ru" : undefined,
+      domain: isProd ? COOKIE_DOMAIN : undefined,
 
       path: "/",
     });
@@ -392,7 +396,7 @@ const verify2faCode = async (req, res, next) => {
       httpOnly: true,
       secure: isProd || isHTTPS,
       sameSite: isProd ? "Strict" : "Lax", // Теперь можно Strict/Lax
-      domain: isProd ? ".npo-polet.ru" : undefined,
+      domain: isProd ? COOKIE_DOMAIN : undefined,
       path: "/",
     });
 
@@ -620,7 +624,7 @@ const check = async (req, res, next) => {
         httpOnly: true,
         secure: isProd || isHTTPS,
         sameSite: isProd ? "Strict" : "Lax",
-        domain: isProd ? ".npo-polet.ru" : undefined, // <- КОРНЕВОЙ ДОМЕН С ТОЧКОЙ
+        domain: isProd ? COOKIE_DOMAIN : undefined, 
         path: "/",
       });
     }
