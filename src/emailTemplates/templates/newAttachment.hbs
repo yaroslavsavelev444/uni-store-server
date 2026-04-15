@@ -1,55 +1,28 @@
-{{#extend "baseLayout" title="Новый файл в заказе"}}
+{{#extend "baseLayout" title="Новое вложение в заказе"}}
   {{#content "body"}}
     <tr>
-      <td style="
-        padding: 28px;
-        font-family: Arial, sans-serif;
-        background-color: #1A1D24;
-        border-radius: 10px;
-        color: #ffffff;
-      ">
-
-        <h2 style="
-          font-size: 20px;
-          margin: 0 0 14px 0;
-          color: #FF4500;
-          font-weight: 600;
-        ">
-          Новый файл в заказе №{{orderNumber}}
-        </h2>
-
-        <p style="
-          font-size: 14px;
-          margin: 0 0 20px 0;
-          color: #d1d5db;
-          line-height: 1.5;
-        ">
-          В заказ добавлен новый файл. Ознакомьтесь с информацией ниже.
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #f0f7ff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        
+        <h2 style="color: #0073e6; font-size: 22px; margin-bottom: 15px;">📎 Новый файл в вашем заказе</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Менеджер прикрепил новый файл к вашему заказу No{{orderNumber}}.
         </p>
 
-        <table style="
-          width: 100%;
-          font-size: 14px;
-          color: #e5e7eb;
-          border-collapse: collapse;
-        ">
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
           <tr>
-            <td style="padding: 6px 0; width: 40%; color: #9ca3af;">Название</td>
-            <td style="padding: 6px 0;">{{attachment.name}}</td>
+            <td><strong>Название файла:</strong></td>
+            <td>{{attachment.name}}</td>
           </tr>
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Тип файла</td>
-            <td style="padding: 6px 0;">{{attachment.mimeType}}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Размер</td>
-            <td style="padding: 6px 0;">{{attachment.size}} байт</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Дата загрузки</td>
-            <td style="padding: 6px 0;">{{attachment.uploadedAt}}</td>
+            <td><strong>Дата загрузки:</strong></td>
+            <td>{{attachment.uploadedAt}}</td>
           </tr>
         </table>
+
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Файл доступен в деталях вашего заказа.
+        </p>
+
       </td>
     </tr>
   {{/content}}

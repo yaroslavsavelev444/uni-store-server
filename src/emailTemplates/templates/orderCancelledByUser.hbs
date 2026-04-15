@@ -1,68 +1,38 @@
-{{#extend "baseLayout" title="Заказ отменен"}}
+{{#extend "baseLayout" title="Заказ отменен пользователем"}}
   {{#content "body"}}
     <tr>
-      <td style="
-        padding: 28px;
-        font-family: Arial, sans-serif;
-        background-color: #1A1D24;
-        border-radius: 8px;
-      ">
-
-        <h2 style="color: #FF4500; font-size: 20px; margin-bottom: 16px;">
-          Заказ отменен
-        </h2>
-
-        <p style="color: #e6e6e6; font-size: 14px; margin-bottom: 18px;">
-          Заказ №{{orderNumber}} был отменен пользователем.
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #fff3f3; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+        
+        <h2 style="color: #dc3545; font-size: 22px; margin-bottom: 15px;">❌ Заказ отменен</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Заказ <strong>No{{orderNumber}}</strong> был отменен пользователем.
         </p>
 
-        <table style="
-          width: 100%;
-          font-size: 14px;
-          color: #d1d1d1;
-          margin-bottom: 22px;
-          border-collapse: collapse;
-        ">
-
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
           <tr>
-            <td style="padding: 6px 0; color: #9aa0a6; width: 180px;">Причина</td>
-            <td style="padding: 6px 0;">{{cancellation.reason}}</td>
+            <td><strong>Номер заказа:</strong></td>
+            <td>{{orderNumber}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 6px 0; color: #9aa0a6;">Инициатор отмены</td>
-            <td style="padding: 6px 0;">{{cancellation.cancelledBy}}</td>
+            <td><strong>Причина отмены:</strong></td>
+            <td>{{cancellation.reason}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 6px 0; color: #9aa0a6;">Дата отмены</td>
-            <td style="padding: 6px 0;">{{cancellation.cancelledAt}}</td>
+            <td><strong>Отменил пользователь:</strong></td>
+            <td>{{cancellation.cancelledBy}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 6px 0; color: #9aa0a6;">Сумма заказа</td>
-            <td style="padding: 6px 0;">
-              {{pricing.total}} {{pricing.currency}}
-            </td>
+            <td><strong>Дата отмены:</strong></td>
+            <td>{{cancellation.cancelledAt}}</td>
           </tr>
-
+          <tr>
+            <td><strong>Итоговая сумма заказа:</strong></td>
+            <td>{{pricing.total}} {{pricing.currency}}</td>
+          </tr>
         </table>
 
-        <a href="https://yourdomain.com/orders/{{_id}}"
-           style="
-             display:inline-block;
-             padding:10px 14px;
-             background:#FF4500;
-             color:#fff;
-             text-decoration:none;
-             border-radius:6px;
-             font-size:13px;
-           ">
-          Открыть заказ
-        </a>
-
-        <p style="margin-top: 22px; font-size: 12px; color: #777;">
-          Это системное уведомление. Если вы не выполняли отмену, обратитесь в поддержку.
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Это автоматическое уведомление. Если вы не совершали отмену, свяжитесь с поддержкой.
         </p>
 
       </td>

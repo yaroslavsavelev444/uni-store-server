@@ -110,10 +110,10 @@ class ConsentController {
       isRequired,
       needsAcceptance,
       documentUrl,
-      changeTitle,
       changeDescription,
       notifyUsers,
-    } = value;
+      notificationTypes
+    } = value; // Используем validated value
 
     if (!slug) {
       return next(ApiError.BadRequest("Не указан slug соглашения."));
@@ -129,27 +129,24 @@ class ConsentController {
         needsAcceptance,
         documentUrl,
         notifyUsers,
+        notificationTypes
       },
       req.user.id,
-      changeDescription || "Обновление соглашения",
-      changeTitle || `Обновлено соглашение "${slug}"`
+      changeDescription || "Обновление соглашения"
     );
-
-    const notificationTypes = ['email','push'];
 
     // Отправляем уведомления, если выбран чекбокс
     let notificationStats = null;
-    if (notifyUsers && changeDescription && changeTitle) {
+    if (notifyUsers && notificationTypes && notificationTypes.length > 0) {
       try {
         notificationStats = await consentNotificationService.notifyUsersAboutConsentUpdate(
           {
             title: consent.title,
             version: consent.version,
             documentUrl: consent.documentUrl,
-            changeDescription: changeDescription || "Изменения в условиях соглашения",
-            changeTitle: changeTitle || `Обновлено соглашение "${slug}"`,
+            changeDescription: changeDescription || "Изменения в условиях соглашения"
           },
-          notificationTypes,
+          notificationTypes
         );
 
         // Логируем статистику отправки

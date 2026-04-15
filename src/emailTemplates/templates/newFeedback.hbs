@@ -1,102 +1,43 @@
 {{#extend "baseLayout" title="Новый фидбек"}}
   {{#content "body"}}
     <tr>
-      <td style="
-        padding: 28px;
-        font-family: Arial, sans-serif;
-        background-color: #1A1D24;
-        border-radius: 10px;
-        color: #ffffff;
-      ">
-
-        <h2 style="
-          font-size: 20px;
-          margin: 0 0 14px 0;
-          color: #FF4500;
-          font-weight: 600;
-        ">
-          Новый фидбек
-        </h2>
-
-        <p style="
-          font-size: 14px;
-          margin: 0 0 18px 0;
-          color: #d1d5db;
-          line-height: 1.5;
-        ">
-          Поступил новый пользовательский фидбек.
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #1a1a1a; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+        
+        <h2 style="color: #ff8c42; font-size: 22px; margin-bottom: 15px;">📬 Новый фидбек</h2>
+        <p style="color: #ccc; font-size: 16px; margin-bottom: 25px;">
+          Поступил новый фидбек от пользователя. Ниже указаны основные данные.
         </p>
 
-        <table style="
-          width: 100%;
-          font-size: 14px;
-          color: #e5e7eb;
-          border-collapse: collapse;
-          margin-bottom: 18px;
-        ">
+        <table style="width: 100%; font-size: 15px; color: #e0e0e0; margin-bottom: 25px;">
           <tr>
-            <td style="padding: 6px 0; width: 40%; color: #9ca3af;">ID</td>
-            <td style="padding: 6px 0;">{{feedbackId}}</td>
+            <td><strong>Название:</strong></td>
+            <td>{{title}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Название</td>
-            <td style="padding: 6px 0;">{{title}}</td>
+            <td><strong>Тип:</strong></td>
+            <td>{{type}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Тип</td>
-            <td style="padding: 6px 0;">{{type}}</td>
+            <td><strong>Пользователь:</strong></td>
+            <td>{{userName}} ({{userEmail}})</td>
           </tr>
-
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Пользователь</td>
-            <td style="padding: 6px 0;">{{userName}} ({{userEmail}})</td>
+            <td><strong>Приоритет:</strong></td>
+            <td>{{priority}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Приоритет</td>
-            <td style="padding: 6px 0;">{{priority}}</td>
+            <td><strong>Дата создания:</strong></td>
+            <td>{{createdAt}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Дата</td>
-            <td style="padding: 6px 0;">{{createdAt}}</td>
+            <td><strong>Описание:</strong></td>
+            <td>{{description}}</td>
           </tr>
         </table>
 
-        <div style="
-          background-color: #111318;
-          padding: 16px;
-          border-radius: 8px;
-          margin-bottom: 18px;
-        ">
-          <div style="
-            font-size: 12px;
-            color: #9ca3af;
-            margin-bottom: 8px;
-          ">
-            Описание
-          </div>
-
-          <div style="
-            font-size: 14px;
-            color: #e5e7eb;
-            line-height: 1.6;
-            white-space: pre-wrap;
-          ">
-            {{description}}
-          </div>
-        </div>
-
-        <div style="
-          font-size: 12px;
-          color: #9ca3af;
-          border-top: 1px solid #2a2f3a;
-          padding-top: 14px;
-        ">
-          Системное уведомление. Ответ на это письмо не требуется.
-        </div>
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Это автоматическое уведомление. Не отвечайте на него напрямую.
+        </p>
 
       </td>
     </tr>

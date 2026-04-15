@@ -17,8 +17,6 @@ module.exports = (app) => {
   app.use("/bannerStats", require("../src/routes/bannerStatsRoutes"));
   app.use("/refund", require("../src/routes/refundRoutes"));
   app.use("/sitemap", require("../src/routes/sitemapRoutes"));
-  app.use("/payment", require("../src/routes/paymentRoutes"));
-  app.use("/webhook", require("../src/routes/webhookRoutes"));
   app.use("/content-blocks", require("../src/routes/contentBlockRoutes"));
   app.use("/users", require("../src/routes/usersRoutes"));
   app.use("/banners", require("../src/routes/bannerRoutes"));

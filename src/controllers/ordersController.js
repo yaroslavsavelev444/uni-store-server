@@ -45,51 +45,52 @@ class OrdersController {
    * POST /api/orders
    */
   async createOrder(req, res, next) {
-    try {
-      const orderData = {
-        ...req.body,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        source: 'web'
-      };
-      
-      // Дополнительная проверка совместимости способов доставки и оплаты
-      const { deliveryMethod, paymentMethod } = orderData;
-      
-      if (deliveryMethod === DeliveryMethod.DOOR_TO_DOOR) {
-        if (paymentMethod !== PaymentMethod.CARD_ONLINE) {
-          throw ApiError.BadRequest(
-            'Для доставки до двери доступна только онлайн-оплата картой'
-          );
-        }
-      } else if (deliveryMethod === DeliveryMethod.PICKUP_POINT) {
-        if (paymentMethod !== PaymentMethod.CARD_ONLINE) {
-          throw ApiError.BadRequest(
-            'Для доставки в ПВЗ доступна только онлайн-оплата картой'
-          );
-        }
-      } else if (deliveryMethod === DeliveryMethod.SELF_PICKUP) {
-        if (paymentMethod !== PaymentMethod.CARD_ONLINE && 
-            paymentMethod !== PaymentMethod.SELF_PICKUP_CARD && 
-            paymentMethod !== PaymentMethod.SELF_PICKUP_CASH) {
-          throw ApiError.BadRequest(
-            'Для самовывоза доступна онлайн-оплата картой, картой или наличными при получении'
-          );
-        }
+  try {
+    const orderData = {
+      ...req.body,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      source: 'web'
+    };
+    
+    // Дополнительная проверка совместимости способов доставки и оплаты
+    const { deliveryMethod, paymentMethod } = orderData;
+    
+    if (deliveryMethod === DeliveryMethod.DOOR_TO_DOOR) {
+      if (paymentMethod !== PaymentMethod.INVOICE) {
+        throw ApiError.BadRequest(
+          'Для доставки до двери доступна только оплата по счету'
+        );
       }
-      
-      const order = await OrderService.createOrder(req.user, orderData);
-      
-      res.status(201).json({
-        success: true,
-        orderNumber: order.orderNumber,
-        orderId: order._id,
-        message: 'Заказ успешно создан'
-      });
-    } catch (error) {
-      next(error);
+    } else if (deliveryMethod === DeliveryMethod.PICKUP_POINT) {
+      if (paymentMethod !== PaymentMethod.INVOICE) {
+        throw ApiError.BadRequest(
+          'Для доставки в ПВЗ доступна только оплата по счету или при получении в ПВЗ'
+        );
+      }
+    } else if (deliveryMethod === DeliveryMethod.SELF_PICKUP) {
+      if (paymentMethod !== PaymentMethod.INVOICE && 
+          paymentMethod !== PaymentMethod.SELF_PICKUP_CARD && 
+          paymentMethod !== PaymentMethod.SELF_PICKUP_CASH) {
+        throw ApiError.BadRequest(
+          'Для самовывоза доступна только оплата по счету, картой или наличными при самовывозе'
+        );
+      }
     }
+    
+    const order = await OrderService.createOrder(req.user, orderData);
+    
+    res.status(201).json({
+      success: true,
+      orderNumber: order.orderNumber,
+      orderId: order._id,
+      message: 'Заказ успешно создан'
+    });
+  } catch (error) {
+    next(error);
   }
+}
+
   
   /**
    * Отмена заказа пользователем
@@ -164,7 +165,7 @@ class OrdersController {
   async updateOrderStatus(req, res, next) {
     try {
       const { id } = req.params;
-      const { status, comment, readyDate } = req.body;
+      const { status, comment } = req.body;
       
       if (!status) {
         throw ApiError.BadRequest('Статус обязателен');
@@ -174,8 +175,7 @@ class OrdersController {
         id, 
         status, 
         req.user.id, 
-        comment || '',
-        readyDate
+        comment || ''
       );
       
       res.status(200).json({
@@ -272,6 +272,7 @@ class OrdersController {
       next(error);
     }
   }
+
 }
 
 module.exports = new OrdersController();

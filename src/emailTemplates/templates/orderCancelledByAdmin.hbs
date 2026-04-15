@@ -1,72 +1,35 @@
 {{#extend "baseLayout" title="Заказ отменен"}}
   {{#content "body"}}
-
     <tr>
-      <td style="
-        padding: 24px;
-        font-size: 14px;
-        color: #1E1E1E;
-        line-height: 1.5;
-      ">
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #fff0f0; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        
+        <h2 style="color: #e60000; font-size: 22px; margin-bottom: 15px;">❌ Ваш заказ отменен</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Заказ No{{orderNumber}} был отменен администратором.
+        </p>
 
-        <h2 style="
-          margin: 0 0 16px;
-          font-size: 18px;
-          font-weight: 600;
-        ">
-          Заказ отменен
-        </h2>
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
+          <tr>
+            <td><strong>Причина отмены:</strong></td>
+            <td>{{reason}}</td>
+          </tr>
+          {{#if refundAmount}}
+          <tr>
+            <td><strong>Сумма возврата:</strong></td>
+            <td>{{refundAmount}} {{orderData.pricing.currency}}</td>
+          </tr>
+          {{/if}}
+          <tr>
+            <td><strong>Дата отмены:</strong></td>
+            <td>{{orderData.cancellation.cancelledAt}}</td>
+          </tr>
+        </table>
 
-        <p style="margin: 0 0 16px;">
-          Заказ №{{orderNumber}} отменен.
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Если у вас есть вопросы, свяжитесь с поддержкой.
         </p>
 
       </td>
     </tr>
-
-    <!-- Детали -->
-    <tr>
-      <td style="padding: 0 24px 24px 24px;">
-
-        <table width="100%" cellpadding="0" cellspacing="0"
-          style="
-            border: 1px solid #e5e5e5;
-            border-radius: 6px;
-          "
-        >
-
-          <tr>
-            <td style="padding: 12px; font-size: 13px; color: #666;">
-              Причина
-            </td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">
-              {{reason}}
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 12px; font-size: 13px; color: #666;">
-              Дата отмены
-            </td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">
-              {{orderData.cancellation.cancelledAt}}
-            </td>
-          </tr>
-
-        </table>
-
-      </td>
-    </tr>
-
-    <tr>
-      <td style="
-        padding: 16px 24px 24px 24px;
-        font-size: 13px;
-        color: #666;
-      ">
-        По вопросам обратитесь в службу поддержки.
-      </td>
-    </tr>
-
   {{/content}}
 {{/extend}}

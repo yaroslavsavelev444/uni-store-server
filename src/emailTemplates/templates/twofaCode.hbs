@@ -1,74 +1,31 @@
-{{#extend "baseLayout" title="Код подтверждения"}}
+{{#extend "baseLayout" title="Код подтверждения 2FA"}}
   {{#content "body"}}
-
     <tr>
-      <td style="
-        padding: 24px;
-        font-size: 14px;
-        color: #1E1E1E;
-        line-height: 1.5;
-        text-align: center;
-      ">
-
-        <h2 style="
-          margin: 0 0 16px;
-          font-size: 18px;
-          font-weight: 600;
-        ">
-          Код подтверждения
-        </h2>
-
-        <p style="margin: 0 0 16px;">
-          Используйте код для входа в систему.
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #1a1a1a; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2); text-align: center;">
+        <h2 style="color: #ff8c42; font-size: 22px; margin-bottom: 20px;">🔑 Ваш код подтверждения</h2>
+        <p style="font-size: 16px; color: #ccc; margin-bottom: 20px;">
+          Для входа в систему используйте следующий код. Он действителен {{expiresInMinutes}} минут.
         </p>
-
-      </td>
-    </tr>
-
-    <!-- Код -->
-    <tr>
-      <td align="center" style="padding: 0 24px 24px 24px;">
 
         <div style="
           display: inline-block;
-          font-size: 26px;
-          font-weight: 700;
-          letter-spacing: 6px;
-          padding: 16px 24px;
-          border: 1px solid #e5e5e5;
-          border-radius: 6px;
-          font-family: monospace;
-          color: #1E1E1E;
+          background-color: #2a2a2a;
+          color: #ff8c42;
+          font-size: 28px;
+          font-weight: bold;
+          padding: 20px 40px;
+          border-radius: 12px;
+          letter-spacing: 4px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+          margin-bottom: 30px;
         ">
           {{code}}
         </div>
 
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Это автоматическое уведомление. Не отвечайте на него напрямую.
+        </p>
       </td>
     </tr>
-
-    <!-- Срок -->
-    <tr>
-      <td style="
-        padding: 0 24px 16px 24px;
-        font-size: 13px;
-        color: #666;
-        text-align: center;
-      ">
-        Срок действия: {{expiresInMinutes}} мин.
-      </td>
-    </tr>
-
-    <!-- Безопасность -->
-    <tr>
-      <td style="
-        padding: 0 24px 24px 24px;
-        font-size: 13px;
-        color: #666;
-        text-align: center;
-      ">
-        Если вы не выполняли вход, не используйте данный код.
-      </td>
-    </tr>
-
   {{/content}}
 {{/extend}}

@@ -1,111 +1,37 @@
-{{#extend "baseLayout" title="Заказ создан"}}
+{{#extend "baseLayout" title="Новый заказ"}}
   {{#content "body"}}
-
     <tr>
-      <td style="
-        padding: 24px;
-        font-size: 14px;
-        color: #1E1E1E;
-        line-height: 1.5;
-      ">
-
-        <h2 style="
-          margin: 0 0 16px;
-          font-size: 18px;
-          font-weight: 600;
-        ">
-          Заказ создан
-        </h2>
-
-        <p style="margin: 0 0 16px;">
-          Заказ №{{orderNumber}} успешно создан.
+      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #f0f8ff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+        
+        <h2 style="color: #007bff; font-size: 22px; margin-bottom: 15px;">📝 Ваш заказ создан</h2>
+        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+          Спасибо за ваш заказ! Ниже указаны детали.
         </p>
 
-      </td>
-    </tr>
-
-    <!-- Основные данные -->
-    <tr>
-      <td style="padding: 0 24px 24px 24px;">
-
-        <table width="100%" cellpadding="0" cellspacing="0"
-          style="
-            border: 1px solid #e5e5e5;
-            border-radius: 6px;
-          "
-        >
-
+        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
           <tr>
-            <td style="padding: 12px; font-size: 13px; color: #666;">
-              Заказчик
-            </td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">
-              {{customer.name}}
-            </td>
+            <td><strong>Номер заказа:</strong></td>
+            <td>{{orderNumber}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 12px; font-size: 13px; color: #666;">
-              Email
-            </td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">
-              {{customer.email}}
-            </td>
+            <td><strong>Имя заказчика:</strong></td>
+            <td>{{customer.name}}</td>
           </tr>
-
           <tr>
-            <td style="padding: 12px; font-size: 13px; color: #666;">
-              Телефон
-            </td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">
-              {{customer.phone}}
-            </td>
+            <td><strong>Email:</strong></td>
+            <td>{{customer.email}}</td>
           </tr>
-
+          <tr>
+            <td><strong>Телефон:</strong></td>
+            <td>{{customer.phone}}</td>
+          </tr>
+          <tr>
+            <td><strong>Итоговая сумма:</strong></td>
+            <td>{{orderData.pricing.total}} {{orderData.pricing.currency}}</td>
+          </tr>
         </table>
 
       </td>
     </tr>
-
-    <!-- Стоимость -->
-    <tr>
-      <td style="padding: 0 24px 24px 24px;">
-
-        <table width="100%" cellpadding="0" cellspacing="0"
-          style="
-            border: 1px solid #e5e5e5;
-            border-radius: 6px;
-          "
-        >
-
-          <tr>
-            <td style="padding: 12px; font-size: 13px; color: #666;">
-              Сумма
-            </td>
-            <td style="
-              padding: 12px;
-              font-size: 14px;
-              font-weight: 600;
-              text-align: right;
-            ">
-              {{order.pricing.total}} {{order.pricing.currency}}
-            </td>
-          </tr>
-
-        </table>
-
-      </td>
-    </tr>
-
-    <tr>
-      <td style="
-        padding: 0 24px 24px 24px;
-        font-size: 13px;
-        color: #666;
-      ">
-        Детали заказа доступны в личном кабинете.
-      </td>
-    </tr>
-
   {{/content}}
 {{/extend}}
