@@ -23,8 +23,8 @@ const emailSchema = Joi.object({
 
 const socialLinkSchema = Joi.object({
   platform: Joi.string().valid(
-    'telegram', 'whatsapp', 'vk', 'youtube', 'linkedin',
-    'github', 'twitter', 'facebook', 'instagram', 'other'
+    'telegram', 'vk',
+    'github', 'max', 'other'
   ).required(),
   url: Joi.string().pattern(URL_REGEX).required().messages({
     'string.pattern.base': 'Неверный формат URL'

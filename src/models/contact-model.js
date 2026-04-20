@@ -84,7 +84,7 @@ const contactSchema = new mongoose.Schema({
     platform: {
       type: String,
       required: [true, 'Платформа обязательна'],
-      enum: ['telegram', 'whatsapp', 'vk', 'youtube', 'linkedin', 'github', 'twitter', 'facebook', 'instagram', 'other']
+      enum: ['telegram', 'whatsapp', 'vk', 'github','max', 'other']
     },
     url: {
       type: String,
