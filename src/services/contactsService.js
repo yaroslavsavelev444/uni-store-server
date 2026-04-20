@@ -384,24 +384,41 @@ class OrganizationContactService {
    * Валидация URL социальных сетей
    */
   validateSocialUrl(platform, url) {
-    const domainMap = {
-      'vk': 'vk.com',
-      'telegram': 't.me',
-      'whatsapp': 'wa.me',
-      'youtube': 'youtube.com',
-      'linkedin': 'linkedin.com',
-      'github': 'github.com',
-      'twitter': 'twitter.com',
-      'facebook': 'facebook.com',
-      'instagram': 'instagram.com'
-    };
-    
-    if (domainMap[platform] && !url.includes(domainMap[platform])) {
-      throw new Error(`URL для ${platform} должен содержать домен ${domainMap[platform]}`);
-    }
-    
-    return true;
+  const domainMap = {
+    vk: ['vk.com', 'vk.ru'],
+    telegram: ['t.me'],
+    github: ['github.com'],
+    max: ['max.ru'],
+  };
+
+  let parsedUrl;
+
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error('Некорректный URL');
   }
+
+  const hostname = parsedUrl.hostname.replace(/^www\./, '');
+
+  const allowedDomains = domainMap[platform];
+
+  if (!allowedDomains) {
+    throw new Error(`Неизвестная платформа: ${platform}`);
+  }
+
+  const isValid = allowedDomains.some(domain => 
+    hostname === domain || hostname.endsWith(`.${domain}`)
+  );
+
+  if (!isValid) {
+    throw new Error(
+      `URL для ${platform} должен содержать один из доменов: ${allowedDomains.join(', ')}`
+    );
+  }
+
+  return true;
+}
   
   /**
    * Генерация пустого vCard
