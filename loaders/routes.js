@@ -11,7 +11,6 @@ module.exports = (app) => {
   app.use("/files", require("../src/routes/filesRoutes"));
   app.use("/categories", require("../src/routes/categoriesRoutes"));
   app.use("/products", require("../src/routes/productsRoutes"));
-  app.use("/search", require("../src/routes/searchRoutes"));
   app.use("/reviews", require("../src/routes/reviewsRoutes"));
   app.use("/company", require("../src/routes/companyRoutes"));
   app.use("/faq", require("../src/routes/faqRoutes"));

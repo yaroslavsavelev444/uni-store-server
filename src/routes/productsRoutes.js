@@ -6,6 +6,7 @@ const {
   createProductSchema,
   updateProductSchema,
   productQuerySchema,
+  productSearchSchema, 
 } = require('../validators/product.validator');
 const {
   validateObjectId,
@@ -15,6 +16,7 @@ const Joi = require('joi');
 const { validateProduct } = require('../validators/product.validator'); // или где у вас лежит файл
 
 
+router.get('/getHints', productController.getHints);
 
 router.get(
   '/:id/similar',
@@ -26,6 +28,10 @@ router.get(
   productController.getSimilarProducts
 );
 
+//История поиска 
+router.post('/saveSearchHistory', authMiddleware(['all']), productController.saveSearchHistory);
+router.get('/getSearchHistory', authMiddleware(['all']), productController.getSearchHistory);
+router.post('/clearSearchHistory', authMiddleware(['all']), productController.clearSearchHistory);
 // Публичные эндпоинты
 router.get(
   '/',
@@ -35,6 +41,12 @@ router.get(
     checkBlock: true
   }),
   productController.getAllProducts
+);
+
+router.get(
+  '/search',
+  validateQueryParams(productSearchSchema), // ДОБАВЛЕНО: валидация query params
+  productController.searchProducts
 );
 
 router.get(

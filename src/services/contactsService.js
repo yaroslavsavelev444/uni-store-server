@@ -150,7 +150,7 @@ class OrganizationContactService {
       
       // Получаем обновленные данные для ответа
       const result = await ContactModel.findById(contacts._id)
-        .populate('updatedBy', 'email firstName lastName')
+        .populate('updatedBy', 'email firstName lastName avatar')
         .select('-__v -_id')
         .lean();
       

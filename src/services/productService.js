@@ -920,7 +920,169 @@ class ProductService {
     }
   }
 
-  
+  async getHints(query) {
+    let results = [];
+
+    function escapeRegex(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    try {
+      // Удаляем лишние пробелы и экранируем спецсимволы
+      const sanitizedQuery = query.trim();
+      const escapedQuery = escapeRegex(sanitizedQuery);
+
+      // Если запрос похож на SKU (только буквы, цифры, дефисы и подчеркивания)
+      const isPossibleSku = /^[a-zA-Z0-9_-]+$/.test(sanitizedQuery);
+
+      if (isPossibleSku) {
+        // Приоритетный поиск по SKU (точное совпадение или начало)
+        results = await ProductModel.find({
+          $or: [
+            { sku: sanitizedQuery }, // Точное совпадение
+            { sku: new RegExp(`^${escapedQuery}`, "i") }, // Начинается с
+          ],
+          status: { $in: ["available", "preorder"] }, // Только доступные товары
+          isVisible: true, // Только видимые
+        })
+          .select(
+            "title sku mainImage priceForIndividual discount status category",
+          )
+          .populate("category", "name slug")
+          .limit(10);
+      }
+
+      // Если не нашли по SKU или SKU поиск не подошел
+      if (!results || results.length === 0) {
+        // Сначала пробуем полнотекстовый поиск
+        results = await ProductModel.find(
+          {
+            $text: { $search: sanitizedQuery },
+            status: { $in: ["available", "preorder"] },
+            isVisible: true,
+          },
+          {
+            score: { $meta: "textScore" },
+          },
+        )
+          .sort({
+            score: { $meta: "textScore" },
+            title: 1,
+          })
+          .select(
+            "title sku mainImage priceForIndividual discount status category",
+          )
+          .populate("category", "name slug")
+          .limit(10);
+
+        // Если полнотекстовый поиск ничего не нашел → fallback через regex
+        if (!results || results.length === 0) {
+          results = await ProductModel.find({
+            $or: [
+              { title: new RegExp(escapedQuery, "i") },
+              { description: new RegExp(escapedQuery, "i") },
+              { manufacturer: new RegExp(escapedQuery, "i") },
+              { keywords: new RegExp(escapedQuery, "i") },
+            ],
+            status: { $in: ["available", "preorder"] },
+            isVisible: true,
+          })
+            .select(
+              "title sku mainImage priceForIndividual discount status category",
+            )
+            .populate("category", "name slug")
+            .limit(10);
+        }
+      }
+
+      // Форматируем результаты для фронтенда
+      const formattedResults = results.map((product) => {
+        // Вычисляем финальную цену с учетом скидки
+        let finalPrice = product.priceForIndividual;
+        if (product.discount?.isActive) {
+          const now = new Date();
+          const validFrom = product.discount.validFrom || new Date(0);
+          const validUntil =
+            product.discount.validUntil || new Date("9999-12-31");
+
+          if (now >= validFrom && now <= validUntil) {
+            if (product.discount.percentage > 0) {
+              finalPrice = finalPrice * (1 - product.discount.percentage / 100);
+            }
+            if (product.discount.amount > 0) {
+              finalPrice = Math.max(0, finalPrice - product.discount.amount);
+            }
+            finalPrice = Math.round(finalPrice * 100) / 100;
+          }
+        }
+
+        // Определяем доступность
+        const isPreorder = product.status === "preorder";
+
+        return {
+          value: product._id.toString(),
+          label: product.title,
+          sku: product.sku,
+          price: finalPrice,
+          originalPrice: product.discount?.isActive
+            ? product.priceForIndividual
+            : null,
+          hasDiscount: product.discount?.isActive || false,
+          image: product.mainImage,
+          category: product.category?.name || null,
+          isPreorder,
+          raw: product.toObject(), // Отправляем все данные для расширенной обработки
+        };
+      });
+
+      console.log(
+        `[productSearchService] query="${query}" results=${formattedResults.length}`,
+      );
+      return formattedResults;
+    } catch (err) {
+      console.error(`[productSearchService] Error: ${err.message}`);
+      throw err;
+    }
+  }
+
+  async saveSearchHistory(userId, productId) {
+    if (!userId) throw new Error("userId is required");
+    if (!productId) throw new Error("listingId is required");
+
+    try {
+      // Найти элемент и обновить updatedAt, или вставить новый, если его нет
+      const record = await UserSearchModel.findOneAndUpdate(
+        { userId, selectedProductId: productId }, // уникальный ключ
+        { $currentDate: { updatedAt: true } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+
+      return record;
+    } catch (err) {
+      console.error("[saveSearchHistory] error:", err);
+      throw err;
+    }
+  }
+
+  async clearSearchHistory(userId) {
+    try {
+      return await UserSearchModel.deleteMany({ userId });
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async getSearchHistory(userId) {
+    try {
+      const history = await UserSearchModel.find({ userId })
+        .populate("selectedProductId", "title sku")
+        .sort({ updatedAt: -1 })
+        .limit(15);
+
+      return history;
+    } catch (err) {
+      throw err;
+    }
+  }
 
   async addRelatedProduct(productId, relatedProductId, userId) {
     if (
@@ -991,6 +1153,52 @@ class ProductService {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw ApiError.DatabaseError("Ошибка при получении связанных продуктов");
+    }
+  }
+
+  async searchProducts(query, options = {}) {
+    const { limit = 10, page = 1, category } = options;
+
+    try {
+      const searchFilter = {
+        $text: { $search: query },
+        status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
+        isVisible: true,
+      };
+
+      if (category) {
+        searchFilter.category = category;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [products, total] = await Promise.all([
+        ProductModel.find(searchFilter)
+          .select("title sku priceForIndividual mainImage category description")
+          .populate("category", "name")
+          .sort({ score: { $meta: "textScore" } })
+          .skip(skip)
+          .limit(limit)
+          .lean({ virtuals: true }),
+        ProductModel.countDocuments(searchFilter),
+      ]);
+
+      const productsWithPrice = products.map((product) => ({
+        ...product,
+        finalPriceForIndividual: this.calculateFinalPrice(product),
+      }));
+
+      return {
+        products: productsWithPrice,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      throw ApiError.DatabaseError("Ошибка при поиске продуктов");
     }
   }
 
