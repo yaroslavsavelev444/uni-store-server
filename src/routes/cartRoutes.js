@@ -6,10 +6,10 @@ const authMiddleware = require("../middlewares/auth-middleware");
 
 router.use(authMiddleware(["all"]));
 
-router.get("/", cartController.getCart);                    // Получить корзину
-router.put("/items", validateCartItem, cartController.addOrUpdateItem); // Добавить/обновить товар
-router.delete("/items/:productId", cartController.removeItem); // Удалить товар
-router.delete("/", cartController.clearCart);              // Очистить корзину
-router.patch("/items/:productId/decrease", cartController.decreaseQuantity); // Уменьшить количество
+router.get("/", cartController.getCart);                    
+router.put("/items", validateCartItem, cartController.addOrUpdateItem); 
+router.delete("/items/:productId", cartController.removeItem); 
+router.delete("/", cartController.clearCart);              
+router.patch("/items/:productId/decrease", cartController.decreaseQuantity);
 
 module.exports = router;
