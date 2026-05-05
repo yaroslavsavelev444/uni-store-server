@@ -1,33 +1,78 @@
 {{#extend "baseLayout" title="Заказ готов к выдаче"}}
   {{#content "body"}}
+
     <tr>
-      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #fff7e6; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
-        
-        <h2 style="color: #ff9900; font-size: 22px; margin-bottom: 15px;">🏬 Ваш заказ готов к выдаче</h2>
-        <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
-          Заказ No{{orderNumber}} ожидает вас в пункте выдачи.
-        </p>
+      <td style="
+        padding: 24px;
+        font-size: 14px;
+        color: #1E1E1E;
+        line-height: 1.5;
+      ">
 
-        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
-          <tr>
-            <td><strong>Номер заказа:</strong></td>
-            <td>{{orderNumber}}</td>
-          </tr>
-          <tr>
-            <td><strong>Пункт выдачи:</strong></td>
-            <td>{{pickupPoint.name}}, {{pickupPoint.address}}</td>
-          </tr>
-          <tr>
-            <td><strong>Часы работы:</strong></td>
-            <td>{{pickupPoint.hours}}</td>
-          </tr>
-        </table>
+        <h2 style="
+          margin: 0 0 16px;
+          font-size: 18px;
+          font-weight: 600;
+        ">
+          Заказ готов к выдаче
+        </h2>
 
-        <p style="font-size: 14px; color: #888; text-align: center;">
-          Пожалуйста, заберите заказ в указанное время работы пункта выдачи.
+        <p style="margin: 0 0 16px;">
+          Заказ №{{orderNumber}} готов к выдаче.
         </p>
 
       </td>
     </tr>
+
+    <!-- Пункт выдачи -->
+    <tr>
+      <td style="padding: 0 24px 24px 24px;">
+
+        <table width="100%" cellpadding="0" cellspacing="0"
+          style="border: 1px solid #e5e5e5; border-radius: 6px;"
+        >
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px; color: #666;">
+              Пункт выдачи
+            </td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">
+              {{pickupPoint.name}}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px; color: #666;">
+              Адрес
+            </td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">
+              {{pickupPoint.address}}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 12px; font-size: 13px; color: #666;">
+              Часы работы
+            </td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">
+              {{pickupPoint.hours}}
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+
+    <tr>
+      <td style="
+        padding: 16px 24px 24px 24px;
+        font-size: 13px;
+        color: #666;
+      ">
+        Получение заказа возможно в часы работы пункта выдачи.
+      </td>
+    </tr>
+
   {{/content}}
 {{/extend}}
