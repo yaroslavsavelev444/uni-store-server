@@ -24,26 +24,26 @@ class CronService {
     
     try {
       // Очистка временных файлов - каждый день в 3:00
-      this.scheduleJob('tempFileCleanup', '0 3 * * *', () => 
-        this.cleanupTempFiles()
-      );
+      // this.scheduleJob('tempFileCleanup', '0 3 * * *', () => 
+      //   this.cleanupTempFiles()
+      // );
 
-      // Проверка старых фидбеков - каждый понедельник в 4:00
-      this.scheduleJob('feedbackCleanup', '0 4 * * 1', () => 
-        this.cleanupOldFeedbacks()
-      );
+      // // Проверка старых фидбеков - каждый понедельник в 4:00
+      // this.scheduleJob('feedbackCleanup', '0 4 * * 1', () => 
+      //   this.cleanupOldFeedbacks()
+      // );
 
-      // Мониторинг дискового пространства - каждый час
-      this.scheduleJob('diskMonitor', '0 * * * *', () => 
-        this.monitorDiskSpace()
-      );
+      // // Мониторинг дискового пространства - каждый час
+      // this.scheduleJob('diskMonitor', '0 * * * *', () => 
+      //   this.monitorDiskSpace()
+      // );
 
-      // Статистика крон-заданий - каждые 10 минут (для отладки)
-      if (process.env.NODE_ENV === 'development') {
-        this.scheduleJob('cronStats', '*/10 * * * *', () => 
-          this.logCronStats()
-        );
-      }
+      // // Статистика крон-заданий - каждые 10 минут (для отладки)
+      // if (process.env.NODE_ENV === 'development') {
+      //   this.scheduleJob('cronStats', '*/10 * * * *', () => 
+      //     this.logCronStats()
+      //   );
+      // }
 
       logger.info(`[CRON] Запланировано ${this.jobs.size} заданий`);
       
