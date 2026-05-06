@@ -1,27 +1,70 @@
 {{#extend "baseLayout" title="Обновление статуса фидбека"}}
   {{#content "body"}}
     <tr>
-      <td style="padding: 30px; font-family: Arial, sans-serif; background-color: #f9f9f9; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-        
-        <h2 style="color: #007bff; font-size: 22px; margin-bottom: 15px;">📢 Статус вашего фидбека изменён</h2>
-        <p style="color: #333; font-size: 16px; margin-bottom: 25px;">
-          {{userName}}, здравствуйте! Статус вашего фидбека был обновлён.
+      <td style="
+        padding: 28px;
+        font-family: Arial, sans-serif;
+        background-color: #1A1D24;
+        border-radius: 10px;
+        color: #ffffff;
+      ">
+
+        <h2 style="
+          font-size: 20px;
+          margin: 0 0 14px 0;
+          color: #FF4500;
+          font-weight: 600;
+        ">
+          Статус фидбека обновлён
+        </h2>
+
+        <p style="
+          font-size: 14px;
+          margin: 0 0 18px 0;
+          color: #d1d5db;
+          line-height: 1.5;
+        ">
+          {{userName}}, статус вашего обращения был изменён.
         </p>
 
-        <table style="width: 100%; font-size: 15px; color: #444; margin-bottom: 25px;">
+        <table style="
+          width: 100%;
+          font-size: 14px;
+          color: #e5e7eb;
+          border-collapse: collapse;
+          margin-bottom: 18px;
+        ">
           <tr>
-            <td><strong>Новый статус:</strong></td>
-            <td>{{newStatus}}</td>
+            <td style="padding: 6px 0; width: 40%; color: #9ca3af;">ID</td>
+            <td style="padding: 6px 0;">{{feedbackId}}</td>
           </tr>
+
           <tr>
-            <td><strong>Дата обновления:</strong></td>
-            <td>{{updatedAt}}</td>
+            <td style="padding: 6px 0; color: #9ca3af;">Старый статус</td>
+            <td style="padding: 6px 0;">{{oldStatus}}</td>
+          </tr>
+
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Новый статус</td>
+            <td style="padding: 6px 0; color: #FF4500; font-weight: 600;">
+              {{newStatus}}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Дата обновления</td>
+            <td style="padding: 6px 0;">{{updatedAt}}</td>
           </tr>
         </table>
 
-        <p style="font-size: 14px; color: #888; text-align: center;">
-          Это автоматическое уведомление. Не отвечайте на него напрямую.
-        </p>
+        <div style="
+          font-size: 12px;
+          color: #9ca3af;
+          border-top: 1px solid #2a2f3a;
+          padding-top: 14px;
+        ">
+          Уведомление отправлено автоматически. Ответ на это письмо не требуется.
+        </div>
 
       </td>
     </tr>
