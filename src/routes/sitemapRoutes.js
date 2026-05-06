@@ -1,7 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const sitemapController = require("../controllers/sitemapController");
+import { Router } from "express";
 
-router.get("/", sitemapController.getSitemap);
+const router = Router();
 
-module.exports = router;
+import { getSitemap } from "../controllers/sitemapController";
+
+router.get("/", getSitemap);
+
+export default router;

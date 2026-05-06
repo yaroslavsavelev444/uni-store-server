@@ -1,412 +1,406 @@
-const ApiError = require("../exceptions/api-error");
-const { WishlistModel, ProductModel } = require("../models/index.models");
+import ApiError from "../exceptions/api-error";
+import { ProductModel, WishlistModel } from "../models/index.models";
 
 class WishlistService {
-  /**
-   * Получить избранное пользователя в формате простых продуктов
-   */
-  async getWishlist(userId) {
-    if (!userId) {
-      throw ApiError.BadRequest("ID пользователя обязателен");
-    }
+	/**
+	 * Получить избранное пользователя в формате простых продуктов
+	 */
+	async getWishlist(userId) {
+		if (!userId) {
+			throw ApiError.BadRequest("ID пользователя обязателен");
+		}
 
-    const wishlist = await WishlistModel.findByUser(userId);
-    
-    if (!wishlist || wishlist.items.length === 0) {
-      // Возвращаем пустой массив продуктов
-      return [];
-    }
+		const wishlist = await WishlistModel.findByUser(userId);
 
-    // Собираем ID продуктов из избранного
-    const productIds = wishlist.items
-      .filter(item => item.product) // Фильтруем только существующие товары
-      .map(item => item.product._id);
+		if (!wishlist || wishlist.items.length === 0) {
+			// Возвращаем пустой массив продуктов
+			return [];
+		}
 
-    if (productIds.length === 0) {
-      return [];
-    }
+		// Собираем ID продуктов из избранного
+		const productIds = wishlist.items
+			.filter((item) => item.product) // Фильтруем только существующие товары
+			.map((item) => item.product._id);
 
-    // Получаем продукты в том же формате, что и обычный список товаров
-    const products = await ProductModel.find({
-      _id: { $in: productIds },
-      isVisible: true // Только видимые товары
-    })
-    .select("-__v -createdBy -updatedBy -priceHistory -customAttributes")
-    .populate('category', 'name slug')
-    .lean({ virtuals: true });
+		if (productIds.length === 0) {
+			return [];
+		}
 
-    // Добавляем дату добавления в избранное
-    const productsWithAddedAt = products.map(product => {
-      const wishlistItem = wishlist.items.find(item => 
-        item.product && item.product._id.toString() === product._id.toString()
-      );
-      
-      return {
-        ...product,
-        addedToWishlistAt: wishlistItem?.addedAt || new Date(),
-        wishlistNotes: wishlistItem?.notes || "",
-        // Вычисляем финальную цену
-        finalPriceForIndividual: this.calculateFinalPrice(product)
-      };
-    });
+		// Получаем продукты в том же формате, что и обычный список товаров
+		const products = await ProductModel.find({
+			_id: { $in: productIds },
+			isVisible: true, // Только видимые товары
+		})
+			.select("-__v -createdBy -updatedBy -priceHistory -customAttributes")
+			.populate("category", "name slug")
+			.lean({ virtuals: true });
 
-    // Сортируем по дате добавления в избранное (новые сверху)
-    productsWithAddedAt.sort((a, b) => 
-      new Date(b.addedToWishlistAt) - new Date(a.addedToWishlistAt)
-    );
+		// Добавляем дату добавления в избранное
+		const productsWithAddedAt = products.map((product) => {
+			const wishlistItem = wishlist.items.find(
+				(item) => item.product && item.product._id.toString() === product._id.toString(),
+			);
 
-    return productsWithAddedAt;
-  }
+			return {
+				...product,
+				addedToWishlistAt: wishlistItem?.addedAt || new Date(),
+				wishlistNotes: wishlistItem?.notes || "",
+				// Вычисляем финальную цену
+				finalPriceForIndividual: this.calculateFinalPrice(product),
+			};
+		});
 
-  /**
-   * Добавить товар в избранное
-   */
-  async addProduct(userId, productId, notes = "") {
-    if (!userId || !productId) {
-      throw ApiError.BadRequest("ID пользователя и товара обязательны");
-    }
+		// Сортируем по дате добавления в избранное (новые сверху)
+		productsWithAddedAt.sort(
+			(a, b) => new Date(b.addedToWishlistAt) - new Date(a.addedToWishlistAt),
+		);
 
-    // Проверяем существование товара
-    const product = await ProductModel.findById(productId);
-    if (!product) {
-      throw ApiError.NotFoundError("Товар не найден");
-    }
+		return productsWithAddedAt;
+	}
 
-    // Проверяем видимость товара
-    if (!product.isVisible) {
-      throw ApiError.BadRequest("Товар недоступен для добавления в избранное");
-    }
+	/**
+	 * Добавить товар в избранное
+	 */
+	async addProduct(userId, productId, notes = "") {
+		if (!userId || !productId) {
+			throw ApiError.BadRequest("ID пользователя и товара обязательны");
+		}
 
-    // Ищем или создаем вишлист
-    let wishlist = await WishlistModel.findOne({ user: userId });
-    if (!wishlist) {
-      wishlist = new WishlistModel({ 
-        user: userId, 
-        items: [],
-        settings: {
-          notifyOnPriceDrop: true,
-          notifyOnRestock: true,
-          sortBy: "addedAt"
-        }
-      });
-    }
+		// Проверяем существование товара
+		const product = await ProductModel.findById(productId);
+		if (!product) {
+			throw ApiError.NotFoundError("Товар не найден");
+		}
 
-    // Проверяем, есть ли уже товар в избранном
-    const existingItem = wishlist.items.find(item => 
-      item.product.toString() === productId.toString()
-    );
+		// Проверяем видимость товара
+		if (!product.isVisible) {
+			throw ApiError.BadRequest("Товар недоступен для добавления в избранное");
+		}
 
-    if (existingItem) {
-      // Если уже есть, обновляем заметки если нужно
-      if (notes && notes !== existingItem.notes) {
-        existingItem.notes = notes;
-        existingItem.addedAt = new Date();
-        await wishlist.save();
-      }
-      return this.getWishlist(userId); // Возвращаем обновленный список
-    }
+		// Ищем или создаем вишлист
+		let wishlist = await WishlistModel.findOne({ user: userId });
+		if (!wishlist) {
+			wishlist = new WishlistModel({
+				user: userId,
+				items: [],
+				settings: {
+					notifyOnPriceDrop: true,
+					notifyOnRestock: true,
+					sortBy: "addedAt",
+				},
+			});
+		}
 
-    // Добавляем новый товар
-    wishlist.items.push({
-      product: productId,
-      addedAt: new Date(),
-      notes: notes
-    });
-    
-    await wishlist.save();
-    return this.getWishlist(userId);
-  }
+		// Проверяем, есть ли уже товар в избранном
+		const existingItem = wishlist.items.find(
+			(item) => item.product.toString() === productId.toString(),
+		);
 
-  /**
-   * Удалить товар из избранного
-   */
-  async removeProduct(userId, productId) {
-    if (!userId || !productId) {
-      throw ApiError.BadRequest("ID пользователя и товара обязательны");
-    }
+		if (existingItem) {
+			// Если уже есть, обновляем заметки если нужно
+			if (notes && notes !== existingItem.notes) {
+				existingItem.notes = notes;
+				existingItem.addedAt = new Date();
+				await wishlist.save();
+			}
+			return this.getWishlist(userId); // Возвращаем обновленный список
+		}
 
-    const wishlist = await WishlistModel.findOne({ user: userId });
-    if (!wishlist) {
-      throw ApiError.NotFoundError("Избранное не найдено");
-    }
+		// Добавляем новый товар
+		wishlist.items.push({
+			product: productId,
+			addedAt: new Date(),
+			notes: notes,
+		});
 
-    const initialLength = wishlist.items.length;
-    wishlist.items = wishlist.items.filter(item => 
-      item.product.toString() !== productId.toString()
-    );
+		await wishlist.save();
+		return this.getWishlist(userId);
+	}
 
-    if (wishlist.items.length === initialLength) {
-      throw ApiError.NotFoundError("Товар не найден в избранном");
-    }
+	/**
+	 * Удалить товар из избранного
+	 */
+	async removeProduct(userId, productId) {
+		if (!userId || !productId) {
+			throw ApiError.BadRequest("ID пользователя и товара обязательны");
+		}
 
-    await wishlist.save();
-    return this.getWishlist(userId);
-  }
+		const wishlist = await WishlistModel.findOne({ user: userId });
+		if (!wishlist) {
+			throw ApiError.NotFoundError("Избранное не найдено");
+		}
 
-  /**
-   * Переключить товар (добавить/удалить)
-   */
-  async toggleProduct(userId, productId, notes = "") {
-    const wishlist = await WishlistModel.findOne({ user: userId });
-    const exists = wishlist?.items.some(item => 
-      item.product.toString() === productId.toString()
-    );
+		const initialLength = wishlist.items.length;
+		wishlist.items = wishlist.items.filter(
+			(item) => item.product.toString() !== productId.toString(),
+		);
 
-    if (exists) {
-      return await this.removeProduct(userId, productId);
-    } else {
-      return await this.addProduct(userId, productId, notes);
-    }
-  }
+		if (wishlist.items.length === initialLength) {
+			throw ApiError.NotFoundError("Товар не найден в избранном");
+		}
 
-  /**
-   * Очистить избранное
-   */
-  async clearWishlist(userId) {
-    if (!userId) {
-      throw ApiError.BadRequest("ID пользователя обязателен");
-    }
+		await wishlist.save();
+		return this.getWishlist(userId);
+	}
 
-    const wishlist = await WishlistModel.findOne({ user: userId });
-    if (!wishlist) {
-      throw ApiError.NotFoundError("Избранное не найдено");
-    }
+	/**
+	 * Переключить товар (добавить/удалить)
+	 */
+	async toggleProduct(userId, productId, notes = "") {
+		const wishlist = await WishlistModel.findOne({ user: userId });
+		const exists = wishlist?.items.some((item) => item.product.toString() === productId.toString());
 
-    wishlist.items = [];
-    await wishlist.save();
-    
-    return [];
-  }
+		if (exists) {
+			return await this.removeProduct(userId, productId);
+		} else {
+			return await this.addProduct(userId, productId, notes);
+		}
+	}
 
-  /**
-   * Получить сводку избранного
-   */
-  async getWishlistSummary(userId) {
-    const wishlistProducts = await this.getWishlist(userId);
-    
-    const summary = {
-      totalItems: wishlistProducts.length,
-      totalAvailable: 0,
-      totalUnavailable: 0,
-      totalPreorder: 0,
-      hasPriceDrops: false,
-      totalPrice: 0,
-      totalDiscount: 0
-    };
+	/**
+	 * Очистить избранное
+	 */
+	async clearWishlist(userId) {
+		if (!userId) {
+			throw ApiError.BadRequest("ID пользователя обязателен");
+		}
 
-    wishlistProducts.forEach(product => {
-      // Считаем доступные/недоступные
-      const isAvailable = product.status === "available";
-      const isPreorder = product.status === "preorder";
-      
-      if (isAvailable) summary.totalAvailable++;
-      if (isPreorder) summary.totalPreorder++;
-      if (!isAvailable && !isPreorder) summary.totalUnavailable++;
+		const wishlist = await WishlistModel.findOne({ user: userId });
+		if (!wishlist) {
+			throw ApiError.NotFoundError("Избранное не найдено");
+		}
 
-      // Считаем общую стоимость
-      summary.totalPrice += product.finalPriceForIndividual || product.priceForIndividual;
-      
-      // Проверяем скидки
-      if (product.discount?.isActive) {
-        summary.hasPriceDrops = true;
-        const discountAmount = product.priceForIndividual - (product.finalPriceForIndividual || product.priceForIndividual);
-        summary.totalDiscount += discountAmount;
-      }
-    });
+		wishlist.items = [];
+		await wishlist.save();
 
-    return summary;
-  }
+		return [];
+	}
 
-  /**
-   * Проверить, есть ли товар в избранном
-   */
-  async isInWishlist(userId, productId) {
-    if (!userId || !productId) {
-      return false;
-    }
+	/**
+	 * Получить сводку избранного
+	 */
+	async getWishlistSummary(userId) {
+		const wishlistProducts = await this.getWishlist(userId);
 
-    const wishlist = await WishlistModel.findOne({ 
-      user: userId,
-      'items.product': productId 
-    }).select('items.product');
+		const summary = {
+			totalItems: wishlistProducts.length,
+			totalAvailable: 0,
+			totalUnavailable: 0,
+			totalPreorder: 0,
+			hasPriceDrops: false,
+			totalPrice: 0,
+			totalDiscount: 0,
+		};
 
-    return !!wishlist;
-  }
+		wishlistProducts.forEach((product) => {
+			// Считаем доступные/недоступные
+			const isAvailable = product.status === "available";
+			const isPreorder = product.status === "preorder";
 
-  /**
-   * Получить ID всех товаров в избранном
-   */
-  async getWishlistProductIds(userId) {
-    if (!userId) {
-      return [];
-    }
+			if (isAvailable) summary.totalAvailable++;
+			if (isPreorder) summary.totalPreorder++;
+			if (!isAvailable && !isPreorder) summary.totalUnavailable++;
 
-    const wishlist = await WishlistModel.findOne({ user: userId })
-      .select('items.product')
-      .lean();
+			// Считаем общую стоимость
+			summary.totalPrice += product.finalPriceForIndividual || product.priceForIndividual;
 
-    if (!wishlist || !wishlist.items) {
-      return [];
-    }
+			// Проверяем скидки
+			if (product.discount?.isActive) {
+				summary.hasPriceDrops = true;
+				const discountAmount =
+					product.priceForIndividual -
+					(product.finalPriceForIndividual || product.priceForIndividual);
+				summary.totalDiscount += discountAmount;
+			}
+		});
 
-    return wishlist.items
-      .filter(item => item.product)
-      .map(item => item.product.toString());
-  }
+		return summary;
+	}
 
-  /**
-   * Получить количество товаров в избранном
-   */
-  async getWishlistCount(userId) {
-    if (!userId) {
-      return 0;
-    }
+	/**
+	 * Проверить, есть ли товар в избранном
+	 */
+	async isInWishlist(userId, productId) {
+		if (!userId || !productId) {
+			return false;
+		}
 
-    const wishlist = await WishlistModel.findOne({ user: userId })
-      .select('items')
-      .lean();
+		const wishlist = await WishlistModel.findOne({
+			user: userId,
+			"items.product": productId,
+		}).select("items.product");
 
-    return wishlist?.items?.length || 0;
-  }
+		return !!wishlist;
+	}
 
-  /**
-   * Получить товары в избранном с пагинацией
-   */
-  async getWishlistPaginated(userId, options = {}) {
-    if (!userId) {
-      return {
-        products: [],
-        pagination: {
-          page: 1,
-          limit: 50,
-          total: 0,
-          pages: 0,
-          hasNext: false,
-          hasPrev: false
-        }
-      };
-    }
+	/**
+	 * Получить ID всех товаров в избранном
+	 */
+	async getWishlistProductIds(userId) {
+		if (!userId) {
+			return [];
+		}
 
-    const { page = 1, limit = 50, sortBy = 'addedAt', sortOrder = 'desc' } = options;
+		const wishlist = await WishlistModel.findOne({ user: userId }).select("items.product").lean();
 
-    const wishlist = await WishlistModel.findByUser(userId);
-    
-    if (!wishlist || wishlist.items.length === 0) {
-      return {
-        products: [],
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: 0,
-          pages: 0,
-          hasNext: false,
-          hasPrev: false
-        }
-      };
-    }
+		if (!wishlist?.items) {
+			return [];
+		}
 
-    // Собираем ID продуктов
-    const productIds = wishlist.items
-      .filter(item => item.product)
-      .map(item => item.product._id);
+		return wishlist.items.filter((item) => item.product).map((item) => item.product.toString());
+	}
 
-    const skip = (page - 1) * limit;
+	/**
+	 * Получить количество товаров в избранном
+	 */
+	async getWishlistCount(userId) {
+		if (!userId) {
+			return 0;
+		}
 
-    // Получаем товары с пагинацией
-    const [products, total] = await Promise.all([
-      ProductModel.find({
-        _id: { $in: productIds },
-        isVisible: true
-      })
-      .select("-__v -createdBy -updatedBy -priceHistory -customAttributes")
-      .populate('category', 'name slug')
-      .sort(this.getSortOptions(sortBy, sortOrder))
-      .skip(skip)
-      .limit(parseInt(limit))
-      .lean({ virtuals: true }),
-      
-      ProductModel.countDocuments({
-        _id: { $in: productIds },
-        isVisible: true
-      })
-    ]);
+		const wishlist = await WishlistModel.findOne({ user: userId }).select("items").lean();
 
-    // Добавляем дату добавления в избранное
-    const productsWithAddedAt = products.map(product => {
-      const wishlistItem = wishlist.items.find(item => 
-        item.product && item.product._id.toString() === product._id.toString()
-      );
-      
-      return {
-        ...product,
-        finalPriceForIndividual: this.calculateFinalPrice(product),
-        addedToWishlistAt: wishlistItem?.addedAt || new Date(),
-        wishlistNotes: wishlistItem?.notes || ""
-      };
-    });
+		return wishlist?.items?.length || 0;
+	}
 
-    return {
-      products: productsWithAddedAt,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
-        hasNext: page * limit < total,
-        hasPrev: page > 1
-      }
-    };
-  }
+	/**
+	 * Получить товары в избранном с пагинацией
+	 */
+	async getWishlistPaginated(userId, options = {}) {
+		if (!userId) {
+			return {
+				products: [],
+				pagination: {
+					page: 1,
+					limit: 50,
+					total: 0,
+					pages: 0,
+					hasNext: false,
+					hasPrev: false,
+				},
+			};
+		}
 
-  // Вспомогательные методы
+		const { page = 1, limit = 50, sortBy = "addedAt", sortOrder = "desc" } = options;
 
-  calculateFinalPrice(product) {
-    if (!product.discount?.isActive) {
-      return product.priceForIndividual;
-    }
+		const wishlist = await WishlistModel.findByUser(userId);
 
-    const discount = product.discount;
-    const now = new Date();
+		if (!wishlist || wishlist.items.length === 0) {
+			return {
+				products: [],
+				pagination: {
+					page: parseInt(page, 10),
+					limit: parseInt(limit, 10),
+					total: 0,
+					pages: 0,
+					hasNext: false,
+					hasPrev: false,
+				},
+			};
+		}
 
-    // Проверка срока действия скидки
-    if (discount.validFrom && now < new Date(discount.validFrom)) {
-      return product.priceForIndividual;
-    }
-    if (discount.validUntil && now > new Date(discount.validUntil)) {
-      return product.priceForIndividual;
-    }
+		// Собираем ID продуктов
+		const productIds = wishlist.items
+			.filter((item) => item.product)
+			.map((item) => item.product._id);
 
-    let finalPrice = product.priceForIndividual;
+		const skip = (page - 1) * limit;
 
-    // Применение процентной скидки
-    if (discount.percentage > 0) {
-      finalPrice = finalPrice * (1 - discount.percentage / 100);
-    }
+		// Получаем товары с пагинацией
+		const [products, total] = await Promise.all([
+			ProductModel.find({
+				_id: { $in: productIds },
+				isVisible: true,
+			})
+				.select("-__v -createdBy -updatedBy -priceHistory -customAttributes")
+				.populate("category", "name slug")
+				.sort(this.getSortOptions(sortBy, sortOrder))
+				.skip(skip)
+				.limit(parseInt(limit, 10))
+				.lean({ virtuals: true }),
 
-    // Применение фиксированной скидки
-    if (discount.amount > 0) {
-      finalPrice = Math.max(0, finalPrice - discount.amount);
-    }
+			ProductModel.countDocuments({
+				_id: { $in: productIds },
+				isVisible: true,
+			}),
+		]);
 
-    return Math.round(finalPrice * 100) / 100;
-  }
+		// Добавляем дату добавления в избранное
+		const productsWithAddedAt = products.map((product) => {
+			const wishlistItem = wishlist.items.find(
+				(item) => item.product && item.product._id.toString() === product._id.toString(),
+			);
 
-  getSortOptions(sortBy, sortOrder) {
-    const order = sortOrder === 'asc' ? 1 : -1;
-    
-    switch (sortBy) {
-      case 'price':
-        return { priceForIndividual: order };
-      case 'name':
-        return { title: order };
-      case 'addedAt':
-        return { addedToWishlistAt: order };
-      case 'popularity':
-        return { viewsCount: order };
-      default:
-        return { addedToWishlistAt: -1 };
-    }
-  }
+			return {
+				...product,
+				finalPriceForIndividual: this.calculateFinalPrice(product),
+				addedToWishlistAt: wishlistItem?.addedAt || new Date(),
+				wishlistNotes: wishlistItem?.notes || "",
+			};
+		});
+
+		return {
+			products: productsWithAddedAt,
+			pagination: {
+				page: parseInt(page, 10),
+				limit: parseInt(limit, 10),
+				total,
+				pages: Math.ceil(total / limit),
+				hasNext: page * limit < total,
+				hasPrev: page > 1,
+			},
+		};
+	}
+
+	// Вспомогательные методы
+
+	calculateFinalPrice(product) {
+		if (!product.discount?.isActive) {
+			return product.priceForIndividual;
+		}
+
+		const discount = product.discount;
+		const now = new Date();
+
+		// Проверка срока действия скидки
+		if (discount.validFrom && now < new Date(discount.validFrom)) {
+			return product.priceForIndividual;
+		}
+		if (discount.validUntil && now > new Date(discount.validUntil)) {
+			return product.priceForIndividual;
+		}
+
+		let finalPrice = product.priceForIndividual;
+
+		// Применение процентной скидки
+		if (discount.percentage > 0) {
+			finalPrice = finalPrice * (1 - discount.percentage / 100);
+		}
+
+		// Применение фиксированной скидки
+		if (discount.amount > 0) {
+			finalPrice = Math.max(0, finalPrice - discount.amount);
+		}
+
+		return Math.round(finalPrice * 100) / 100;
+	}
+
+	getSortOptions(sortBy, sortOrder) {
+		const order = sortOrder === "asc" ? 1 : -1;
+
+		switch (sortBy) {
+			case "price":
+				return { priceForIndividual: order };
+			case "name":
+				return { title: order };
+			case "addedAt":
+				return { addedToWishlistAt: order };
+			case "popularity":
+				return { viewsCount: order };
+			default:
+				return { addedToWishlistAt: -1 };
+		}
+	}
 }
 
-module.exports = new WishlistService();
+export default new WishlistService();

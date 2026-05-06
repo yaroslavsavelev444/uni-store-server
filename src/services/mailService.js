@@ -1,66 +1,68 @@
-const nodemailer = require("nodemailer");
-const renderTemplate = require("../emailTemplates/renderer");
-const { formattedDate } = require("../utils/formats");
-const ApiError = require("../exceptions/api-error");
-require("dotenv").config();
+import dotenv from "dotenv";
+import { createTransport } from "nodemailer";
+import renderTemplate from "../emailTemplates/renderer";
+import { BadRequest } from "../exceptions/api-error";
+import { formattedDate } from "../utils/formats";
+
+dotenv.config();
 
 // Транспортер
 const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT, 10),
-    secure: true,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_USER_PASSWORD,
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    debug: true,
-  });
+	return createTransport({
+		host: process.env.SMTP_HOST,
+		port: parseInt(process.env.SMTP_PORT, 10),
+		secure: true,
+		auth: {
+			user: process.env.SMTP_USER,
+			pass: process.env.SMTP_USER_PASSWORD,
+		},
+		connectionTimeout: 10000,
+		greetingTimeout: 10000,
+		debug: true,
+	});
 };
 
 // Универсальная отправка письма
 const sendMail = async ({ to, subject, text, html }) => {
-  const transporter = createTransporter();
+	const transporter = createTransporter();
 
-  const mailOptions = {
-    from: `"ООО НПО "Полет" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-    html,
-  };
+	const mailOptions = {
+		from: `"ООО НПО "Полет" <${process.env.SMTP_USER}>`,
+		to,
+		subject,
+		text,
+		html,
+	};
 
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Письмо отправлено на ${to}`);
-  } catch (error) {
-    console.error(`❌ Ошибка отправки письма на ${to}:`, error);
-    throw new Error("Ошибка отправки письма");
-  }
+	try {
+		await transporter.sendMail(mailOptions);
+		console.log(`✅ Письмо отправлено на ${to}`);
+	} catch (error) {
+		console.error(`❌ Ошибка отправки письма на ${to}:`, error);
+		throw new Error("Ошибка отправки письма");
+	}
 };
 
 // Обработка различных типов писем
 const sendNotification = async ({ email, type, data }) => {
-  let subject = "";
-  let text = "";
-  let html = "";
+	let subject = "";
+	let text = "";
+	let html = "";
 
-  switch (type) {
-    case "resetPassword": {
-      subject = "Сброс пароля";
-      text = `Привет, ${data.username}! Для сброса пароля перейдите по следующей ссылке: ${data.resetLink}`;
-      html = renderTemplate("resetPassword", {
-        resetLink: data.resetLink,
-        companyName: "ООО НПО Полет",
-      });
-      break;
-    }
+	switch (type) {
+		case "resetPassword": {
+			subject = "Сброс пароля";
+			text = `Привет, ${data.username}! Для сброса пароля перейдите по следующей ссылке: ${data.resetLink}`;
+			html = renderTemplate("resetPassword", {
+				resetLink: data.resetLink,
+				companyName: "ООО НПО Полет",
+			});
+			break;
+		}
 
-    case "newOrderUser": {
-      subject = `Заказ №${order.orderNumber} создан`;
-      text = `Заказ №${order.orderNumber} создан.
+		case "newOrderUser": {
+			subject = `Заказ №${order.orderNumber} создан`;
+			text = `Заказ №${order.orderNumber} создан.
 
 Сумма: ${order.pricing.total} ${order.pricing.currency}
 
@@ -68,16 +70,16 @@ const sendNotification = async ({ email, type, data }) => {
 
 ООО НПО Полет`;
 
-      html = renderTemplate("newOrderUser", {
-        ...data,
-      });
-      break;
-    }
+			html = renderTemplate("newOrderUser", {
+				...data,
+			});
+			break;
+		}
 
-    case "newOrderAdmin": {
-  subject = `Новый заказ №${data.orderNumber}`;
+		case "newOrderAdmin": {
+			subject = `Новый заказ №${data.orderNumber}`;
 
-  text = `Новый заказ.
+			text = `Новый заказ.
 
 Номер: ${data.orderNumber}
 Клиент: ${data.customer.name}
@@ -89,17 +91,17 @@ Email: ${data.customer.email}
 
 ООО НПО ПОЛЕТ`;
 
-  html = renderTemplate("newOrderAdmin", {
-    ...data,
-    companyName: "ООО НПО ПОЛЕТ",
-  });
+			html = renderTemplate("newOrderAdmin", {
+				...data,
+				companyName: "ООО НПО ПОЛЕТ",
+			});
 
-  break;
-}
-    case "twofaCode": {
-  subject = "Код подтверждения входа";
+			break;
+		}
+		case "twofaCode": {
+			subject = "Код подтверждения входа";
 
-  text = `Код подтверждения: ${data.code}
+			text = `Код подтверждения: ${data.code}
 
 Срок действия: ${data.expiresInMinutes} мин.
 
@@ -107,37 +109,36 @@ Email: ${data.customer.email}
 
 ООО НПО ПОЛЕТ`;
 
-  html = renderTemplate("twofaCode", {
-    code: data.code,
-    expiresInMinutes: data.expiresInMinutes,
-    companyName: "ООО НПО ПОЛЕТ",
-  });
+			html = renderTemplate("twofaCode", {
+				code: data.code,
+				expiresInMinutes: data.expiresInMinutes,
+				companyName: "ООО НПО ПОЛЕТ",
+			});
 
-  break;
-}
+			break;
+		}
 
+		case "orderCancelledByAdmin": {
+			subject = `Заказ №${data.orderNumber} отменен`;
 
-    case "orderCancelledByAdmin": {
-  subject = `Заказ №${data.orderNumber} отменен`;
-
-  text = `Заказ №${data.orderNumber} отменен.
+			text = `Заказ №${data.orderNumber} отменен.
 
 Причина: ${data.reason}
 Дата отмены: ${data.orderData.cancellation.cancelledAt}
 
 ООО НПО ПОЛЕТ`;
 
-  html = renderTemplate("orderCancelledByAdmin", {
-    ...data,
-    companyName: "ООО НПО ПОЛЕТ",
-  });
+			html = renderTemplate("orderCancelledByAdmin", {
+				...data,
+				companyName: "ООО НПО ПОЛЕТ",
+			});
 
-  break;
-}
-    case "newProductReview": {
-  subject = `Новый отзыв на товар`;
+			break;
+		}
+		case "newProductReview": {
+			subject = `Новый отзыв на товар`;
 
-  text = `Новый отзыв на товар: ${data.productTitle}
+			text = `Новый отзыв на товар: ${data.productTitle}
 
 Пользователь: ${data.userName}
 Оценка: ${data.rating}/5
@@ -147,18 +148,18 @@ ${data.pros ? `Достоинства: ${data.pros.join(", ")}\n` : ""}${data.co
 
 ООО НПО ПОЛЕТ`;
 
-  html = renderTemplate("newProductReview", {
-    ...data,
-    companyName: "ООО НПО ПОЛЕТ",
-  });
+			html = renderTemplate("newProductReview", {
+				...data,
+				companyName: "ООО НПО ПОЛЕТ",
+			});
 
-  break;
-}
+			break;
+		}
 
-    case "orderShipped": {
-  subject = `Заказ №${data.orderNumber} отправлен`;
+		case "orderShipped": {
+			subject = `Заказ №${data.orderNumber} отправлен`;
 
-  text = `Заказ №${data.orderNumber} передан в доставку.
+			text = `Заказ №${data.orderNumber} передан в доставку.
 
 Трек-номер: ${data.trackingNumber}
 Служба доставки: ${data.carrier}
@@ -166,18 +167,18 @@ ${data.pros ? `Достоинства: ${data.pros.join(", ")}\n` : ""}${data.co
 
 ООО НПО ПОЛЕТ`;
 
-  html = renderTemplate("orderShipped", {
-    ...data,
-    companyName: "ООО НПО ПОЛЕТ",
-  });
+			html = renderTemplate("orderShipped", {
+				...data,
+				companyName: "ООО НПО ПОЛЕТ",
+			});
 
-  break;
-}
+			break;
+		}
 
-   case "orderReadyForPickup": {
-  subject = `Заказ №${data.orderNumber} готов к выдаче`;
+		case "orderReadyForPickup": {
+			subject = `Заказ №${data.orderNumber} готов к выдаче`;
 
-  text = `Заказ №${data.orderNumber} готов к выдаче.
+			text = `Заказ №${data.orderNumber} готов к выдаче.
 
 Пункт выдачи: ${data.pickupPoint.name}
 Адрес: ${data.pickupPoint.address}
@@ -185,41 +186,41 @@ ${data.pros ? `Достоинства: ${data.pros.join(", ")}\n` : ""}${data.co
 
 ООО НПО ПОЛЕТ`;
 
-  html = renderTemplate("orderReadyForPickup", {
-    ...data,
-    companyName: "ООО НПО ПОЛЕТ",
-  });
+			html = renderTemplate("orderReadyForPickup", {
+				...data,
+				companyName: "ООО НПО ПОЛЕТ",
+			});
 
-  break;
-}
+			break;
+		}
 
-   case "newAttachment": {
-  subject = `Новый файл в заказе №${data.orderNumber}`;
+		case "newAttachment": {
+			subject = `Новый файл в заказе №${data.orderNumber}`;
 
-  text = `В заказ №${data.orderNumber} добавлен новый файл.
+			text = `В заказ №${data.orderNumber} добавлен новый файл.
 
 Название: ${data.attachment.name}
 Размер: ${data.attachment.size} байт
 Тип: ${data.attachment.mimeType}
 Дата загрузки: ${data.attachment.uploadedAt}`;
 
-  html = renderTemplate("newAttachment", {
-    orderNumber: data.orderNumber,
-    attachment: {
-      name: data.attachment.name,
-      size: data.attachment.size,
-      mimeType: data.attachment.mimeType,
-      uploadedAt: data.attachment.uploadedAt,
-    },
-  });
+			html = renderTemplate("newAttachment", {
+				orderNumber: data.orderNumber,
+				attachment: {
+					name: data.attachment.name,
+					size: data.attachment.size,
+					mimeType: data.attachment.mimeType,
+					uploadedAt: data.attachment.uploadedAt,
+				},
+			});
 
-  break;
-}
+			break;
+		}
 
-    case "newLogin": {
-  subject = "Новый вход в аккаунт";
+		case "newLogin": {
+			subject = "Новый вход в аккаунт";
 
-  text = `В аккаунт выполнен вход с нового устройства.
+			text = `В аккаунт выполнен вход с нового устройства.
 
 IP-адрес: ${data.ip}
 Устройство: ${data.deviceType} ${data.deviceModel}
@@ -228,22 +229,22 @@ IP-адрес: ${data.ip}
 
 Если это были не вы, немедленно смените пароль и проверьте активные сессии.`;
 
-  html = renderTemplate("newLogin", {
-    ip: data.ip,
-    deviceType: data.deviceType,
-    deviceModel: data.deviceModel,
-    os: data.os,
-    osVersion: data.osVersion,
-    date: formattedDate(data.date),
-  });
+			html = renderTemplate("newLogin", {
+				ip: data.ip,
+				deviceType: data.deviceType,
+				deviceModel: data.deviceModel,
+				os: data.os,
+				osVersion: data.osVersion,
+				date: formattedDate(data.date),
+			});
 
-  break;
-}
+			break;
+		}
 
-    case "consentUpdated": {
-  subject = `Обновлены условия: ${data.consentTitle}`;
+		case "consentUpdated": {
+			subject = `Обновлены условия: ${data.consentTitle}`;
 
-  text = `Обновлены условия: ${data.consentTitle} (версия ${data.version} от ${data.updateDate}).
+			text = `Обновлены условия: ${data.consentTitle} (версия ${data.version} от ${data.updateDate}).
 
 Изменения:
 ${data.changeDescription}
@@ -256,23 +257,22 @@ ${data.changeDescription}
 
 Если вы не согласны с изменениями, вы можете прекратить использование сервиса и удалить аккаунт в настройках.`;
 
-  html = renderTemplate("consentUpdated", {
-    consentTitle: data.consentTitle,
-    version: data.version,
-    updateDate: data.updateDate,
-    changeDescription: data.changeDescription,
-    documentUrl: data.documentUrl,
-    effectiveDate: data.effectiveDate,
-  });
+			html = renderTemplate("consentUpdated", {
+				consentTitle: data.consentTitle,
+				version: data.version,
+				updateDate: data.updateDate,
+				changeDescription: data.changeDescription,
+				documentUrl: data.documentUrl,
+				effectiveDate: data.effectiveDate,
+			});
 
-  break;
-}
+			break;
+		}
 
+		case "newFeedback": {
+			subject = "Новый фидбек";
 
-    case "newFeedback": {
-  subject = "Новый фидбек";
-
-  text = `Новый фидбек.
+			text = `Новый фидбек.
 
 ID: ${data.feedbackId}
 Название: ${data.title}
@@ -284,46 +284,46 @@ ID: ${data.feedbackId}
 Описание:
 ${data.description}`;
 
-  html = renderTemplate("newFeedback", {
-    feedbackId: data.feedbackId,
-    title: data.title,
-    type: data.type,
-    userName: data.userName,
-    userEmail: data.userEmail,
-    priority: data.priority,
-    createdAt: formattedDate(data.createdAt),
-    description: data.description,
-  });
+			html = renderTemplate("newFeedback", {
+				feedbackId: data.feedbackId,
+				title: data.title,
+				type: data.type,
+				userName: data.userName,
+				userEmail: data.userEmail,
+				priority: data.priority,
+				createdAt: formattedDate(data.createdAt),
+				description: data.description,
+			});
 
-  break;
-}
+			break;
+		}
 
-    case "feedbackStatusChanged": {
-  subject = "Обновлён статус фидбека";
+		case "feedbackStatusChanged": {
+			subject = "Обновлён статус фидбека";
 
-  text = `Статус фидбека "${data.title}" изменён.
+			text = `Статус фидбека "${data.title}" изменён.
 
 ID: ${data.feedbackId}
 Старый статус: ${data.oldStatus}
 Новый статус: ${data.newStatus}
 Дата обновления: ${formattedDate(data.updatedAt)}`;
 
-  html = renderTemplate("feedbackStatusChanged", {
-    feedbackId: data.feedbackId,
-    title: data.title,
-    oldStatus: data.oldStatus,
-    newStatus: data.newStatus,
-    userName: data.userName,
-    updatedAt: formattedDate(data.updatedAt),
-  });
+			html = renderTemplate("feedbackStatusChanged", {
+				feedbackId: data.feedbackId,
+				title: data.title,
+				oldStatus: data.oldStatus,
+				newStatus: data.newStatus,
+				userName: data.userName,
+				updatedAt: formattedDate(data.updatedAt),
+			});
 
-  break;
-}
+			break;
+		}
 
-    case "feedbackAssigned": {
-  subject = "Назначен новый фидбек";
+		case "feedbackAssigned": {
+			subject = "Назначен новый фидбек";
 
-  text = `Вам назначен фидбек: "${data.title}"
+			text = `Вам назначен фидбек: "${data.title}"
 
 Тип: ${data.type}
 Приоритет: ${data.priority}
@@ -332,24 +332,24 @@ ID: ${data.feedbackId}
 
 Перейти к фидбеку: https://yourdomain.com/user/feedback/${data.feedbackId}`;
 
-  html = renderTemplate("feedbackAssigned", {
-    feedbackId: data.feedbackId,
-    title: data.title,
-    type: data.type,
-    priority: data.priority,
-    description: data.description,
-    createdAt: formattedDate(data.createdAt),
-    userName: data.userName,
-    assignedBy: data.assignedBy,
-  });
+			html = renderTemplate("feedbackAssigned", {
+				feedbackId: data.feedbackId,
+				title: data.title,
+				type: data.type,
+				priority: data.priority,
+				description: data.description,
+				createdAt: formattedDate(data.createdAt),
+				userName: data.userName,
+				assignedBy: data.assignedBy,
+			});
 
-  break;
-}
+			break;
+		}
 
-    case "orderCancelledByUser": {
-  subject = "Заказ отменен";
+		case "orderCancelledByUser": {
+			subject = "Заказ отменен";
 
-  text = `Заказ №${data.orderData.orderNumber} отменен.
+			text = `Заказ №${data.orderData.orderNumber} отменен.
 
 Статус: отменен пользователем
 Причина: ${data.orderData.cancellation?.reason || "не указана"}
@@ -359,48 +359,47 @@ ID: ${data.feedbackId}
 
 Заказ: https://yourdomain.com/orders/${data.orderData._id}`;
 
-  html = renderTemplate("orderCancelledByUser", {
-    orderNumber: data.orderData.orderNumber,
-    cancellation: data.orderData.cancellation,
-    pricing: data.orderData.pricing,
-    _id: data.orderData._id,
-  });
+			html = renderTemplate("orderCancelledByUser", {
+				orderNumber: data.orderData.orderNumber,
+				cancellation: data.orderData.cancellation,
+				pricing: data.orderData.pricing,
+				_id: data.orderData._id,
+			});
 
-  break;
-}
+			break;
+		}
 
-    case "resetPasswordCompleted": {
-  subject = "Пароль учетной записи изменен";
+		case "resetPasswordCompleted": {
+			subject = "Пароль учетной записи изменен";
 
-  text = `Пароль учетной записи ${data.email} был изменен.
+			text = `Пароль учетной записи ${data.email} был изменен.
 
 Если это действие совершили не вы, выполните немедленную смену пароля и проверьте безопасность аккаунта.`;
 
-  html = renderTemplate("resetPasswordCompleted", {
-    name: data.name,
-    email: data.email,
-  });
+			html = renderTemplate("resetPasswordCompleted", {
+				name: data.name,
+				email: data.email,
+			});
 
-  break;
-}
+			break;
+		}
 
+		default:
+			throw BadRequest("Неверный тип уведомления");
+	}
 
-    default:
-      throw ApiError.BadRequest("Неверный тип уведомления");
-  }
+	console.log("html", html);
 
-  console.log("html", html);
+	await sendMail({
+		to: email,
+		subject,
+		text,
+		html,
+	});
 
-  await sendMail({
-    to: email,
-    subject,
-    text,
-    html,
-  });
-
-  console.log(`📨 Уведомление "${type}" отправлено на ${email}`);
+	console.log(`📨 Уведомление "${type}" отправлено на ${email}`);
 };
 
-module.exports = {
-  sendNotification,
+export default {
+	sendNotification,
 };

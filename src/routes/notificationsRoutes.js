@@ -1,12 +1,18 @@
-const express = require('express');
-const router = express.Router();
-const notificationsController = require('../controllers/notificationsController');
+import { Router } from "express";
 
-router.get('/getNotifications', notificationsController.getNotifications);
-router.get('/getUnreadCount', notificationsController.getUnreadCount);
+const router = Router();
 
-router.put('/markNotificationsAsRead', notificationsController.markNotificationAsRead);
-router.delete('/deleteNotifications', notificationsController.deleteNotifications);
+import {
+	deleteNotifications,
+	getNotifications,
+	getUnreadCount,
+	markNotificationAsRead,
+} from "../controllers/notificationsController";
 
-module.exports = router;
+router.get("/getNotifications", getNotifications);
+router.get("/getUnreadCount", getUnreadCount);
 
+router.put("/markNotificationsAsRead", markNotificationAsRead);
+router.delete("/deleteNotifications", deleteNotifications);
+
+export default router;

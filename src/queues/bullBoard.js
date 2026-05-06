@@ -1,19 +1,23 @@
-const express = require('express');
-const { createBullBoard } = require('@bull-board/api');
-const { ExpressAdapter } = require('@bull-board/express');
-const { BullAdapter } = require('@bull-board/api/bullAdapter');
-const { taskQueues, moderateQueues
-, pushNotificationsQueues } = require('./bull');
+import { createBullBoard } from "@bull-board/api";
+import { BullAdapter } from "@bull-board/api/bullAdapter";
+import { ExpressAdapter } from "@bull-board/express";
+import { Router } from "express";
+import { moderateQueues, pushNotificationsQueues, taskQueues } from "./bull";
+
 const serverAdapter = new ExpressAdapter();
 
-serverAdapter.setBasePath('/admin/queues'); // Базовый путь для Bull Board
+serverAdapter.setBasePath("/admin/queues"); // Базовый путь для Bull Board
 
 createBullBoard({
-  queues: [new BullAdapter(taskQueues), new BullAdapter(moderateQueues), new BullAdapter(pushNotificationsQueues)],
-  serverAdapter,
+	queues: [
+		new BullAdapter(taskQueues),
+		new BullAdapter(moderateQueues),
+		new BullAdapter(pushNotificationsQueues),
+	],
+	serverAdapter,
 });
 
-const bullBoardRouter = express.Router();
+const bullBoardRouter = Router();
 bullBoardRouter.use(serverAdapter.getRouter());
 
-module.exports = bullBoardRouter;
+export default bullBoardRouter;

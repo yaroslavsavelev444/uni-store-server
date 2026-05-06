@@ -1,15 +1,23 @@
-const express = require("express");
-const router = express.Router();
-const cartController = require("../controllers/cartController");
-const { validateCartItem } = require("../validators/cart.validator");
-const authMiddleware = require("../middlewares/auth-middleware");
+import { Router } from "express";
+
+const router = Router();
+
+import {
+	addOrUpdateItem,
+	clearCart,
+	decreaseQuantity,
+	getCart,
+	removeItem,
+} from "../controllers/cartController";
+import authMiddleware from "../middlewares/auth-middleware";
+import { validateCartItem } from "../validators/cart.validator";
 
 router.use(authMiddleware(["all"]));
 
-router.get("/", cartController.getCart);                    
-router.put("/items", validateCartItem, cartController.addOrUpdateItem); 
-router.delete("/items/:productId", cartController.removeItem); 
-router.delete("/", cartController.clearCart);              
-router.patch("/items/:productId/decrease", cartController.decreaseQuantity);
+router.get("/", getCart);
+router.put("/items", validateCartItem, addOrUpdateItem);
+router.delete("/items/:productId", removeItem);
+router.delete("/", clearCart);
+router.patch("/items/:productId/decrease", decreaseQuantity);
 
-module.exports = router;
+export default router;

@@ -1,26 +1,27 @@
-const events = require("events");
-events.EventEmitter.defaultMaxListeners = 20;
+import { EventEmitter } from "node:events";
 
-const http = require("http");
+EventEmitter.defaultMaxListeners = 20;
 
-const app = require("./app");
-const { connectDB } = require("./src/config/mongo");
-const cronInit = require("./src/cron");
-const logger = require("./src/logger/logger");
-const { PORT, HOST, NODE_ENV } = require("./config/env");
+import { createServer } from "node:http";
 
-const server = http.createServer(app);
+import app from "./app";
+import { HOST, NODE_ENV, PORT } from "./config/env";
+import { connectDB } from "./src/config/mongo";
+import { initialize } from "./src/cron";
+import { error, info } from "./src/logger/logger";
+
+const server = createServer(app);
 
 (async () => {
-  try {
-    await connectDB();
-    cronInit.initialize();
+	try {
+		await connectDB();
+		initialize();
 
-    server.listen(PORT, HOST, () => {
-      logger.info(`Server (${NODE_ENV}) running on http://${HOST}:${PORT}`);
-    });
-  } catch (err) {
-    logger.error(`Fatal startup error: ${err.message}`);
-    process.exit(1);
-  }
+		server.listen(PORT, HOST, () => {
+			info(`Server (${NODE_ENV}) running on http://${HOST}:${PORT}`);
+		});
+	} catch (err) {
+		error(`Fatal startup error: ${err.message}`);
+		process.exit(1);
+	}
 })();

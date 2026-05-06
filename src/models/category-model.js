@@ -1,152 +1,151 @@
-const { Schema, model } = require('mongoose');
-const fileService = require('../utils/fileManager');
+import { model, Schema } from "mongoose";
+import fileService from "../utils/fileManager";
 
-const CategorySchema = new Schema({
-  // Основная информация
-  name: { 
-    type: String, 
-    required: true, 
-    trim: true,
-    minlength: 2,
-    maxlength: 100,
-    index: true
-  },
-  slug: { 
-    type: String, 
-    required: true, 
-    unique: true,
-    trim: true,
-    lowercase: true,
-    match: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-    index: true
-  },
-  
-  // Описание
-  subtitle: { 
-    type: String, 
-    trim: true,
-    maxlength: 200 
-  },
-  description: { 
-    type: String, 
-    trim: true,
-    maxlength: 2000 
-  },
-  
-    // Изображение - делаем полностью опциональным
-  image: { 
-    url: { type: String },
-    alt: { type: String, maxlength: 255 },
-    size: Number,
-    mimetype: String
-  },
+const CategorySchema = new Schema(
+	{
+		// Основная информация
+		name: {
+			type: String,
+			required: true,
+			trim: true,
+			minlength: 2,
+			maxlength: 100,
+			index: true,
+		},
+		slug: {
+			type: String,
+			required: true,
+			unique: true,
+			trim: true,
+			lowercase: true,
+			match: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+			index: true,
+		},
 
+		// Описание
+		subtitle: {
+			type: String,
+			trim: true,
+			maxlength: 200,
+		},
+		description: {
+			type: String,
+			trim: true,
+			maxlength: 2000,
+		},
 
-  
-  // Порядок сортировки
-  order: { 
-    type: Number, 
-    default: 0,
-    min: 0 
-  },
-  
-  // Состояние
-  isActive: { 
-    type: Boolean, 
-    default: true,
-    index: true 
-  },
-  
-  // SEO
-  metaTitle: { type: String, maxlength: 255 },
-  metaDescription: { type: String, maxlength: 500 },
-  keywords: [{ type: String, maxlength: 50 }],
-  
-  // Системные поля
-  createdBy: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User' 
-  },
-  updatedBy: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User' 
-  }
-}, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
+		// Изображение - делаем полностью опциональным
+		image: {
+			url: { type: String },
+			alt: { type: String, maxlength: 255 },
+			size: Number,
+			mimetype: String,
+		},
+
+		// Порядок сортировки
+		order: {
+			type: Number,
+			default: 0,
+			min: 0,
+		},
+
+		// Состояние
+		isActive: {
+			type: Boolean,
+			default: true,
+			index: true,
+		},
+
+		// SEO
+		metaTitle: { type: String, maxlength: 255 },
+		metaDescription: { type: String, maxlength: 500 },
+		keywords: [{ type: String, maxlength: 50 }],
+
+		// Системные поля
+		createdBy: {
+			type: Schema.Types.ObjectId,
+			ref: "User",
+		},
+		updatedBy: {
+			type: Schema.Types.ObjectId,
+			ref: "User",
+		},
+	},
+	{
+		timestamps: true,
+		toJSON: { virtuals: true },
+		toObject: { virtuals: true },
+	},
+);
 
 // Виртуальное поле для количества продуктов
-CategorySchema.virtual('productCount', {
-  ref: 'Product',
-  localField: '_id',
-  foreignField: 'category',
-  count: true
+CategorySchema.virtual("productCount", {
+	ref: "Product",
+	localField: "_id",
+	foreignField: "category",
+	count: true,
 });
 
 // Индексы для оптимизации
 CategorySchema.index({ slug: 1 }, { unique: true });
 CategorySchema.index({ isActive: 1, order: 1 });
-CategorySchema.index({ name: 'text', description: 'text' });
+CategorySchema.index({ name: "text", description: "text" });
 
 // Middleware для генерации slug
-CategorySchema.pre('save', function(next) {
-  if (!this.slug && this.name) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/--+/g, '-');
-  }
-  next();
+CategorySchema.pre("save", function (next) {
+	if (!this.slug && this.name) {
+		this.slug = this.name
+			.toLowerCase()
+			.replace(/[^\w\s-]/g, "")
+			.replace(/\s+/g, "-")
+			.replace(/--+/g, "-");
+	}
+	next();
 });
 
-
 // Middleware для преобразования URL при возврате документа
-CategorySchema.post(['find', 'findOne', 'findById'], function(docs) {
-  // Проверяем, массив это или одиночный документ
-  if (!docs) return;
-  
-  const processDocument = (doc) => {
-    if (doc && doc.image && doc.image.url && !doc.image.url.startsWith('http')) {
-      // Преобразуем путь в полный URL
-      doc.image.url = fileService.getFileUrl(doc.image.url);
-    }
-    
-    // Если нужно обработать другие поля с изображениями
-    if (doc && doc.images) {
-      // Обработка массива изображений если есть
-    }
-    
-    return doc;
-  };
+CategorySchema.post(["find", "findOne", "findById"], (docs) => {
+	// Проверяем, массив это или одиночный документ
+	if (!docs) return;
 
-  if (Array.isArray(docs)) {
-    return docs.map(processDocument);
-  } else {
-    return processDocument(docs);
-  }
+	const processDocument = (doc) => {
+		if (doc?.image?.url && !doc.image.url.startsWith("http")) {
+			// Преобразуем путь в полный URL
+			doc.image.url = fileService.getFileUrl(doc.image.url);
+		}
+
+		// Если нужно обработать другие поля с изображениями
+		if (doc?.images) {
+			// Обработка массива изображений если есть
+		}
+
+		return doc;
+	};
+
+	if (Array.isArray(docs)) {
+		return docs.map(processDocument);
+	} else {
+		return processDocument(docs);
+	}
 });
 
 // Middleware для lean документов
-CategorySchema.post('aggregate', function(docs) {
-  if (!docs || !Array.isArray(docs)) return docs;
-  
-  return docs.map(doc => {
-    if (doc && doc.image && doc.image.url && !doc.image.url.startsWith('http')) {
-      doc.image.url = fileService.getFileUrl(doc.image.url);
-    }
-    return doc;
-  });
+CategorySchema.post("aggregate", (docs) => {
+	if (!docs || !Array.isArray(docs)) return docs;
+
+	return docs.map((doc) => {
+		if (doc?.image?.url && !doc.image.url.startsWith("http")) {
+			doc.image.url = fileService.getFileUrl(doc.image.url);
+		}
+		return doc;
+	});
 });
 
-
 // Статический метод для проверки существования категории
-CategorySchema.statics.exists = async function(id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) return false;
-  const count = await this.countDocuments({ _id: id });
-  return count > 0;
+CategorySchema.statics.exists = async function (id) {
+	if (!mongoose.Types.ObjectId.isValid(id)) return false;
+	const count = await this.countDocuments({ _id: id });
+	return count > 0;
 };
 
-module.exports = model('Category', CategorySchema);
+export default model("Category", CategorySchema);

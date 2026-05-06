@@ -1,310 +1,310 @@
 // services/delivery/pickup-point.service.js
-const ApiError = require("../exceptions/api-error");
-const { PickupPointModel } = require("../models/index.models");
-const DeliveryCacheService = require("../cache-service/delivery-cache.service");
-const logger = require("../logger/logger");
+
+import DeliveryCacheService from "../cache-service/delivery-cache.service";
+import ApiError from "../exceptions/api-error";
+import logger from "../logger/logger";
+import { PickupPointModel } from "../models/pickup-point.model";
 
 class PickupPointService {
-  constructor() {
-    this.cache = DeliveryCacheService;
-  }
+	constructor() {
+		this.cache = DeliveryCacheService;
+	}
 
-  /**
-   * Получить все активные пункты самовывоза
-   */
-  async getAllPickupPoints(includeInactive = false) {
-    try {
-      // Пробуем получить из кеша
-      const cached = await this.cache.getPickupPoints();
-      if (cached && !includeInactive) {
-        return cached;
-      }
+	/**
+	 * Получить все активные пункты самовывоза
+	 */
+	async getAllPickupPoints(includeInactive = false) {
+		try {
+			// Пробуем получить из кеша
+			const cached = await this.cache.getPickupPoints();
+			if (cached && !includeInactive) {
+				return cached;
+			}
 
-      const query = includeInactive ? {} : { isActive: true };
-      
-      const points = await PickupPointModel.find(query)
-        .sort({ isMain: -1, orderIndex: 1, createdAt: -1 })
-        .lean();
+			const query = includeInactive ? {} : { isActive: true };
 
-      // Сохраняем в кеш только активные пункты
-      if (!includeInactive) {
-        await this.cache.setPickupPoints(points);
-      }
+			const points = await PickupPointModel.find(query)
+				.sort({ isMain: -1, orderIndex: 1, createdAt: -1 })
+				.lean();
 
-      return points;
-    } catch (error) {
-      logger.error('[PickupPointService] Error getting pickup points:', error);
-      throw ApiError.DatabaseError('Ошибка при получении пунктов самовывоза');
-    }
-  }
+			// Сохраняем в кеш только активные пункты
+			if (!includeInactive) {
+				await this.cache.setPickupPoints(points);
+			}
 
-  /**
-   * Получить главный пункт самовывоза
-   */
-  async getMainPickupPoint() {
-    try {
-      const point = await PickupPointModel.findOne({ 
-        isMain: true, 
-        isActive: true 
-      }).lean();
+			return points;
+		} catch (error) {
+			logger.error("[PickupPointService] Error getting pickup points:", error);
+			throw ApiError.DatabaseError("Ошибка при получении пунктов самовывоза");
+		}
+	}
 
-      return point;
-    } catch (error) {
-      logger.error('[PickupPointService] Error getting main pickup point:', error);
-      throw ApiError.DatabaseError('Ошибка при получении главного пункта самовывоза');
-    }
-  }
+	/**
+	 * Получить главный пункт самовывоза
+	 */
+	async getMainPickupPoint() {
+		try {
+			const point = await PickupPointModel.findOne({
+				isMain: true,
+				isActive: true,
+			}).lean();
 
-  /**
-   * Получить пункт самовывоза по ID
-   */
-  async getPickupPointById(id) {
-    try {
-      const point = await PickupPointModel.findById(id).lean();
-      
-      if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
-      }
+			return point;
+		} catch (error) {
+			logger.error("[PickupPointService] Error getting main pickup point:", error);
+			throw ApiError.DatabaseError("Ошибка при получении главного пункта самовывоза");
+		}
+	}
 
-      return point;
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error getting pickup point by id:', error);
-      throw ApiError.DatabaseError('Ошибка при получении пункта самовывоза');
-    }
-  }
+	/**
+	 * Получить пункт самовывоза по ID
+	 */
+	async getPickupPointById(id) {
+		try {
+			const point = await PickupPointModel.findById(id).lean();
 
-  /**
-   * Создать новый пункт самовывоза
-   */
-  async createPickupPoint(data, userId) {
-    try {
-      const pointData = {
-        ...data,
-        createdBy: userId,
-        updatedBy: userId
-      };
+			if (!point) {
+				throw ApiError.NotFound("Пункт самовывоза не найден");
+			}
 
-      // Если это первый пункт, делаем его главным
-      const count = await PickupPointModel.countDocuments();
-      if (count === 0) {
-        pointData.isMain = true;
-      }
+			return point;
+		} catch (error) {
+			if (error instanceof ApiError) throw error;
+			logger.error("[PickupPointService] Error getting pickup point by id:", error);
+			throw ApiError.DatabaseError("Ошибка при получении пункта самовывоза");
+		}
+	}
 
-      const point = new PickupPointModel(pointData);
-      await point.save();
+	/**
+	 * Создать новый пункт самовывоза
+	 */
+	async createPickupPoint(data, userId) {
+		try {
+			const pointData = {
+				...data,
+				createdBy: userId,
+				updatedBy: userId,
+			};
 
-      // Инвалидируем кеш
-      await this.cache.invalidatePickupPoints();
+			// Если это первый пункт, делаем его главным
+			const count = await PickupPointModel.countDocuments();
+			if (count === 0) {
+				pointData.isMain = true;
+			}
 
-      logger.info(`[PickupPointService] Pickup point created: ${point.name} by user ${userId}`);
+			const point = new PickupPointModel(pointData);
+			await point.save();
 
-      return point.toObject();
-    } catch (error) {
-      logger.error('[PickupPointService] Error creating pickup point:', error);
-      
-      if (error.code === 11000) {
-        throw ApiError.BadRequest('Пункт самовывоза с таким именем уже существует');
-      }
-      
-      throw ApiError.DatabaseError('Ошибка при создании пункта самовывоза');
-    }
-  }
+			// Инвалидируем кеш
+			await this.cache.invalidatePickupPoints();
 
-  /**
-   * Обновить пункт самовывоза
-   */
-  async updatePickupPoint(id, data, userId) {
-    try {
-      const point = await PickupPointModel.findById(id);
-      
-      if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
-      }
+			logger.info(`[PickupPointService] Pickup point created: ${point.name} by user ${userId}`);
 
-      // Обновляем поля
-      Object.keys(data).forEach(key => {
-        if (key !== '_id' && key !== '__v') {
-          point[key] = data[key];
-        }
-      });
+			return point.toObject();
+		} catch (error) {
+			logger.error("[PickupPointService] Error creating pickup point:", error);
 
-      point.updatedBy = userId;
-      await point.save();
+			if (error.code === 11000) {
+				throw ApiError.BadRequest("Пункт самовывоза с таким именем уже существует");
+			}
 
-      // Инвалидируем кеш
-      await this.cache.invalidatePickupPoints();
+			throw ApiError.DatabaseError("Ошибка при создании пункта самовывоза");
+		}
+	}
 
-      logger.info(`[PickupPointService] Pickup point updated: ${point.name} by user ${userId}`);
+	/**
+	 * Обновить пункт самовывоза
+	 */
+	async updatePickupPoint(id, data, userId) {
+		try {
+			const point = await PickupPointModel.findById(id);
 
-      return point.toObject();
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error updating pickup point:', error);
-      throw ApiError.DatabaseError('Ошибка при обновлении пункта самовывоза');
-    }
-  }
+			if (!point) {
+				throw ApiError.NotFound("Пункт самовывоза не найден");
+			}
 
-  /**
-   * Удалить пункт самовывоза
-   */
-  async deletePickupPoint(id, userId) {
-    try {
-      const point = await PickupPointModel.findById(id);
-      
-      if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
-      }
+			// Обновляем поля
+			Object.keys(data).forEach((key) => {
+				if (key !== "_id" && key !== "__v") {
+					point[key] = data[key];
+				}
+			});
 
-      // Если удаляем главный пункт, назначаем новый главный
-      if (point.isMain) {
-        const nextPoint = await PickupPointModel.findOne({ 
-          _id: { $ne: id }, 
-          isActive: true 
-        }).sort({ orderIndex: 1 });
+			point.updatedBy = userId;
+			await point.save();
 
-        if (nextPoint) {
-          nextPoint.isMain = true;
-          await nextPoint.save();
-        }
-      }
+			// Инвалидируем кеш
+			await this.cache.invalidatePickupPoints();
 
-      await PickupPointModel.findByIdAndDelete(id);
+			logger.info(`[PickupPointService] Pickup point updated: ${point.name} by user ${userId}`);
 
-      // Инвалидируем кеш
-      await this.cache.invalidatePickupPoints();
+			return point.toObject();
+		} catch (error) {
+			if (error instanceof ApiError) throw error;
+			logger.error("[PickupPointService] Error updating pickup point:", error);
+			throw ApiError.DatabaseError("Ошибка при обновлении пункта самовывоза");
+		}
+	}
 
-      logger.info(`[PickupPointService] Pickup point deleted: ${point.name} by user ${userId}`);
+	/**
+	 * Удалить пункт самовывоза
+	 */
+	async deletePickupPoint(id, userId) {
+		try {
+			const point = await PickupPointModel.findById(id);
 
-      return { success: true, message: 'Пункт самовывоза удален' };
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error deleting pickup point:', error);
-      throw ApiError.DatabaseError('Ошибка при удалении пункта самовывоза');
-    }
-  }
+			if (!point) {
+				throw ApiError.NotFound("Пункт самовывоза не найден");
+			}
 
-  /**
-   * Изменить статус активности
-   */
-  async togglePickupPointStatus(id, userId) {
-    try {
-      const point = await PickupPointModel.findById(id);
-      
-      if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
-      }
+			// Если удаляем главный пункт, назначаем новый главный
+			if (point.isMain) {
+				const nextPoint = await PickupPointModel.findOne({
+					_id: { $ne: id },
+					isActive: true,
+				}).sort({ orderIndex: 1 });
 
-      point.isActive = !point.isActive;
-      point.updatedBy = userId;
-      await point.save();
+				if (nextPoint) {
+					nextPoint.isMain = true;
+					await nextPoint.save();
+				}
+			}
 
-      // Если деактивируем главный пункт, назначаем новый
-      if (!point.isActive && point.isMain) {
-        const nextPoint = await PickupPointModel.findOne({ 
-          _id: { $ne: id }, 
-          isActive: true 
-        }).sort({ orderIndex: 1 });
+			await PickupPointModel.findByIdAndDelete(id);
 
-        if (nextPoint) {
-          nextPoint.isMain = true;
-          await nextPoint.save();
-        }
-      }
+			// Инвалидируем кеш
+			await this.cache.invalidatePickupPoints();
 
-      // Инвалидируем кеш
-      await this.cache.invalidatePickupPoints();
+			logger.info(`[PickupPointService] Pickup point deleted: ${point.name} by user ${userId}`);
 
-      logger.info(`[PickupPointService] Pickup point status toggled: ${point.name} to ${point.isActive} by user ${userId}`);
+			return { success: true, message: "Пункт самовывоза удален" };
+		} catch (error) {
+			if (error instanceof ApiError) throw error;
+			logger.error("[PickupPointService] Error deleting pickup point:", error);
+			throw ApiError.DatabaseError("Ошибка при удалении пункта самовывоза");
+		}
+	}
 
-      return point.toObject();
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error toggling pickup point status:', error);
-      throw ApiError.DatabaseError('Ошибка при изменении статуса пункта самовывоза');
-    }
-  }
+	/**
+	 * Изменить статус активности
+	 */
+	async togglePickupPointStatus(id, userId) {
+		try {
+			const point = await PickupPointModel.findById(id);
 
-  /**
-   * Сделать пункт главным
-   */
-  async setAsMainPickupPoint(id, userId) {
-    try {
-      const point = await PickupPointModel.findById(id);
-      
-      if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
-      }
+			if (!point) {
+				throw ApiError.NotFound("Пункт самовывоза не найден");
+			}
 
-      if (!point.isActive) {
-        throw ApiError.BadRequest('Нельзя сделать неактивный пункт главным');
-      }
+			point.isActive = !point.isActive;
+			point.updatedBy = userId;
+			await point.save();
 
-      // Сбрасываем isMain у всех пунктов
-      await PickupPointModel.updateMany(
-        { _id: { $ne: id } },
-        { isMain: false }
-      );
+			// Если деактивируем главный пункт, назначаем новый
+			if (!point.isActive && point.isMain) {
+				const nextPoint = await PickupPointModel.findOne({
+					_id: { $ne: id },
+					isActive: true,
+				}).sort({ orderIndex: 1 });
 
-      // Устанавливаем выбранный пункт как главный
-      point.isMain = true;
-      point.updatedBy = userId;
-      await point.save();
+				if (nextPoint) {
+					nextPoint.isMain = true;
+					await nextPoint.save();
+				}
+			}
 
-      // Инвалидируем кеш
-      await this.cache.invalidatePickupPoints();
+			// Инвалидируем кеш
+			await this.cache.invalidatePickupPoints();
 
-      logger.info(`[PickupPointService] Pickup point set as main: ${point.name} by user ${userId}`);
+			logger.info(
+				`[PickupPointService] Pickup point status toggled: ${point.name} to ${point.isActive} by user ${userId}`,
+			);
 
-      return point.toObject();
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error setting pickup point as main:', error);
-      throw ApiError.DatabaseError('Ошибка при установке главного пункта');
-    }
-  }
+			return point.toObject();
+		} catch (error) {
+			if (error instanceof ApiError) throw error;
+			logger.error("[PickupPointService] Error toggling pickup point status:", error);
+			throw ApiError.DatabaseError("Ошибка при изменении статуса пункта самовывоза");
+		}
+	}
 
-  /**
-   * Обновить порядок пунктов
-   */
-  async updatePickupPointsOrder(orderedIds, userId) {
-    try {
-      const session = await mongoose.startSession();
-      
-      try {
-        session.startTransaction();
+	/**
+	 * Сделать пункт главным
+	 */
+	async setAsMainPickupPoint(id, userId) {
+		try {
+			const point = await PickupPointModel.findById(id);
 
-        for (let i = 0; i < orderedIds.length; i++) {
-          const id = orderedIds[i];
-          await PickupPointModel.findByIdAndUpdate(
-            id,
-            { 
-              orderIndex: i,
-              updatedBy: userId
-            },
-            { session }
-          );
-        }
+			if (!point) {
+				throw ApiError.NotFound("Пункт самовывоза не найден");
+			}
 
-        await session.commitTransaction();
+			if (!point.isActive) {
+				throw ApiError.BadRequest("Нельзя сделать неактивный пункт главным");
+			}
 
-        // Инвалидируем кеш
-        await this.cache.invalidatePickupPoints();
+			// Сбрасываем isMain у всех пунктов
+			await PickupPointModel.updateMany({ _id: { $ne: id } }, { isMain: false });
 
-        logger.info(`[PickupPointService] Pickup points order updated by user ${userId}`);
+			// Устанавливаем выбранный пункт как главный
+			point.isMain = true;
+			point.updatedBy = userId;
+			await point.save();
 
-        return { success: true, message: 'Порядок пунктов обновлен' };
-      } catch (error) {
-        await session.abortTransaction();
-        throw error;
-      } finally {
-        session.endSession();
-      }
-    } catch (error) {
-      logger.error('[PickupPointService] Error updating pickup points order:', error);
-      throw ApiError.DatabaseError('Ошибка при обновлении порядка пунктов');
-    }
-  }
+			// Инвалидируем кеш
+			await this.cache.invalidatePickupPoints();
+
+			logger.info(`[PickupPointService] Pickup point set as main: ${point.name} by user ${userId}`);
+
+			return point.toObject();
+		} catch (error) {
+			if (error instanceof ApiError) throw error;
+			logger.error("[PickupPointService] Error setting pickup point as main:", error);
+			throw ApiError.DatabaseError("Ошибка при установке главного пункта");
+		}
+	}
+
+	/**
+	 * Обновить порядок пунктов
+	 */
+	async updatePickupPointsOrder(orderedIds, userId) {
+		try {
+			const session = await mongoose.startSession();
+
+			try {
+				session.startTransaction();
+
+				for (let i = 0; i < orderedIds.length; i++) {
+					const id = orderedIds[i];
+					await PickupPointModel.findByIdAndUpdate(
+						id,
+						{
+							orderIndex: i,
+							updatedBy: userId,
+						},
+						{ session },
+					);
+				}
+
+				await session.commitTransaction();
+
+				// Инвалидируем кеш
+				await this.cache.invalidatePickupPoints();
+
+				logger.info(`[PickupPointService] Pickup points order updated by user ${userId}`);
+
+				return { success: true, message: "Порядок пунктов обновлен" };
+			} catch (error) {
+				await session.abortTransaction();
+				throw error;
+			} finally {
+				session.endSession();
+			}
+		} catch (error) {
+			logger.error("[PickupPointService] Error updating pickup points order:", error);
+			throw ApiError.DatabaseError("Ошибка при обновлении порядка пунктов");
+		}
+	}
 }
 
-module.exports = new PickupPointService();
+export default new PickupPointService();

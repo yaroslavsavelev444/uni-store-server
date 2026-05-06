@@ -1,7 +1,8 @@
-const express = require("express");
-const router = express.Router();
+import { Router } from "express";
 
-const promoBlocksController = require("../controllers/promoBlocksController");
+const router = Router();
+
+import promoBlocksController from "../controllers/promoBlocksController";
 
 router.get("/getPromoBlocks", promoBlocksController.getPromoBlocks);
 router.get("/getMainMaterials", promoBlocksController.getMainMaterials);
@@ -9,4 +10,4 @@ router.get("/getMainMaterials", promoBlocksController.getMainMaterials);
 // router.post("/editPromoBlock/:id", adminController.editPromoBlock);
 // router.delete("/deletePromoBlock/:id", adminController.deletePromoBlock);
 
-module.exports = router;
+export default router;

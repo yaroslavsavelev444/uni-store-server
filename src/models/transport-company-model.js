@@ -1,21 +1,21 @@
-const { Schema, model } = require("mongoose");
+import { model, Schema } from "mongoose";
 
 const TransportCompanySchema = new Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true
-    },
-    isActive: {
-      type: Boolean,
-      default: true
-    }
-  },
-  {
-    timestamps: true
-  }
+	{
+		name: {
+			type: String,
+			required: true,
+			unique: true,
+			trim: true,
+		},
+		isActive: {
+			type: Boolean,
+			default: true,
+		},
+	},
+	{
+		timestamps: true,
+	},
 );
 
-module.exports = model("TransportCompany", TransportCompanySchema);
+export default model("TransportCompany", TransportCompanySchema);

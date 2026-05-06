@@ -1,19 +1,29 @@
-const express = require("express");
-const router = express.Router();
-const bannerController = require("../controllers/bannerController");
-const authMiddleware = require("../middlewares/auth-middleware");
+import { Router } from "express";
+
+const router = Router();
+
+import {
+	changeStatus,
+	create,
+	getAll,
+	getById,
+	getForUser,
+	remove,
+	update,
+} from "../controllers/bannerController";
+import authMiddleware from "../middlewares/auth-middleware";
 
 // Публичный роут для пользователей
-router.get("/for-user", authMiddleware(['all']), bannerController.getForUser);
+router.get("/for-user", authMiddleware(["all"]), getForUser);
 
 // Админские роуты
 router.use(authMiddleware(["admin"]));
 
-router.post("/", bannerController.create);
-router.put("/:id", bannerController.update);
-router.get("/", bannerController.getAll);
-router.get("/:id", bannerController.getById);
-router.delete("/:id", bannerController.remove);
-router.patch("/:id/status", bannerController.changeStatus);
+router.post("/", create);
+router.put("/:id", update);
+router.get("/", getAll);
+router.get("/:id", getById);
+router.delete("/:id", remove);
+router.patch("/:id/status", changeStatus);
 
-module.exports = router;
+export default router;
