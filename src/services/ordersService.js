@@ -979,6 +979,9 @@ class OrderService {
  * Отправка уведомлений о создании заказа
  */
 async sendOrderNotifications(order, user) {
+
+  console.log("[OrderService] Отправка уведомлений о создании заказа", order, user);
+  
   try {
     // Получаем ВСЕХ администраторов
     const admins = await UserModel.find({ role: "admin" });
@@ -1025,7 +1028,7 @@ async sendOrderNotifications(order, user) {
 });
 
     await sendPushNotification({
-      userId: user._id,
+      userId: user.id,
       title: "Новый заказ",
       body: `Новый заказ No${order.orderNumber}`,
     });

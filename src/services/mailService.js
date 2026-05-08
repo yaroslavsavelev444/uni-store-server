@@ -25,12 +25,15 @@ const sendMail = async ({ to, subject, text, html }) => {
   const transporter = createTransporter();
 
   const mailOptions = {
-    from: `"ООО НПО "Полет" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-    html,
-  };
+  from: {
+    name: 'ООО НПО "Полет"',    
+    address: process.env.SMTP_USER
+  },
+  to,
+  subject,
+  text,
+  html,
+};
 
   try {
     await transporter.sendMail(mailOptions);
@@ -59,33 +62,29 @@ const sendNotification = async ({ email, type, data }) => {
     }
 
     case "newOrderUser": {
-      subject = `Заказ №${order.orderNumber} создан`;
-      text = `Заказ №${order.orderNumber} создан.
+  subject = `Заказ №${data.orderNumber} успешно создан`;
 
-Сумма: ${order.pricing.total} ${order.pricing.currency}
-
+  text = `Заказ №${data.orderNumber} успешно создан.
+Сумма: ${data.order?.pricing?.total || 0} ${data.order?.pricing?.currency || 'RUB'}
 Детали заказа доступны в личном кабинете.
-
 ООО НПО Полет`;
 
-      html = renderTemplate("newOrderUser", {
-        ...data,
-      });
-      break;
-    }
+  html = renderTemplate("newOrderUser", {
+    ...data,
+    companyName: "ООО НПО Полет",
+  });
+  break;
+}
 
     case "newOrderAdmin": {
   subject = `Новый заказ №${data.orderNumber}`;
 
   text = `Новый заказ.
-
 Номер: ${data.orderNumber}
-Клиент: ${data.customer.name}
-Email: ${data.customer.email}
-Телефон: ${data.customer.phone}
-Сумма: ${data.orderData.pricing.total} ${data.orderData.pricing.currency}
-
-Ссылка: https://yourdomain.com/admin/orders/${data.orderData._id}
+Клиент: ${data.customer?.name || 'Не указано'}
+Email: ${data.customer?.email || 'Не указан'}
+Телефон: ${data.customer?.phone || 'Не указан'}
+Сумма: ${data.orderData?.pricing?.total || 0} ${data.orderData?.pricing?.currency || 'RUB'}
 
 ООО НПО ПОЛЕТ`;
 
@@ -93,7 +92,6 @@ Email: ${data.customer.email}
     ...data,
     companyName: "ООО НПО ПОЛЕТ",
   });
-
   break;
 }
     case "twofaCode": {
