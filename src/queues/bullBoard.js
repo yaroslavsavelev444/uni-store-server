@@ -2,7 +2,7 @@ import { createBullBoard } from "@bull-board/api";
 import { BullAdapter } from "@bull-board/api/bullAdapter";
 import { ExpressAdapter } from "@bull-board/express";
 import { Router } from "express";
-import { moderateQueues, pushNotificationsQueues, taskQueues } from "./bull";
+import { moderateQueues, pushNotificationsQueues, taskQueues } from "./bull.js";
 
 const serverAdapter = new ExpressAdapter();
 

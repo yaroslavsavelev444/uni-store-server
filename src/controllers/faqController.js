@@ -10,7 +10,7 @@ import {
 	reorderTopics as _reorderTopics,
 	updateQuestion as _updateQuestion,
 	updateTopic as _updateTopic,
-} from "../services/faqService";
+} from "../services/faqService.js";
 
 class FaqController {
 	async getPublicFaq(_req, res, next) {

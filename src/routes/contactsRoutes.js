@@ -2,9 +2,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import organizationContactController from "../controllers/contactsController";
-import authMiddleware from "../middlewares/auth-middleware";
-import { validateCreateUpdate } from "../validators/contacts.validator";
+import organizationContactController from "../controllers/contactsController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import { validateCreateUpdate } from "../validators/contacts.validator.js";
 
 // Публичные роуты - получают только активные контакты
 router.get("/", organizationContactController.getContacts);

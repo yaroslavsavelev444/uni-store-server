@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 import { createTransport } from "nodemailer";
-import renderTemplate from "../emailTemplates/renderer";
-import { BadRequest } from "../exceptions/api-error";
-import { formattedDate } from "../utils/formats";
+import renderTemplate from "../emailTemplates/renderer.js";
+import { BadRequest } from "../exceptions/api-error.js";
+import { formattedDate } from "../utils/formats.js";
 
 dotenv.config();
 

@@ -1,9 +1,9 @@
 import { promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
-import ApiError from "../exceptions/api-error";
-import { ProductStatus } from "../models/product-model";
-import productService from "../services/productService";
-import { processProductFiles } from "../utils/productFileProcessor";
+import ApiError from "../exceptions/api-error.js";
+import { ProductStatus } from "../models/product-model.js";
+import productService from "../services/productService.js";
+import { processProductFiles } from "../utils/productFileProcessor.js";
 
 const productController = {
 	async getAllProducts(req, res, next) {

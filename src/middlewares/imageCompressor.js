@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { dirname, extname, join, parse } from "node:path";
 import sharp, { fit as _fit } from "sharp";
-import logger from "../logger/logger";
+import logger from "../logger/logger.js";
 
 class ImageCompressor {
 	/**

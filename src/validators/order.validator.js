@@ -1,6 +1,6 @@
 import { alternatives, any, boolean, exist, forbidden, object, string } from "joi";
 import { Types } from "mongoose";
-import { DeliveryMethod, PaymentMethod } from "../models/order-model";
+import { DeliveryMethod, PaymentMethod } from "../models/order-model.js";
 
 // Базовые схемы валидации
 

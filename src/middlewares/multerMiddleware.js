@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import multer, { diskStorage } from "multer";
 import sanitize from "sanitize-filename";
-import logger from "../logger/logger";
+import logger from "../logger/logger.js";
 
 // Разрешённые расширения и MIME (вынести в config)
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];

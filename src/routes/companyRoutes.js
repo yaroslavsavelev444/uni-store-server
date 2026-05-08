@@ -3,48 +3,54 @@ import { Router } from "express";
 
 const router = Router();
 
-import {
-	createCompany,
-	deleteCompany,
-	getCompanies,
-	getCompanyById,
-	getCompanyByTaxNumber,
-	getDefaultCompany,
-	searchCompanies,
-	syncCache,
-	updateCompany,
-} from "../controllers/companyController";
-import authMiddleware from "../middlewares/auth-middleware";
+import companyController from "../controllers/companyController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // ========== USER ROUTES ==========
 
 // Создание компании
-router.post("/", authMiddleware("user"), createCompany);
+router.post("/", authMiddleware("user"), companyController.createCompany);
 
 // Получение всех компаний пользователя
-router.get("/", authMiddleware("user"), getCompanies);
+router.get("/", authMiddleware("user"), companyController.getCompanies);
 
 // Получение компании по ID
-router.get("/:id", authMiddleware("user"), getCompanyById);
+router.get("/:id", authMiddleware("user"), companyController.getCompanyById);
 
 // Получение компании по ИНН
-router.get("/tax/:taxNumber", authMiddleware("user"), getCompanyByTaxNumber);
+router.get(
+  "/tax/:taxNumber",
+  authMiddleware("user"),
+  companyController.getCompanyByTaxNumber,
+);
 
 // Обновление компании
-router.put("/:id", authMiddleware("user"), updateCompany);
+router.put("/:id", authMiddleware("user"), companyController.updateCompany);
 
 // Удаление компании
-router.delete("/:id", authMiddleware("user"), deleteCompany);
+router.delete("/:id", authMiddleware("user"), companyController.deleteCompany);
 
 // Поиск компаний
-router.get("/search", authMiddleware("user"), searchCompanies);
+router.get(
+  "/search",
+  authMiddleware("user"),
+  companyController.searchCompanies,
+);
 
 // Получение дефолтной компании
-router.get("/default", authMiddleware("user"), getDefaultCompany);
+router.get(
+  "/default",
+  authMiddleware("user"),
+  companyController.getDefaultCompany,
+);
 
 // ========== ADMIN ROUTES ==========
 
 // Синхронизация кеша компаний (админ)
-router.post("/sync-cache", authMiddleware("admin"), syncCache);
+router.post(
+  "/sync-cache",
+  authMiddleware("admin"),
+  companyController.syncCache,
+);
 
 export default router;

@@ -1,7 +1,7 @@
 // server/middleware/deviceAuthMiddleware.js
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import { UserModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { UserModel } from "../models/index.models.js";
 
 // Политики доступа для разных ролей (такие же как в deviceAccessMiddleware)
 const ROLE_ACCESS_POLICIES = {

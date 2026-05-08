@@ -2,19 +2,19 @@ import { Router } from "express";
 
 const router = Router();
 
-import productController from "../controllers/productsController";
-import authMiddleware from "../middlewares/auth-middleware";
-import _default from "../middlewares/validation.middleware";
+import productController from "../controllers/productsController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import _default from "../middlewares/validation.middleware.js";
 import {
 	createProductSchema,
 	productQuerySchema,
 	updateProductSchema,
-} from "../validators/product.validator";
+} from "../validators/product.validator.js";
 
 const { validateObjectId, validateQueryParams } = _default;
 
 import { number, object, string } from "joi";
-import __default from "../validators/product.validator";
+import __default from "../validators/product.validator.js";
 
 const { validateProduct } = __default; // или где у вас лежит файл
 

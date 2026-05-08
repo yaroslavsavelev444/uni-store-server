@@ -1,4 +1,4 @@
-import cartService from "../services/cartService";
+import cartService from "../services/cartService.js";
 
 class CartController {
 	async getCart(req, res, next) {

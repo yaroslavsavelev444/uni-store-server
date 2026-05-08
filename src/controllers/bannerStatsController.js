@@ -1,5 +1,5 @@
-import ApiError from "../exceptions/api-error";
-import bannerStatsService from "../services/bannerStatsService";
+import ApiError from "../exceptions/api-error.js";
+import bannerStatsService from "../services/bannerStatsService.js";
 
 class BannerStatsController {
 	async markViewed(req, res, next) {

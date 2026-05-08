@@ -1,7 +1,7 @@
 // services/rating.service.js
-import { ProductModel, ProductReviewModel } from "../models/index.models";
+import { ProductModel, ProductReviewModel } from "../models/index.models.js";
 
-import redisClient from "../redis/redis.client";
+import redisClient from "../redis/redis.client.js";
 
 class RatingService {
 	constructor() {

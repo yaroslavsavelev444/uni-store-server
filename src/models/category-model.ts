@@ -1,0 +1,145 @@
+import mongoose, { model, Schema, type Types } from "mongoose";
+import type {
+  CategoryModelType,
+  ICategory,
+  ICategoryDocument,
+} from "../types/category.types.js";
+import fileService from "../utils/fileManager.js";
+
+const CategorySchema = new Schema<
+  ICategory,
+  CategoryModelType,
+  ICategoryMethods
+>(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 100,
+      index: true,
+    },
+    slug: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+      match: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      index: true,
+    },
+    subtitle: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+    },
+    image: {
+      url: { type: String },
+      alt: { type: String, maxlength: 255 },
+      size: Number,
+      mimetype: String,
+    },
+    order: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    metaTitle: { type: String, maxlength: 255 },
+    metaDescription: { type: String, maxlength: 500 },
+    keywords: [{ type: String, maxlength: 50 }],
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
+);
+
+// Виртуальное поле productCount (подсчёт продуктов)
+CategorySchema.virtual("productCount", {
+  ref: "Product",
+  localField: "_id",
+  foreignField: "category",
+  count: true,
+});
+
+// Индексы
+CategorySchema.index({ slug: 1 }, { unique: true });
+CategorySchema.index({ isActive: 1, order: 1 });
+CategorySchema.index({ name: "text", description: "text" });
+
+// Middleware для генерации slug
+CategorySchema.pre("save", function (this: ICategoryDocument, next) {
+  if (!this.slug && this.name) {
+    this.slug = this.name
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/--+/g, "-");
+  }
+  next();
+});
+
+// Middleware для преобразования URL изображения (find, findOne, findById)
+CategorySchema.post(["find", "findOne", "findById"], (docs: any) => {
+  if (!docs) return;
+
+  const processDocument = (doc: ICategoryDocument | null) => {
+    if (doc?.image?.url && !doc.image.url.startsWith("http")) {
+      doc.image.url = fileService.getFileUrl(doc.image.url);
+    }
+    return doc;
+  };
+
+  if (Array.isArray(docs)) {
+    return docs.map(processDocument);
+  } else {
+    return processDocument(docs);
+  }
+});
+
+// Middleware для lean-документов (aggregate)
+CategorySchema.post("aggregate", (docs: any[]) => {
+  if (!docs || !Array.isArray(docs)) return docs;
+
+  return docs.map((doc) => {
+    if (doc?.image?.url && !doc.image.url.startsWith("http")) {
+      doc.image.url = fileService.getFileUrl(doc.image.url);
+    }
+    return doc;
+  });
+});
+
+// Статический метод exists
+CategorySchema.statics.exists = async function (
+  this: CategoryModelType,
+  id: string | Types.ObjectId,
+): Promise<boolean> {
+  if (!mongoose.Types.ObjectId.isValid(id)) return false;
+  const count = await this.countDocuments({ _id: id });
+  return count > 0;
+};
+
+export default model<ICategoryDocument, CategoryModelType>(
+  "Category",
+  CategorySchema,
+);

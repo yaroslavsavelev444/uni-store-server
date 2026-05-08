@@ -2,9 +2,9 @@
 
 import { default as mongoose } from "mongoose";
 import sanitize from "sanitize-filename";
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import feedbackService from "../services/feedbackService";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import feedbackService from "../services/feedbackService.js";
 
 const sanitizeInput = (data) => {
 	if (typeof data === "string") {

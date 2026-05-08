@@ -3,9 +3,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import pickupPointController from "../controllers/pickupPointController";
-import transportCompanyController from "../controllers/transportCompanyController";
-import authMiddleware from "../middlewares/auth-middleware";
+import pickupPointController from "../controllers/pickupPointController.js";
+import transportCompanyController from "../controllers/transportCompanyController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Публичные роуты
 router.get("/pickup-points", pickupPointController.getPickupPoints);

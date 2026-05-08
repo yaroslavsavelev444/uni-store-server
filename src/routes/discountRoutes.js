@@ -2,8 +2,8 @@ import { Router } from "express";
 
 const router = Router();
 
-import discountController from "../controllers/discountController";
-import authMiddleware from "../middlewares/auth-middleware";
+import discountController from "../controllers/discountController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Валидационные схемы (если используете Joi или аналоги)
 // const discountValidation = require("../validations/discount-validation");

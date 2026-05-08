@@ -1,6 +1,6 @@
-import ApiError from "../exceptions/api-error";
-import { logAdminEvent } from "../logger/auditLogger";
-import TopicService from "../services/topicService";
+import ApiError from "../exceptions/api-error.js";
+import { logAdminEvent } from "../logger/auditLogger.js";
+import TopicService from "../services/topicService.js";
 
 class TopicController {
 	constructor() {

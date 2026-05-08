@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { basename, join, parse } from "node:path";
-import { getTempFileUrl, uploadsDir } from "../config/serverConfig";
-import logger from "../logger/logger";
-import FileManager from "../utils/fileManager";
+import { getTempFileUrl, uploadsDir } from "../config/serverConfig.js";
+import logger from "../logger/logger.js";
+import FileManager from "../utils/fileManager.js";
 
 class FileService {
 	constructor() {

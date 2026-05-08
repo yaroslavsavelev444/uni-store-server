@@ -1,10 +1,10 @@
 // middlewares/auth-middleware.js
 
-import { ForbiddenError, UnauthorizedError } from "../exceptions/api-error.js";
+import ApiError from "../exceptions/api-error.js";
 import logger from "../logger/logger.js";
-import { isSessionRevoked } from "../services/SessionService.js";
-import { validateAccessToken, validateRefreshToken } from "../services/tokenService.js";
-import { checkUserBlockStatus } from "../services/userSanctionService.js";
+import SessionService from "../services/SessionService.js";
+import tokenService from "../services/tokenService.js";
+import userSanctionService from "../services/userSanctionService.js";
 
 /**
  * Универсальная миддлвара для проверки авторизации
@@ -16,385 +16,414 @@ import { checkUserBlockStatus } from "../services/userSanctionService.js";
  * @returns {Function} Express middleware
  */
 export default function createAuthMiddleware(options = {}) {
-	// Парсим параметры для обратной совместимости
-	const parseOptions = (input) => {
-		if (Array.isArray(input)) {
-			return { allowedRoles: input, optional: false };
-		}
-		if (typeof input === "object") {
-			return {
-				allowedRoles: input.allowedRoles || [],
-				optional: input.optional || false,
-				checkBlock: input.checkBlock !== false, // По умолчанию проверяем блокировку
-			};
-		}
-		return { allowedRoles: [], optional: false, checkBlock: true };
-	};
+  // Парсим параметры для обратной совместимости
+  const parseOptions = (input) => {
+    if (Array.isArray(input)) {
+      return { allowedRoles: input, optional: false };
+    }
+    if (typeof input === "object") {
+      return {
+        allowedRoles: input.allowedRoles || [],
+        optional: input.optional || false,
+        checkBlock: input.checkBlock !== false, // По умолчанию проверяем блокировку
+      };
+    }
+    return { allowedRoles: [], optional: false, checkBlock: true };
+  };
 
-	const { allowedRoles, optional, checkBlock } = parseOptions(options);
+  const { allowedRoles, optional, checkBlock } = parseOptions(options);
 
-	return async (req, _res, next) => {
-		try {
-			const authorizationHeader = req.headers.authorization;
-			logger.debug("Authorization header:", authorizationHeader);
+  return async (req, _res, next) => {
+    try {
+      const authorizationHeader = req.headers.authorization;
+      logger.debug("Authorization header:", authorizationHeader);
 
-			// Если нет заголовка авторизации
-			if (!authorizationHeader) {
-				if (optional) {
-					// Опциональный режим: продолжаем без пользователя
-					req.user = null;
-					logger.debug("Опциональный режим: заголовок авторизации отсутствует, user = null");
-					return next();
-				} else {
-					// Обязательный режим: возвращаем ошибку
-					logger.warn("Заголовок авторизации отсутствует (обязательная проверка)");
-					return next(UnauthorizedError());
-				}
-			}
+      // Если нет заголовка авторизации
+      if (!authorizationHeader) {
+        if (optional) {
+          // Опциональный режим: продолжаем без пользователя
+          req.user = null;
+          logger.debug(
+            "Опциональный режим: заголовок авторизации отсутствует, user = null",
+          );
+          return next();
+        } else {
+          // Обязательный режим: возвращаем ошибку
+          logger.warn(
+            "Заголовок авторизации отсутствует (обязательная проверка)",
+          );
+          return next(ApiError.UnauthorizedError());
+        }
+      }
 
-			// Извлекаем токен
-			const tokenParts = authorizationHeader.split(" ");
-			if (tokenParts.length !== 2 || tokenParts[0].toLowerCase() !== "bearer") {
-				if (optional) {
-					req.user = null;
-					logger.debug("Опциональный режим: неверный формат заголовка, user = null");
-					return next();
-				} else {
-					logger.warn("Неверный формат заголовка авторизации");
-					return next(UnauthorizedError());
-				}
-			}
+      // Извлекаем токен
+      const tokenParts = authorizationHeader.split(" ");
+      if (tokenParts.length !== 2 || tokenParts[0].toLowerCase() !== "bearer") {
+        if (optional) {
+          req.user = null;
+          logger.debug(
+            "Опциональный режим: неверный формат заголовка, user = null",
+          );
+          return next();
+        } else {
+          logger.warn("Неверный формат заголовка авторизации");
+          return next(ApiError.UnauthorizedError());
+        }
+      }
 
-			const accessToken = tokenParts[1];
-			if (!accessToken) {
-				if (optional) {
-					req.user = null;
-					logger.debug("Опциональный режим: токен отсутствует, user = null");
-					return next();
-				} else {
-					logger.warn("Токен отсутствует");
-					return next(UnauthorizedError());
-				}
-			}
+      const accessToken = tokenParts[1];
+      if (!accessToken) {
+        if (optional) {
+          req.user = null;
+          logger.debug("Опциональный режим: токен отсутствует, user = null");
+          return next();
+        } else {
+          logger.warn("Токен отсутствует");
+          return next(ApiError.UnauthorizedError());
+        }
+      }
 
-			// Валидируем access token
-			const userData = await validateAccessToken(accessToken);
-			if (!userData) {
-				if (optional) {
-					req.user = null;
-					logger.debug("Опциональный режим: невалидный токен, user = null");
-					return next();
-				} else {
-					logger.warn("Невалидный access token");
-					return next(UnauthorizedError());
-				}
-			}
+      // Валидируем access token
+      const userData = await tokenService.validateAccessToken(accessToken);
+      if (!userData) {
+        if (optional) {
+          req.user = null;
+          logger.debug("Опциональный режим: невалидный токен, user = null");
+          return next();
+        } else {
+          logger.warn("Невалидный access token");
+          return next(ApiError.UnauthorizedError());
+        }
+      }
 
-			// 🔐 ВСЕГДА ПРОВЕРЯЕМ REFRESH TOKEN НА ОТЗЫВ (только если пользователь найден)
-			try {
-				// Получаем refresh token из cookies или заголовков (fallback для Safari)
-				let refreshToken = req.cookies?.refreshToken;
+      // 🔐 ВСЕГДА ПРОВЕРЯЕМ REFRESH TOKEN НА ОТЗЫВ (только если пользователь найден)
+      try {
+        // Получаем refresh token из cookies или заголовков (fallback для Safari)
+        let refreshToken = req.cookies?.refreshToken;
 
-				// Fallback для Safari: если нет в cookies, проверяем заголовок
-				if (!refreshToken && req.headers["refresh-token"]) {
-					refreshToken = req.headers["refresh-token"];
-					logger.debug("Используем refresh token из заголовка (Safari fallback)");
-				}
+        // Fallback для Safari: если нет в cookies, проверяем заголовок
+        if (!refreshToken && req.headers["refresh-token"]) {
+          refreshToken = req.headers["refresh-token"];
+          logger.debug(
+            "Используем refresh token из заголовка (Safari fallback)",
+          );
+        }
 
-				if (!refreshToken) {
-					throw new Error("Refresh token не найден");
-				}
+        if (!refreshToken) {
+          throw new Error("Refresh token не найден");
+        }
 
-				// Проверяем, что refresh token принадлежит этому пользователю
-				const refreshTokenData = await validateRefreshToken(refreshToken);
+        // Проверяем, что refresh token принадлежит этому пользователю
+        const refreshTokenData =
+          await tokenService.validateRefreshToken(refreshToken);
 
-				if (!refreshTokenData || refreshTokenData.id !== userData.id) {
-					throw new Error("Невалидный refresh token");
-				}
+        if (!refreshTokenData || refreshTokenData.id !== userData.id) {
+          throw new Error("Невалидный refresh token");
+        }
 
-				// Проверяем, не отозван ли токен
-				const isRevoked = await isSessionRevoked(refreshToken);
-				if (isRevoked) {
-					throw new Error("Refresh token отозван");
-				}
-			} catch (refreshTokenError) {
-				if (optional) {
-					req.user = null;
-					logger.debug("Опциональный режим: невалидный refresh token, user = null");
-					return next();
-				} else {
-					logger.warn("Невалидный refresh token:", refreshTokenError.message);
-					return next(UnauthorizedError());
-				}
-			}
+        // Проверяем, не отозван ли токен
+        const isRevoked = await SessionService.isSessionRevoked(refreshToken);
+        if (isRevoked) {
+          throw new Error("Refresh token отозван");
+        }
+      } catch (refreshTokenError) {
+        if (optional) {
+          req.user = null;
+          logger.debug(
+            "Опциональный режим: невалидный refresh token, user = null",
+          );
+          return next();
+        } else {
+          logger.warn("Невалидный refresh token:", refreshTokenError.message);
+          return next(ApiError.UnauthorizedError());
+        }
+      }
 
-			// 🔒 ПРОВЕРКА БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ (если включена)
-			if (checkBlock) {
-				try {
-					const blockStatus = await checkUserBlockStatus(userData.id);
-					console.log("blockStatus", blockStatus);
+      // 🔒 ПРОВЕРКА БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ (если включена)
+      if (checkBlock) {
+        try {
+          const blockStatus = await userSanctionService.checkUserBlockStatus(
+            userData.id,
+          );
+          console.log("blockStatus", blockStatus);
 
-					// Проверяем, заблокирован ли пользователь
-					if (blockStatus.user.status === "blocked") {
-						const blockedUntil = blockStatus.user.blockedUntil
-							? new Date(blockStatus.user.blockedUntil)
-							: null;
+          // Проверяем, заблокирован ли пользователь
+          if (blockStatus.user.status === "blocked") {
+            const blockedUntil = blockStatus.user.blockedUntil
+              ? new Date(blockStatus.user.blockedUntil)
+              : null;
 
-						const now = new Date();
-						let errorMessage = "Ваш аккаунт заблокирован";
+            const now = new Date();
+            let errorMessage = "Ваш аккаунт заблокирован";
 
-						// Формируем детальное сообщение
-						if (blockedUntil && blockedUntil > now) {
-							if (isPermanentBlock(blockedUntil)) {
-								errorMessage = "Ваш аккаунт заблокирован бессрочно";
-							} else {
-								const timeLeft = Math.ceil(
-									(blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60),
-								);
-								const days = Math.floor(timeLeft / 24);
-								const hours = timeLeft % 24;
+            // Формируем детальное сообщение
+            if (blockedUntil && blockedUntil > now) {
+              if (isPermanentBlock(blockedUntil)) {
+                errorMessage = "Ваш аккаунт заблокирован бессрочно";
+              } else {
+                const timeLeft = Math.ceil(
+                  (blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60),
+                );
+                const days = Math.floor(timeLeft / 24);
+                const hours = timeLeft % 24;
 
-								let timeLeftStr = "";
-								if (days > 0) {
-									timeLeftStr += `${days} ${getDaysText(days)}`;
-									if (hours > 0) {
-										timeLeftStr += ` ${hours} ${getHoursText(hours)}`;
-									}
-								} else {
-									timeLeftStr = `${hours} ${getHoursText(hours)}`;
-								}
+                let timeLeftStr = "";
+                if (days > 0) {
+                  timeLeftStr += `${days} ${getDaysText(days)}`;
+                  if (hours > 0) {
+                    timeLeftStr += ` ${hours} ${getHoursText(hours)}`;
+                  }
+                } else {
+                  timeLeftStr = `${hours} ${getHoursText(hours)}`;
+                }
 
-								errorMessage = `Ваш аккаунт заблокирован. Доступ будет восстановлен через ${timeLeftStr}`;
-							}
-						}
+                errorMessage = `Ваш аккаунт заблокирован. Доступ будет восстановлен через ${timeLeftStr}`;
+              }
+            }
 
-						// Логируем попытку доступа заблокированного пользователя
-						logger.warn(
-							`Заблокированный пользователь ${userData.id} (${userData.email}) попытался получить доступ к ${req.method} ${req.path}`,
-						);
+            // Логируем попытку доступа заблокированного пользователя
+            logger.warn(
+              `Заблокированный пользователь ${userData.id} (${userData.email}) попытался получить доступ к ${req.method} ${req.path}`,
+            );
 
-						return next(
-							ForbiddenError(errorMessage, null, {
-								blockDetails: {
-									status: "blocked",
-									blockedUntil: blockStatus.user.blockedUntil,
-									isPermanent: isPermanentBlock(blockedUntil),
-									activeSanctions: blockStatus.activeSanctions,
-								},
-							}),
-						);
-					}
+            return next(
+              ApiError.ForbiddenError(errorMessage, null, {
+                blockDetails: {
+                  status: "blocked",
+                  blockedUntil: blockStatus.user.blockedUntil,
+                  isPermanent: isPermanentBlock(blockedUntil),
+                  activeSanctions: blockStatus.activeSanctions,
+                },
+              }),
+            );
+          }
 
-					// Если пользователь был разблокирован автоматически (просроченная блокировка)
-					if (userData.status === "blocked" && blockStatus.user.status === "active") {
-						logger.info(
-							`Пользователь ${userData.id} автоматически разблокирован (просроченная блокировка)`,
-						);
-						// Обновляем статус в userData для дальнейшего использования
-						userData.status = "active";
-						userData.blockedUntil = null;
-					}
-				} catch (blockCheckError) {
-					// Если не удалось проверить статус блокировки, логируем и продолжаем
-					logger.error(
-						`Ошибка при проверке блокировки пользователя ${userData.id}:`,
-						blockCheckError,
-					);
-					// В случае ошибки не блокируем доступ, но логируем
-				}
-			}
+          // Если пользователь был разблокирован автоматически (просроченная блокировка)
+          if (
+            userData.status === "blocked" &&
+            blockStatus.user.status === "active"
+          ) {
+            logger.info(
+              `Пользователь ${userData.id} автоматически разблокирован (просроченная блокировка)`,
+            );
+            // Обновляем статус в userData для дальнейшего использования
+            userData.status = "active";
+            userData.blockedUntil = null;
+          }
+        } catch (blockCheckError) {
+          // Если не удалось проверить статус блокировки, логируем и продолжаем
+          logger.error(
+            `Ошибка при проверке блокировки пользователя ${userData.id}:`,
+            blockCheckError,
+          );
+          // В случае ошибки не блокируем доступ, но логируем
+        }
+      }
 
-			// Проверка роли (если заданы allowedRoles)
-			if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes("all")) {
-				if (!allowedRoles.includes(userData.role)) {
-					logger.warn(
-						`Пользователь ${userData.id} с ролью ${userData.role} не имеет доступа. Требуемые роли: ${allowedRoles.join(", ")}`,
-					);
+      // Проверка роли (если заданы allowedRoles)
+      if (
+        allowedRoles &&
+        allowedRoles.length > 0 &&
+        !allowedRoles.includes("all")
+      ) {
+        if (!allowedRoles.includes(userData.role)) {
+          logger.warn(
+            `Пользователь ${userData.id} с ролью ${userData.role} не имеет доступа. Требуемые роли: ${allowedRoles.join(", ")}`,
+          );
 
-					if (optional) {
-						// В опциональном режиме просто не устанавливаем пользователя
-						req.user = null;
-						logger.debug("Опциональный режим: роль не разрешена, user = null");
-						return next();
-					} else {
-						return next(ForbiddenError("Доступ запрещён"));
-					}
-				}
-			}
+          if (optional) {
+            // В опциональном режиме просто не устанавливаем пользователя
+            req.user = null;
+            logger.debug("Опциональный режим: роль не разрешена, user = null");
+            return next();
+          } else {
+            return next(ApiError.ForbiddenError("Доступ запрещён"));
+          }
+        }
+      }
 
-			// Устанавливаем пользователя в запрос (добавляем статус блокировки)
-			req.user = {
-				...userData,
-				status: userData.status || "active",
-				blockedUntil: userData.blockedUntil || null,
-			};
+      // Устанавливаем пользователя в запрос (добавляем статус блокировки)
+      req.user = {
+        ...userData,
+        status: userData.status || "active",
+        blockedUntil: userData.blockedUntil || null,
+      };
 
-			logger.info(
-				`Пользователь ${userData.id} с ролью ${userData.role} прошёл проверку ${optional ? "(опционально)" : "(обязательно)"}`,
-			);
+      logger.info(
+        `Пользователь ${userData.id} с ролью ${userData.role} прошёл проверку ${optional ? "(опционально)" : "(обязательно)"}`,
+      );
 
-			return next();
-		} catch (e) {
-			logger.error("Ошибка в универсальной миддлваре authMiddleware:", e);
+      return next();
+    } catch (e) {
+      logger.error("Ошибка в универсальной миддлваре authMiddleware:", e);
 
-			if (optional) {
-				// В опциональном режиме при ошибке продолжаем без пользователя
-				req.user = null;
-				logger.debug("Опциональный режим: ошибка при проверке, user = null");
-				return next();
-			} else {
-				return next(UnauthorizedError());
-			}
-		}
-	};
+      if (optional) {
+        // В опциональном режиме при ошибке продолжаем без пользователя
+        req.user = null;
+        logger.debug("Опциональный режим: ошибка при проверке, user = null");
+        return next();
+      } else {
+        return next(ApiError.UnauthorizedError());
+      }
+    }
+  };
 }
 
 // Создаем специальную middleware для refresh
 export function refreshMiddleware() {
-	return async (req, _res, next) => {
-		try {
-			// Для refresh endpoint мы проверяем refresh token из cookies или заголовков (fallback для Safari)
-			let refreshToken = req.cookies?.refreshToken;
+  return async (req, _res, next) => {
+    try {
+      // Для refresh endpoint мы проверяем refresh token из cookies или заголовков (fallback для Safari)
+      let refreshToken = req.cookies?.refreshToken;
 
-			// Fallback для Safari
-			if (!refreshToken && req.headers["refresh-token"]) {
-				refreshToken = req.headers["refresh-token"];
-				logger.debug("Refresh: используем token из заголовка (Safari fallback)");
-			}
+      // Fallback для Safari
+      if (!refreshToken && req.headers["refresh-token"]) {
+        refreshToken = req.headers["refresh-token"];
+        logger.debug(
+          "Refresh: используем token из заголовка (Safari fallback)",
+        );
+      }
 
-			if (!refreshToken) {
-				logger.warn("Refresh token not provided for refresh endpoint");
-				return next(UnauthorizedError());
-			}
+      if (!refreshToken) {
+        logger.warn("Refresh token not provided for refresh endpoint");
+        return next(ApiError.UnauthorizedError());
+      }
 
-			// Валидируем refresh token
-			const userData = await validateRefreshToken(refreshToken);
-			if (!userData) {
-				logger.warn("Invalid refresh token for refresh endpoint");
-				return next(UnauthorizedError());
-			}
+      // Валидируем refresh token
+      const userData = await tokenService.validateRefreshToken(refreshToken);
+      if (!userData) {
+        logger.warn("Invalid refresh token for refresh endpoint");
+        return next(ApiError.UnauthorizedError());
+      }
 
-			// Проверяем, не отозван ли токен
-			const isRevoked = await isSessionRevoked(refreshToken);
-			if (isRevoked) {
-				logger.warn("Refresh attempt with revoked token");
-				return next(UnauthorizedError());
-			}
+      // Проверяем, не отозван ли токен
+      const isRevoked = await SessionService.isSessionRevoked(refreshToken);
+      if (isRevoked) {
+        logger.warn("Refresh attempt with revoked token");
+        return next(ApiError.UnauthorizedError());
+      }
 
-			// 🔒 ПРОВЕРКА БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ ДЛЯ REFRESH
-			try {
-				const blockStatus = await checkUserBlockStatus(userData.id);
+      // 🔒 ПРОВЕРКА БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ ДЛЯ REFRESH
+      try {
+        const blockStatus = await userSanctionService.checkUserBlockStatus(
+          userData.id,
+        );
 
-				if (blockStatus.user.status === "blocked") {
-					logger.warn(`Заблокированный пользователь ${userData.id} пытается обновить токен`);
+        if (blockStatus.user.status === "blocked") {
+          logger.warn(
+            `Заблокированный пользователь ${userData.id} пытается обновить токен`,
+          );
 
-					// Для refresh endpoint возвращаем более подробную ошибку
-					const blockedUntil = blockStatus.user.blockedUntil
-						? new Date(blockStatus.user.blockedUntil)
-						: null;
+          // Для refresh endpoint возвращаем более подробную ошибку
+          const blockedUntil = blockStatus.user.blockedUntil
+            ? new Date(blockStatus.user.blockedUntil)
+            : null;
 
-					let errorMessage = "Аккаунт заблокирован";
-					if (blockedUntil && !isPermanentBlock(blockedUntil)) {
-						const now = new Date();
-						if (blockedUntil > now) {
-							errorMessage = `Аккаунт заблокирован до ${blockedUntil.toLocaleString("ru-RU")}`;
-						}
-					}
+          let errorMessage = "Аккаунт заблокирован";
+          if (blockedUntil && !isPermanentBlock(blockedUntil)) {
+            const now = new Date();
+            if (blockedUntil > now) {
+              errorMessage = `Аккаунт заблокирован до ${blockedUntil.toLocaleString("ru-RU")}`;
+            }
+          }
 
-					return next(ForbiddenError(errorMessage));
-				}
-			} catch (blockCheckError) {
-				logger.error(`Ошибка при проверке блокировки для refresh ${userData.id}:`, blockCheckError);
-				// В случае ошибки продолжаем
-			}
+          return next(ForbiddenError(errorMessage));
+        }
+      } catch (blockCheckError) {
+        logger.error(
+          `Ошибка при проверке блокировки для refresh ${userData.id}:`,
+          blockCheckError,
+        );
+        // В случае ошибки продолжаем
+      }
 
-			req.user = userData;
-			next();
-		} catch (e) {
-			logger.error("Error in refresh middleware:", e);
-			return next(UnauthorizedError());
-		}
-	};
+      req.user = userData;
+      next();
+    } catch (e) {
+      logger.error("Error in refresh middleware:", e);
+      return next(ApiError.UnauthorizedError());
+    }
+  };
 }
 
 /**
  * Вспомогательные функции для форматирования времени
  */
 function isPermanentBlock(blockedUntil) {
-	if (!blockedUntil) return false;
+  if (!blockedUntil) return false;
 
-	// Если блокировка более чем на 10 лет, считаем ее постоянной
-	const tenYearsFromNow = new Date();
-	tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
+  // Если блокировка более чем на 10 лет, считаем ее постоянной
+  const tenYearsFromNow = new Date();
+  tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
 
-	return blockedUntil > tenYearsFromNow;
+  return blockedUntil > tenYearsFromNow;
 }
 
 function getDaysText(days) {
-	if (days === 1) return "день";
-	if (days >= 2 && days <= 4) return "дня";
-	return "дней";
+  if (days === 1) return "день";
+  if (days >= 2 && days <= 4) return "дня";
+  return "дней";
 }
 
 function getHoursText(hours) {
-	if (hours === 1) return "час";
-	if (hours >= 2 && hours <= 4) return "часа";
-	return "часов";
+  if (hours === 1) return "час";
+  if (hours >= 2 && hours <= 4) return "часа";
+  return "часов";
 }
 
 /**
  * Вспомогательная функция для быстрого создания миддлвары с определенными ролями
  */
 export function withRoles(allowedRoles = [], options = {}) {
-	return createAuthMiddleware({
-		allowedRoles,
-		optional: false,
-		checkBlock: options.checkBlock !== false,
-	});
+  return createAuthMiddleware({
+    allowedRoles,
+    optional: false,
+    checkBlock: options.checkBlock !== false,
+  });
 }
 
 /**
  * Вспомогательная функция для создания опциональной миддлвары
  */
 export function optional(allowedRoles = [], options = {}) {
-	return createAuthMiddleware({
-		allowedRoles,
-		optional: true,
-		checkBlock: options.checkBlock !== false,
-	});
+  return createAuthMiddleware({
+    allowedRoles,
+    optional: true,
+    checkBlock: options.checkBlock !== false,
+  });
 }
 
 /**
  * Декоратор для маршрутов, требующих определенной роли
  */
 export function requireRole(role, options = {}) {
-	return createAuthMiddleware({
-		allowedRoles: [role],
-		optional: false,
-		checkBlock: options.checkBlock !== false,
-	});
+  return createAuthMiddleware({
+    allowedRoles: [role],
+    optional: false,
+    checkBlock: options.checkBlock !== false,
+  });
 }
 
 /**
  * Декоратор для маршрутов, доступных только аутентифицированным пользователям
  */
 export function requireAuth(options = {}) {
-	return createAuthMiddleware({
-		allowedRoles: ["all"],
-		optional: false,
-		checkBlock: options.checkBlock !== false,
-	});
+  return createAuthMiddleware({
+    allowedRoles: ["all"],
+    optional: false,
+    checkBlock: options.checkBlock !== false,
+  });
 }
 
 /**
  * Декоратор для опциональной проверки с любой ролью
  */
 export function optionalAuth(options = {}) {
-	return createAuthMiddleware({
-		allowedRoles: [],
-		optional: true,
-		checkBlock: options.checkBlock !== false,
-	});
+  return createAuthMiddleware({
+    allowedRoles: [],
+    optional: true,
+    checkBlock: options.checkBlock !== false,
+  });
 }
 
 /**
@@ -402,47 +431,53 @@ export function optionalAuth(options = {}) {
  * (например, для endpoints, которые должны быть доступны даже заблокированным пользователям)
  */
 export function withoutBlockCheck(options = {}) {
-	const baseOptions = typeof options === "object" ? options : {};
-	return createAuthMiddleware({
-		...baseOptions,
-		checkBlock: false,
-	});
+  const baseOptions = typeof options === "object" ? options : {};
+  return createAuthMiddleware({
+    ...baseOptions,
+    checkBlock: false,
+  });
 }
 
 /**
  * Миддлвара только для проверки блокировки (без проверки ролей)
  */
 export function blockCheckOnly() {
-	return async (req, _res, next) => {
-		if (!req.user?.id) {
-			return next();
-		}
+  return async (req, _res, next) => {
+    if (!req.user?.id) {
+      return next();
+    }
 
-		try {
-			const blockStatus = await checkUserBlockStatus(req.user.id);
+    try {
+      const blockStatus = await userSanctionService.checkUserBlockStatus(
+        req.user.id,
+      );
 
-			if (blockStatus.user.status === "blocked") {
-				const blockedUntil = blockStatus.user.blockedUntil
-					? new Date(blockStatus.user.blockedUntil)
-					: null;
+      if (blockStatus.user.status === "blocked") {
+        const blockedUntil = blockStatus.user.blockedUntil
+          ? new Date(blockStatus.user.blockedUntil)
+          : null;
 
-				let errorMessage = "Ваш аккаунт заблокирован";
+        let errorMessage = "Ваш аккаунт заблокирован";
 
-				if (blockedUntil && !isPermanentBlock(blockedUntil)) {
-					const now = new Date();
-					if (blockedUntil > now) {
-						const timeLeft = Math.ceil((blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60));
-						errorMessage = `Ваш аккаунт заблокирован. Доступ будет восстановлен через ${timeLeft} ${getHoursText(timeLeft)}`;
-					}
-				}
+        if (blockedUntil && !isPermanentBlock(blockedUntil)) {
+          const now = new Date();
+          if (blockedUntil > now) {
+            const timeLeft = Math.ceil(
+              (blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60),
+            );
+            errorMessage = `Ваш аккаунт заблокирован. Доступ будет восстановлен через ${timeLeft} ${getHoursText(timeLeft)}`;
+          }
+        }
 
-				return next(ForbiddenError(errorMessage));
-			}
+        return next(ForbiddenError(errorMessage));
+      }
 
-			next();
-		} catch (error) {
-			logger.error(`Ошибка при проверке блокировки в blockCheckOnly: ${error.message}`);
-			next(); // В случае ошибки разрешаем доступ
-		}
-	};
+      next();
+    } catch (error) {
+      logger.error(
+        `Ошибка при проверке блокировки в blockCheckOnly: ${error.message}`,
+      );
+      next(); // В случае ошибки разрешаем доступ
+    }
+  };
 }

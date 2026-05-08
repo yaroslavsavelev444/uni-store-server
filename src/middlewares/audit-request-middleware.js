@@ -1,5 +1,5 @@
 // middlewares/audit-request-middleware.js
-import auditLogger from "../logger/auditLogger";
+import auditLogger from "../logger/auditLogger.js";
 
 /**
  * Получение IP адреса из запроса

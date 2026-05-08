@@ -1,9 +1,9 @@
 // services/company.service.js
 import { startSession } from "mongoose";
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import { CompanyModel, OrderModel } from "../models/index.models";
-import redisClient from "../redis/redis.client";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { CompanyModel, OrderModel } from "../models/index.models.js";
+import redisClient from "../redis/redis.client.js";
 
 class CompanyService {
 	constructor() {

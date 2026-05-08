@@ -1,5 +1,5 @@
 // src/controllers/sitemapController.js
-const sitemapService = require("../services/sitemapService");
+const sitemapService = require("../services/sitemapService.js");
 
 exports.getSitemap = async (_req, res, next) => {
 	try {

@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import { basename, dirname, extname } from "node:path";
-import fileService from "./fileManager";
+import fileService from "./fileManager.js";
 
 /**
  * Обработка файлов продукта (изображений и инструкции)

@@ -1,7 +1,7 @@
 // services/user-service.js
 import { default as mongoose } from "mongoose";
-import ApiError from "../exceptions/api-error";
-import { UserModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+import { UserModel } from "../models/index.models.js";
 
 class UserService {
 	/**

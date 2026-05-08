@@ -1,5 +1,5 @@
-import ApiError from "../exceptions/api-error";
-import searchService from "../services/searchService";
+import ApiError from "../exceptions/api-error.js";
+import searchService from "../services/searchService.js";
 
 class SearchController {
 	async saveSearchHistory(req, res, next) {

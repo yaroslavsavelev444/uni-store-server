@@ -3,8 +3,8 @@ import { Router } from "express";
 
 const router = Router();
 
-import ReviewsController from "../controllers/reviewsController";
-import authMiddleware from "../middlewares/auth-middleware";
+import ReviewsController from "../controllers/reviewsController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 const reviewsController = new ReviewsController();
 

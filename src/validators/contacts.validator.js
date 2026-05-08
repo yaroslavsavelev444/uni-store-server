@@ -1,5 +1,5 @@
 import { array, boolean, number, object, string } from "joi";
-import { EMAIL_REGEX, PHONE_REGEX, URL_REGEX } from "../constants/regex";
+import { EMAIL_REGEX, PHONE_REGEX, URL_REGEX } from "../constants/regex.js";
 
 const phoneSchema = object({
 	type: string()

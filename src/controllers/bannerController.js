@@ -1,5 +1,5 @@
-import ApiError from "../exceptions/api-error";
-import bannerService from "../services/bannerService";
+import ApiError from "../exceptions/api-error.js";
+import bannerService from "../services/bannerService.js";
 
 class BannerController {
 	async create(req, res, next) {

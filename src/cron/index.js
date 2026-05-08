@@ -4,7 +4,7 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { schedule as _schedule } from "node-cron";
-import { error as _error, debug, info, warn } from "../logger/logger";
+import { error as _error, debug, info, warn } from "../logger/logger.js";
 
 class CronService {
 	constructor() {
@@ -214,7 +214,7 @@ class CronService {
 		info("[CRON:FEEDBACK_CLEANUP] Начало очистки старых фидбеков");
 
 		try {
-			const { FeedbackModel } = require("../models/index.models").default;
+			const { FeedbackModel } = require("../models/index.models.js").default;
 			const retentionDays = parseInt(process.env.FEEDBACK_RETENTION_DAYS, 10) || 365;
 			const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 

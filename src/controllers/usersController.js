@@ -1,9 +1,9 @@
 // controllers/user-controller.js
 
 import { default as mongoose } from "mongoose";
-import ApiError from "../exceptions/api-error";
-import userSanctionService from "../services/userSanctionService";
-import userService from "../services/usersService";
+import ApiError from "../exceptions/api-error.js";
+import userSanctionService from "../services/userSanctionService.js";
+import userService from "../services/usersService.js";
 
 class UserController {
 	/**

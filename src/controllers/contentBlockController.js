@@ -1,6 +1,6 @@
-import ApiError from "../exceptions/api-error";
-import { logAdminEvent } from "../logger/auditLogger";
-import ContentBlockService from "../services/contentBlockService";
+import ApiError from "../exceptions/api-error.js";
+import { logAdminEvent } from "../logger/auditLogger.js";
+import ContentBlockService from "../services/contentBlockService.js";
 
 class ContentBlockController {
 	constructor() {

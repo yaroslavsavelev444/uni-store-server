@@ -1,8 +1,8 @@
 // src/services/sitemapService.js
 
-import { CategoryModel, ProductModel, TopicModelCommon } from "../models/index.models";
-import _default from "../models/product-model";
-import redis from "../redis/redis.client";
+import { CategoryModel, ProductModel, TopicModelCommon } from "../models/index.models.js";
+import _default from "../models/product-model.js";
+import redis from "../redis/redis.client.js";
 
 const { ProductStatus } = _default;
 

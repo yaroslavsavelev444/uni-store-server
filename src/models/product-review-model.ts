@@ -1,0 +1,55 @@
+import { model, Schema } from "mongoose";
+import type {
+  IProductReview,
+  IProductReviewMethods,
+  ProductReviewModelType,
+} from "../types/productReview.types.js";
+
+const ProductReviewSchema = new Schema<
+  IProductReview,
+  ProductReviewModelType,
+  IProductReviewMethods
+>(
+  {
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    product: {
+      type: Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+      index: true,
+    },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    title: { type: String },
+    comment: { type: String, required: true },
+    pros: [{ type: String }],
+    cons: [{ type: String }],
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    isVerifiedPurchase: { type: Boolean, default: false },
+    helpfulCount: { type: Number, default: 0 },
+    notHelpfulCount: { type: Number, default: 0 },
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
+);
+
+ProductReviewSchema.index({ user: 1, product: 1 }, { unique: true });
+
+ProductReviewSchema.virtual("author", {
+  ref: "User",
+  localField: "user",
+  foreignField: "_id",
+  justOne: true,
+});
+
+export default model<IProductReview, ProductReviewModelType>(
+  "ProductReview",
+  ProductReviewSchema,
+);

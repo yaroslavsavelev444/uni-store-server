@@ -1,7 +1,7 @@
 // middlewares/error-middleware.js
-import ApiError from "../exceptions/api-error";
-import { generateRequestId, logUnexpectedError } from "../logger/ErrorLogger";
-import logger from "../logger/logger";
+import ApiError from "../exceptions/api-error.js";
+import { generateRequestId, logUnexpectedError } from "../logger/ErrorLogger.js";
+import logger from "../logger/logger.js";
 
 export default (err, req, res, _next) => {
 	// Для ApiError логирование уже выполнено в конструкторе

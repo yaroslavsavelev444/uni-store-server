@@ -1,10 +1,10 @@
 import { basename, join } from "node:path";
 import xss from "xss";
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import { TopicModelCommon } from "../models/index.models";
-import redisClient from "../redis/redis.client";
-import calculateReadingTime from "../utils/calculateReadingTime";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { TopicModelCommon } from "../models/index.models.js";
+import redisClient from "../redis/redis.client.js";
+import calculateReadingTime from "../utils/calculateReadingTime.js";
 
 class TopicService {
 	constructor() {

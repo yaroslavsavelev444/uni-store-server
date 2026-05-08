@@ -1,8 +1,8 @@
 // controllers/orders.controller.js
-import ApiError from "../exceptions/api-error";
-import { DeliveryMethod, PaymentMethod } from "../models/order-model";
+import ApiError from "../exceptions/api-error.js";
+import { DeliveryMethod, PaymentMethod } from "../models/order-model.js";
 
-import OrderService from "../services/ordersService";
+import OrderService from "../services/ordersService.js";
 
 class OrdersController {
 	// ========== USER ENDPOINTS ==========

@@ -3,10 +3,10 @@ import { Router } from "express";
 const router = Router();
 
 import rateLimit from "express-rate-limit";
-import filesController from "../controllers/filesController";
-import authMiddleware from "../middlewares/auth-middleware";
-import imageCompressor from "../middlewares/imageCompressor";
-import multerMiddleware from "../middlewares/multerMiddleware";
+import filesController from "../controllers/filesController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import imageCompressor from "../middlewares/imageCompressor.js";
+import multerMiddleware from "../middlewares/multerMiddleware.js";
 
 const uploadLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000,

@@ -1,6 +1,6 @@
 // controllers/filesController.js
-import logger from "../logger/logger";
-import fileService from "../services/fileService";
+import logger from "../logger/logger.js";
+import fileService from "../services/fileService.js";
 
 class FilesController {
 	/**

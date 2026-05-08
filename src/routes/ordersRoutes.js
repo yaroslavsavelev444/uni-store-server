@@ -3,9 +3,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import ordersController from "../controllers/ordersController";
-import authMiddleware from "../middlewares/auth-middleware";
-import { validateCreateOrder } from "../validators/order.validator";
+import ordersController from "../controllers/ordersController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import { validateCreateOrder } from "../validators/order.validator.js";
 
 // ========== USER ROUTES ==========
 router.get("/", authMiddleware("user"), ordersController.getOrders);

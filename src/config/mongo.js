@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { disconnect as _disconnect, connect, connection } from "mongoose";
-import { error, info } from "../logger/logger";
+import { error, info } from "../logger/logger.js";
 
 dotenv.config();
 

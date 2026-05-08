@@ -1,5 +1,5 @@
-import { ProductModel, UserSearchModel } from "../models/index.models";
-import _default from "../models/product-model";
+import { ProductModel, UserSearchModel } from "../models/index.models.js";
+import _default from "../models/product-model.js";
 
 const { ProductStatus } = _default;
 

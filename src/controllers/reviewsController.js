@@ -1,6 +1,6 @@
 // controllers/reviews.controller.js
-import ApiError from "../exceptions/api-error";
-import ReviewsService from "../services/reviewService";
+import ApiError from "../exceptions/api-error.js";
+import ReviewsService from "../services/reviewService.js";
 
 class ReviewsController {
 	constructor() {

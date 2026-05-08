@@ -1,4 +1,4 @@
-import TransportCompanyService from "../services/transportCompanyService";
+import TransportCompanyService from "../services/transportCompanyService.js";
 
 class TransportCompanyController {
 	// Для пользователя: получить только активные компании

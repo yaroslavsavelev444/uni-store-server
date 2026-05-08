@@ -1,6 +1,6 @@
 import EventEmitter from "node:events";
 import { post } from "axios";
-import { taskQueues } from "../queues/bull";
+import { taskQueues } from "../queues/bull.js";
 
 class TelegramNotifier extends EventEmitter {
 	constructor(config = {}) {

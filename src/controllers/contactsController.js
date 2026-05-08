@@ -1,6 +1,6 @@
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import contactsService from "../services/contactsService";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import contactsService from "../services/contactsService.js";
 
 class СontactsController {
 	/**

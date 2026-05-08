@@ -1,6 +1,6 @@
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import notificationsService from "../services/notificationsService";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import notificationsService from "../services/notificationsService.js";
 
 const getNotifications = async (req, res, next) => {
 	const userData = req.user;

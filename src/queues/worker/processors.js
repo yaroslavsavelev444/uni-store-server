@@ -1,18 +1,18 @@
 import { default as mongoose } from "mongoose";
-import { error as _error, debug, info } from "../../logger/logger";
-import { disconnect } from "../../redis/redis.client";
-import { sendNotification } from "../../services/mailService";
-import { createHealthServer } from "../../utils/workerHealth";
-import { moderateQueues, pushNotificationsQueues, taskQueues } from "../bull";
+import { error as _error, debug, info } from "../../logger/logger.js";
+import { disconnect } from "../../redis/redis.client.js";
+import { sendNotification } from "../../services/mailService.js";
+import { createHealthServer } from "../../utils/workerHealth.js";
+import { moderateQueues, pushNotificationsQueues, taskQueues } from "../bull.js";
 
 const healthServer = createHealthServer(4000);
 
-import { connectDB } from "../../config/mongo";
-import sendPushNotificationCustom from "../../utils/sendPushNotification";
+import { connectDB } from "../../config/mongo.js";
+import sendPushNotificationCustom from "../../utils/sendPushNotification.js";
 import "axios";
-import "../../models/index.models";
-import { moderateReview } from "../../services/reviewService";
-import { processNotification } from "../../services/telegramNotifierService";
+import "../../models/index.models.js";
+import { moderateReview } from "../../services/reviewService.js";
+import { processNotification } from "../../services/telegramNotifierService.js";
 
 const initProcessors = async () => {
 	await connectDB();

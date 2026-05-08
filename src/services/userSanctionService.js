@@ -1,9 +1,9 @@
 // services/user-sanction-service.js (обновленная версия)
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import { UserModel, UserSanctionModel, UserSessionModel } from "../models/index.models";
-import redisClient from "../redis/redis.client";
-import SessionService from "../services/SessionService";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { UserModel, UserSanctionModel, UserSessionModel } from "../models/index.models.js";
+import redisClient from "../redis/redis.client.js";
+import SessionService from "../services/SessionService.js";
 
 class UserSanctionService {
 	/**

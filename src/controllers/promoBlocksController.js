@@ -1,5 +1,5 @@
-import ApiError from "../exceptions/api-error";
-import promoBlockService from "../services/promoBlockService";
+import ApiError from "../exceptions/api-error.js";
+import promoBlockService from "../services/promoBlockService.js";
 
 const getPromoBlocks = async (req, res, next) => {
 	const { page } = req.query;

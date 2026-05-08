@@ -1,6 +1,6 @@
 // middlewares/rateLimitPasswordChange.js
 
-import { UserModel } from "../models/index.models";
+import { UserModel } from "../models/index.models.js";
 
 const rateLimitPasswordChange = async (req, res, next) => {
 	try {

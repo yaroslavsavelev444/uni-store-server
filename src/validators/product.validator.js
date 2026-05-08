@@ -1,5 +1,5 @@
 import { alternatives, any, array, boolean, number, object, ref, string } from "joi";
-import { ProductStatus } from "../models/product-model";
+import { ProductStatus } from "../models/product-model.js";
 
 console.log("[VALIDATOR] Загрузка схем валидации продуктов...");
 

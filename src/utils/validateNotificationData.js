@@ -1,4 +1,4 @@
-import notificationTypes from "../constants/notificationTypes";
+import notificationTypes from "../constants/notificationTypes.js";
 
 function validateNotification(type, data) {
 	const config = notificationTypes[type];

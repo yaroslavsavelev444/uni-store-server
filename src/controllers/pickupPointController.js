@@ -1,6 +1,6 @@
 // controllers/pickup-point.controller.js
-import ApiError from "../exceptions/api-error";
-import PickupPointService from "../services/pickupPointService";
+import ApiError from "../exceptions/api-error.js";
+import PickupPointService from "../services/pickupPointService.js";
 
 class PickupPointController {
 	/**

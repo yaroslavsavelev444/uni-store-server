@@ -1,8 +1,8 @@
 require("dotenv").config();
 const bcrypt = require("bcryptjs");
-const { UserModel, UserSecurityModel } = require("../models/index.models");
+const { UserModel, UserSecurityModel } = require("../models/index.models.js");
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10) || 10;
-const mongo = require("../config/mongo");
+const mongo = require("../config/mongo.js");
 
 async function createAdmin() {
 	await mongo.connectDB();

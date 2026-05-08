@@ -7,7 +7,7 @@ import {
 	getNotifications,
 	getUnreadCount,
 	markNotificationAsRead,
-} from "../controllers/notificationsController";
+} from "../controllers/notificationsController.js";
 
 router.get("/getNotifications", getNotifications);
 router.get("/getUnreadCount", getUnreadCount);

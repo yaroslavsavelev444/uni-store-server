@@ -1,7 +1,7 @@
 const router = require("express").Router();
 
-import searchController from "../controllers/searchController";
-import authMiddleware from "../middlewares/auth-middleware";
+import searchController from "../controllers/searchController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // const validateQueryParams = require("../middlewares/validateQueryParams");
 router.get("/getHints", searchController.getHints);

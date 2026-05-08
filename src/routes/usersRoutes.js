@@ -1,8 +1,8 @@
 // routes/admin-user-routes.js
 import { Router } from "express";
 import { body } from "express-validator";
-import userController from "../controllers/usersController";
-import authMiddleware from "../middlewares/auth-middleware";
+import userController from "../controllers/usersController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 const router = new Router();
 

@@ -1,6 +1,6 @@
-import { InternalServerError } from "../exceptions/api-error";
-import { info } from "../logger/logger";
-import { createNotification } from "../services/notificationsService";
+import { InternalServerError } from "../exceptions/api-error.js";
+import { info } from "../logger/logger.js";
+import { createNotification } from "../services/notificationsService.js";
 
 /**
  * Отправка пуш-уведомления

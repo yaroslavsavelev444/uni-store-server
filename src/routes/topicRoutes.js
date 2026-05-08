@@ -2,9 +2,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import TopicController from "../controllers/topicController";
-import authMiddleware from "../middlewares/auth-middleware";
-import multerSlugMiddleware from "../middlewares/multerSlugMiddleware";
+import TopicController from "../controllers/topicController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import multerSlugMiddleware from "../middlewares/multerSlugMiddleware.js";
 
 // Инициализация контроллера
 const topicController = new TopicController();

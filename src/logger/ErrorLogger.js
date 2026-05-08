@@ -1,6 +1,6 @@
-import getIp from "../utils/getIp";
-import auditLogger from "./auditLogger";
-import logger from "./logger";
+import getIp from "../utils/getIp.js";
+import auditLogger from "./auditLogger.js";
+import logger from "./logger.js";
 
 class ErrorLogger {
 	/**

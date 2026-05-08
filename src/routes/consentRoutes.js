@@ -2,8 +2,18 @@ import { Router } from "express";
 
 const router = Router();
 
-import { activate, create, deactivate, getBySlug, getForRegistration, getRequiredForAcceptance, list, update, delete } from "../controllers/consentController";
-import authMiddleware from "../middlewares/auth-middleware";
+import {
+  activate,
+  create,
+  deactivate,
+  deleteConsentController,
+  getBySlug,
+  getForRegistration,
+  getRequiredForAcceptance,
+  list,
+  update,
+} from "../controllers/consentController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Публичные роуты (доступны всем)
 router.get("/", list);
@@ -19,6 +29,6 @@ router.post("/", create);
 router.put("/:slug", update);
 router.patch("/:slug/activate", activate);
 router.patch("/:slug/deactivate", deactivate);
-router.delete("/:slug", delete);
+router.delete("/:slug", deleteConsentController);
 
 export default router;

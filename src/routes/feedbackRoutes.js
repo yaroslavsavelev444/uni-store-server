@@ -3,8 +3,8 @@ import { Router } from "express";
 
 const router = Router();
 
-import feedbackController from "../controllers/feedbackController";
-import authMiddleware from "../middlewares/auth-middleware";
+import feedbackController from "../controllers/feedbackController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Лимитер для отправки фидбека (5 запросов в час на пользователя)
 // const feedbackSubmitLimiter = createRedisRateLimiter({

@@ -1,7 +1,7 @@
 // services/cache/delivery-cache.service.js
 
-import logger from "../logger/logger";
-import redisClient from "../redis/redis.client";
+import logger from "../logger/logger.js";
+import redisClient from "../redis/redis.client.js";
 
 class DeliveryCacheService {
 	constructor() {

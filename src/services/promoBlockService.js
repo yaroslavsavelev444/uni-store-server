@@ -1,88 +1,101 @@
 import { existsSync, unlink } from "node:fs";
 import { unlink as _unlink } from "node:fs/promises";
 import { join } from "node:path";
-import ApiError from "../exceptions/api-error";
-import { MainMaterialModel, PromoBlockModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+import { MainMaterialModel, PromoBlockModel } from "../models/index.models.js";
 
 const createPromoBlock = async (data) => {
-	const block = new PromoBlockModel(data);
-	return await block.save();
+  const block = new PromoBlockModel(data);
+  return await block.save();
 };
 const getPromoBlock = async ({ page }) => {
-	return await PromoBlockModel.find({ page });
+  return await PromoBlockModel.find({ page });
 };
 
 const updatePromoBlock = async (id, updateData) => {
-	return await PromoBlockModel.findByIdAndUpdate(id, updateData, {
-		new: true,
-	});
+  return await PromoBlockModel.findByIdAndUpdate(id, updateData, {
+    new: true,
+  });
 };
 
 const deletePromoBlock = async (id) => {
-	const promoBlock = await PromoBlockModel.findById(id);
-	if (!promoBlock) {
-		throw ApiError.NotFoundError("Промо блок не найден");
-	}
+  const promoBlock = await PromoBlockModel.findById(id);
+  if (!promoBlock) {
+    throw ApiError.NotFoundError("Промо блок не найден");
+  }
 
-	const relativePath = promoBlock.image.startsWith("/")
-		? promoBlock.image.slice(1)
-		: promoBlock.image;
+  const relativePath = promoBlock.image.startsWith("/")
+    ? promoBlock.image.slice(1)
+    : promoBlock.image;
 
-	const instructionPath = join(__dirname, "..", relativePath);
-	console.log("Путь к файлу для удаления:", instructionPath);
+  const instructionPath = join(__dirname, "..", relativePath);
+  console.log("Путь к файлу для удаления:", instructionPath);
 
-	try {
-		if (existsSync(instructionPath)) {
-			await _unlink(instructionPath);
-		}
-	} catch (e) {
-		console.error("Ошибка при удалении файла:", e.message);
-		throw ApiError.InternalServerError("Произошла ошибка при удалении промо блока");
-	}
+  try {
+    if (existsSync(instructionPath)) {
+      await _unlink(instructionPath);
+    }
+  } catch (e) {
+    console.error("Ошибка при удалении файла:", e.message);
+    throw ApiError.InternalServerError(
+      "Произошла ошибка при удалении промо блока",
+    );
+  }
 
-	return await PromoBlockModel.findByIdAndDelete(id);
+  return await PromoBlockModel.findByIdAndDelete(id);
 };
 
 const createMainMaterial = async (data) => {
-	const material = new MainMaterialModel(data);
-	return await material.save();
+  const material = new MainMaterialModel(data);
+  return await material.save();
 };
 
 const updateMainMaterial = async (id, updateData) => {
-	return await MainMaterialModel.findByIdAndUpdate(id, updateData, {
-		new: true,
-	});
+  return await MainMaterialModel.findByIdAndUpdate(id, updateData, {
+    new: true,
+  });
 };
 
 const deleteMainMaterial = async (id) => {
-	const material = await MainMaterialModel.findById(id);
-	if (!material) throw ApiError.NotFoundError("Материал не найден");
+  const material = await MainMaterialModel.findById(id);
+  if (!material) throw ApiError.NotFoundError("Материал не найден");
 
-	const relativePath = material.mediaUrl.startsWith("/")
-		? material.mediaUrl.slice(1)
-		: material.mediaUrl;
+  const relativePath = material.mediaUrl.startsWith("/")
+    ? material.mediaUrl.slice(1)
+    : material.mediaUrl;
 
-	const absolutePath = join(__dirname, "..", relativePath);
-	try {
-		await unlink(absolutePath);
-	} catch (e) {
-		console.warn("Файл не найден или уже удален:", e.message);
-	}
+  const absolutePath = join(__dirname, "..", relativePath);
+  try {
+    await unlink(absolutePath);
+  } catch (e) {
+    console.warn("Файл не найден или уже удален:", e.message);
+  }
 
-	return await MainMaterialModel.findByIdAndDelete(id);
+  return await MainMaterialModel.findByIdAndDelete(id);
 };
 
 const getMainMaterials = async () => {
-	return await MainMaterialModel.find().sort({ createdAt: -1 }); // последние первыми
+  return await MainMaterialModel.find().sort({ createdAt: -1 }); // последние первыми
 };
 
 export default {
-	createPromoBlock,
-	getPromoBlock,
-	deletePromoBlock,
-	updatePromoBlock,
-	createMainMaterial,
-	updateMainMaterial,
-	deleteMainMaterial,
-	getMainMaterials,
+  createPromoBlock,
+  getPromoBlock,
+  deletePromoBlock,
+  updatePromoBlock,
+  createMainMaterial,
+  updateMainMaterial,
+  deleteMainMaterial,
+  getMainMaterials,
+};
+
+export {
+  createMainMaterial,
+  createPromoBlock,
+  deleteMainMaterial,
+  deletePromoBlock,
+  getMainMaterials,
+  getPromoBlock,
+  updateMainMaterial,
+  updatePromoBlock,
 };

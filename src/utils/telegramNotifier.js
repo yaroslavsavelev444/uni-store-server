@@ -1,5 +1,5 @@
 import { post } from "axios";
-import { formatOrderAsTelegramMessage } from "../tgTemplates/formatOrderAsTelegramMessage";
+import { formatOrderAsTelegramMessage } from "../tgTemplates/formatOrderAsTelegramMessage.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;

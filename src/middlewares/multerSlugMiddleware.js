@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import multer, { diskStorage } from "multer";
-import logger from "../logger/logger";
+import logger from "../logger/logger.js";
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 

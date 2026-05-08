@@ -1,14 +1,14 @@
 // services/feedbackService.js
-import ApiError from "../exceptions/api-error";
-import logger from "../logger/logger";
-import { FeedbackModel, UserModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { FeedbackModel, UserModel } from "../models/index.models.js";
 
-import _default from "../queues/taskQueues";
+import _default from "../queues/taskQueues.js";
 
 const { sendEmailNotification } = _default;
 
 import { startSession, Types } from "mongoose";
-import FileManager from "../utils/fileManager";
+import FileManager from "../utils/fileManager.js";
 
 class FeedbackService {
 	// Пользовательские методы

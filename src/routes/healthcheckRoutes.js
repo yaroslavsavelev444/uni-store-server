@@ -4,7 +4,7 @@ import { Router } from "express";
 const router = Router();
 
 import { connection } from "mongoose";
-import { ping } from "../redis/redis.client";
+import { ping } from "../redis/redis.client.js";
 
 router.get("/healthcheck", async (_req, res) => {
 	const checks = {

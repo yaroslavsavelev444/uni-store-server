@@ -1,7 +1,7 @@
 // models/user-model.js
 import { model, Schema } from "mongoose";
-import { normalizeEmail } from "../utils/normalizers";
-import cartModel from "./cart-model";
+import { normalizeEmail } from "../utils/normalizers.js";
+import cartModel from "./cart-model.js";
 
 const UserSchema = new Schema(
 	{

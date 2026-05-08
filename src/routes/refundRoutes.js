@@ -2,9 +2,9 @@ import { Router } from "express";
 
 const router = Router();
 
-import refundController from "../controllers/refundController";
-import authMiddleware from "../middlewares/auth-middleware";
-import validationMiddleware from "../middlewares/validation-middleware";
+import refundController from "../controllers/refundController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import validationMiddleware from "../middlewares/validation-middleware.js";
 
 // Валидационные схемы
 const refundSchemas = {

@@ -1,5 +1,5 @@
-import { ForbiddenError, UnauthorizedError } from "../exceptions/api-error";
-import { validateAccessToken } from "../services/tokenService";
+import { ForbiddenError, UnauthorizedError } from "../exceptions/api-error.js";
+import { validateAccessToken } from "../services/tokenService.js";
 
 export default async function (req, _res, next) {
 	try {

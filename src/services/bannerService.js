@@ -1,8 +1,8 @@
 import { basename } from "node:path";
-import ApiError from "../exceptions/api-error";
-import { BannerModel, BannerViewModel } from "../models/index.models";
-import redis from "../redis/redis.client";
-import FileManager from "../utils/fileManager";
+import ApiError from "../exceptions/api-error.js";
+import { BannerModel, BannerViewModel } from "../models/index.models.js";
+import redis from "../redis/redis.client.js";
+import FileManager from "../utils/fileManager.js";
 
 class BannerService {
 	/**

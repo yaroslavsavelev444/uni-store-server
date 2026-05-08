@@ -1,5 +1,5 @@
-import ApiError from "../exceptions/api-error";
-import { ProductModel, WishlistModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+import { ProductModel, WishlistModel } from "../models/index.models.js";
 
 class WishlistService {
 	/**

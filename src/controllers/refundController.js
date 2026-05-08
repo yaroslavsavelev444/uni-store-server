@@ -1,4 +1,4 @@
-import refundService from "../services/refundService";
+import refundService from "../services/refundService.js";
 
 const refundController = {
 	// Пользовательские методы

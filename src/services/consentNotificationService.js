@@ -1,9 +1,9 @@
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import ApiError from "../exceptions/api-error";
-import { UserModel } from "../models/index.models";
+import ApiError from "../exceptions/api-error.js";
+import { UserModel } from "../models/index.models.js";
 
-import _default from "../queues/taskQueues";
+import _default from "../queues/taskQueues.js";
 
 const { sendEmailNotification, sendPushNotification } = _default;
 class ConsentNotificationService {

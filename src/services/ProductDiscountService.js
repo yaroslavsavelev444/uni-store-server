@@ -1,6 +1,6 @@
 // services/productDiscountService.js
 
-import { DiscountModel } from "../models/index.models";
+import { DiscountModel } from "../models/index.models.js";
 
 class ProductDiscountService {
 	/**

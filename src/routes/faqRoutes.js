@@ -1,7 +1,7 @@
 // routes/faq.routes.js
 import { Router } from "express";
-import faqController from "../controllers/faqController";
-import authMiddleware from "../middlewares/auth-middleware";
+import faqController from "../controllers/faqController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 const router = Router();
 

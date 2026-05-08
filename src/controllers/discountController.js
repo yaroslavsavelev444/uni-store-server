@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
-import ApiError from "../exceptions/api-error";
-import discountService from "../services/discountService";
+import ApiError from "../exceptions/api-error.js";
+import discountService from "../services/discountService.js";
 
 class DiscountController {
 	/**
