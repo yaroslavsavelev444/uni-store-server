@@ -1,8 +1,9 @@
-const express = require("express");
-const router = express.Router();
-const discountController = require("../controllers/discountController");
-const authMiddleware = require("../middlewares/auth-middleware");
-const validateMiddleware = require("../middlewares/validation-middleware");
+import { Router } from "express";
+
+const router = Router();
+
+import discountController from "../controllers/discountController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Валидационные схемы (если используете Joi или аналоги)
 // const discountValidation = require("../validations/discount-validation");

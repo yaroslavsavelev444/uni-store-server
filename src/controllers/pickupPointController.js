@@ -1,6 +1,6 @@
 // controllers/pickup-point.controller.js
-const ApiError = require("../exceptions/api-error");
-const PickupPointService = require("../services/pickupPointService");
+import ApiError from "../exceptions/api-error.js";
+import PickupPointService from "../services/pickupPointService.js";
 
 class PickupPointController {
   /**
@@ -9,8 +9,9 @@ class PickupPointController {
    */
   async getPickupPoints(req, res, next) {
     try {
-      const includeInactive = req.query.includeInactive === 'true';
-      const points = await PickupPointService.getAllPickupPoints(includeInactive);
+      const includeInactive = req.query.includeInactive === "true";
+      const points =
+        await PickupPointService.getAllPickupPoints(includeInactive);
       res.status(200).json(points);
     } catch (error) {
       next(error);
@@ -51,7 +52,10 @@ class PickupPointController {
   async createPickupPoint(req, res, next) {
     try {
       const pointData = req.body;
-      const point = await PickupPointService.createPickupPoint(pointData, req.user.id);
+      const point = await PickupPointService.createPickupPoint(
+        pointData,
+        req.user.id,
+      );
       res.status(201).json(point);
     } catch (error) {
       next(error);
@@ -66,7 +70,11 @@ class PickupPointController {
     try {
       const { id } = req.params;
       const updateData = req.body;
-      const point = await PickupPointService.updatePickupPoint(id, updateData, req.user.id);
+      const point = await PickupPointService.updatePickupPoint(
+        id,
+        updateData,
+        req.user.id,
+      );
       res.status(200).json(point);
     } catch (error) {
       next(error);
@@ -80,7 +88,10 @@ class PickupPointController {
   async deletePickupPoint(req, res, next) {
     try {
       const { id } = req.params;
-      const result = await PickupPointService.deletePickupPoint(id, req.user.id);
+      const result = await PickupPointService.deletePickupPoint(
+        id,
+        req.user.id,
+      );
       res.status(200).json(result);
     } catch (error) {
       next(error);
@@ -94,7 +105,10 @@ class PickupPointController {
   async togglePickupPointStatus(req, res, next) {
     try {
       const { id } = req.params;
-      const point = await PickupPointService.togglePickupPointStatus(id, req.user.id);
+      const point = await PickupPointService.togglePickupPointStatus(
+        id,
+        req.user.id,
+      );
       res.status(200).json(point);
     } catch (error) {
       next(error);
@@ -108,7 +122,10 @@ class PickupPointController {
   async setAsMainPickupPoint(req, res, next) {
     try {
       const { id } = req.params;
-      const point = await PickupPointService.setAsMainPickupPoint(id, req.user.id);
+      const point = await PickupPointService.setAsMainPickupPoint(
+        id,
+        req.user.id,
+      );
       res.status(200).json(point);
     } catch (error) {
       next(error);
@@ -122,12 +139,15 @@ class PickupPointController {
   async updatePickupPointsOrder(req, res, next) {
     try {
       const { orderedIds } = req.body;
-      
+
       if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
-        throw ApiError.BadRequest('Некорректный массив ID');
+        throw ApiError.BadRequest("Некорректный массив ID");
       }
-      
-      const result = await PickupPointService.updatePickupPointsOrder(orderedIds, req.user.id);
+
+      const result = await PickupPointService.updatePickupPointsOrder(
+        orderedIds,
+        req.user.id,
+      );
       res.status(200).json(result);
     } catch (error) {
       next(error);

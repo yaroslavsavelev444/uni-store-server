@@ -1,24 +1,24 @@
-const path = require("path");
-const xss = require("xss");
-const ApiError = require("../exceptions/api-error");
-const calculateReadingTime = require("../utils/calculateReadingTime");
-const { TopicModelCommon } = require("../models/index.models");
-const redisClient = require("../redis/redis.client");
-const logger = require("../logger/logger");
+import { basename, join } from "node:path";
+import xss from "xss";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { TopicModelCommon } from "../models/index.models.js";
+import redisClient from "../redis/redis.client.js";
+import calculateReadingTime from "../utils/calculateReadingTime.js";
 
 class TopicService {
   constructor() {
     this.redisClient = redisClient;
     this.CACHE_KEYS = {
-      ALL_TOPICS: 'topics:all',
+      ALL_TOPICS: "topics:all",
       TOPIC_BY_SLUG: (slug) => `topics:slug:${slug}`,
       TOPIC_BY_ID: (id) => `topics:id:${id}`,
-      RELATED_TOPICS: 'topics:related'
+      RELATED_TOPICS: "topics:related",
     };
     this.CACHE_TTL = {
       ALL_TOPICS: 300, // 5 минут
       SINGLE_TOPIC: 600, // 10 минут
-      RELATED: 1800 // 30 минут
+      RELATED: 1800, // 30 минут
     };
   }
 
@@ -36,41 +36,41 @@ class TopicService {
 
   async getAll() {
     const cacheKey = this.CACHE_KEYS.ALL_TOPICS;
-    
+
     try {
       // Пробуем получить из кеша
       const cached = await this.redisClient.getJson(cacheKey);
       if (cached) {
-        logger.debug('[TopicService] getAll from cache');
+        logger.debug("[TopicService] getAll from cache");
         return cached;
       }
     } catch (err) {
       logger.warn(`[TopicService] Cache get error: ${err.message}`);
     }
-    
+
     // Получаем из базы данных
     const items = await TopicModelCommon.find({})
       .sort({ position: 1, createdAt: -1 })
       .lean();
-    
+
     // Кешируем результат
     try {
       await this.redisClient.setJson(
-        cacheKey, 
-        items, 
-        this.CACHE_TTL.ALL_TOPICS
+        cacheKey,
+        items,
+        this.CACHE_TTL.ALL_TOPICS,
       );
-      logger.debug('[TopicService] getAll cached');
+      logger.debug("[TopicService] getAll cached");
     } catch (err) {
       logger.warn(`[TopicService] Cache set error: ${err.message}`);
     }
-    
+
     return items;
   }
 
   async getItemById(id) {
     const cacheKey = this.CACHE_KEYS.TOPIC_BY_ID(id);
-    
+
     try {
       const cached = await this.redisClient.getJson(cacheKey);
       if (cached) {
@@ -80,28 +80,28 @@ class TopicService {
     } catch (err) {
       logger.warn(`[TopicService] Cache get error: ${err.message}`);
     }
-    
+
     const item = await TopicModelCommon.findById(id).lean();
-    
+
     if (item) {
       try {
         await this.redisClient.setJson(
           cacheKey,
           item,
-          this.CACHE_TTL.SINGLE_TOPIC
+          this.CACHE_TTL.SINGLE_TOPIC,
         );
         logger.debug(`[TopicService] getItemById ${id} cached`);
       } catch (err) {
         logger.warn(`[TopicService] Cache set error: ${err.message}`);
       }
     }
-    
+
     return item;
   }
 
   async getBySlugWithRelated(slug) {
     const cacheKey = this.CACHE_KEYS.TOPIC_BY_SLUG(slug);
-    
+
     try {
       const cached = await this.redisClient.getJson(cacheKey);
       if (cached) {
@@ -111,7 +111,7 @@ class TopicService {
     } catch (err) {
       logger.warn(`[TopicService] Cache get error: ${err.message}`);
     }
-    
+
     const item = await TopicModelCommon.findOne({ slug }).lean();
     if (!item) return null;
 
@@ -127,19 +127,19 @@ class TopicService {
       ...item,
       relatedTopics,
     };
-    
+
     // Кешируем результат
     try {
       await this.redisClient.setJson(
         cacheKey,
         result,
-        this.CACHE_TTL.SINGLE_TOPIC
+        this.CACHE_TTL.SINGLE_TOPIC,
       );
       logger.debug(`[TopicService] getBySlugWithRelated ${slug} cached`);
     } catch (err) {
       logger.warn(`[TopicService] Cache set error: ${err.message}`);
     }
-    
+
     return result;
   }
 
@@ -153,7 +153,9 @@ class TopicService {
     const coverFile = files?.cover?.[0];
     const contentImages = files?.contentImages || [];
 
-    const imageUrl = coverFile ? path.join(baseUrl, coverFile.filename).replace(/\\/g, "/") : "";
+    const imageUrl = coverFile
+      ? path.join(baseUrl, coverFile.filename).replace(/\\/g, "/")
+      : "";
 
     let parsedContentBlocks = data.contentBlocks || [];
     if (typeof parsedContentBlocks === "string") {
@@ -167,14 +169,20 @@ class TopicService {
     const fileMap = {};
     contentImages.forEach((file) => {
       const originalBaseName = path.basename(file.originalname);
-      fileMap[originalBaseName] = path.join(baseUrl, file.filename).replace(/\\/g, "/");
+      fileMap[originalBaseName] = path
+        .join(baseUrl, file.filename)
+        .replace(/\\/g, "/");
     });
 
     const cleanAndReplaceBlock = (block) => {
       const cleanedBlock = { ...block };
       cleanedBlock.type = xss(cleanedBlock.type);
 
-      if (cleanedBlock.type === "text" || cleanedBlock.type === "heading" || cleanedBlock.type === "highlighted") {
+      if (
+        cleanedBlock.type === "text" ||
+        cleanedBlock.type === "heading" ||
+        cleanedBlock.type === "highlighted"
+      ) {
         cleanedBlock.value = xss(cleanedBlock.value);
       } else if (cleanedBlock.type === "image") {
         const originalName = cleanedBlock.value;
@@ -215,11 +223,7 @@ class TopicService {
     });
 
     // Инвалидируем кеш
-    await this.invalidateCache(
-      'topics:all',
-      'topics:slug:*',
-      'topics:related'
-    );
+    await this.invalidateCache("topics:all", "topics:slug:*", "topics:related");
 
     return newItem;
   }
@@ -228,42 +232,42 @@ class TopicService {
     if (data.contentBlocks) {
       data.readingTime = calculateReadingTime(data.contentBlocks);
     }
-    
+
     const updated = await TopicModelCommon.findByIdAndUpdate(id, data, {
       new: true,
       runValidators: true,
     });
-    
+
     if (!updated) {
       throw ApiError.BadRequest("Запись не найдена");
     }
-    
+
     // Инвалидируем кеш
     await this.invalidateCache(
-      'topics:all',
+      "topics:all",
       `topics:slug:*`,
       `topics:id:${id}`,
-      'topics:related'
+      "topics:related",
     );
-    
+
     return updated;
   }
 
   async deleteItem(id) {
     const item = await TopicModelCommon.findByIdAndDelete(id);
-    
+
     if (!item) {
       throw ApiError.BadRequest("Запись не найдена");
     }
-    
+
     // Инвалидируем кеш
     await this.invalidateCache(
-      'topics:all',
+      "topics:all",
       `topics:slug:*`,
       `topics:id:${id}`,
-      'topics:related'
+      "topics:related",
     );
-    
+
     return item;
   }
 }

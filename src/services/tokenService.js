@@ -1,13 +1,20 @@
-const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const ApiError = require("../exceptions/api-error");
-const { UserModel, UserSessionModel, UserSecurityModel } = require("../models/index.models");
-const logger = require("../logger/logger");
-const bcrypt = require("bcryptjs");
-const SessionService = require("./SessionService");
+import { randomBytes } from "node:crypto";
+import { compare, hash } from "bcryptjs";
+import jsonwebtoken from "jsonwebtoken";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { UserSecurityModel, UserSessionModel } from "../models/index.models.js";
+import SessionService from "./SessionService.js";
+
+const { sign, verify } = jsonwebtoken;
 // Проверка всех необходимых ключей при загрузке
 const checkEnvVars = () => {
-  const required = ["ACCESS_TOKEN", "REFRESH_TOKEN", "JWT_ACTIVATION_SECRET", "JWT_RESET_SECRET_KEY"];
+  const required = [
+    "ACCESS_TOKEN",
+    "REFRESH_TOKEN",
+    "JWT_ACTIVATION_SECRET",
+    "JWT_RESET_SECRET_KEY",
+  ];
   for (const key of required) {
     if (!process.env[key]) {
       throw new Error(`⛔ Отсутствует переменная окружения: ${key}`);
@@ -18,13 +25,13 @@ checkEnvVars();
 
 // Генерация пары токенов
 function generateToken(payload, options = {}) {
-  const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN, {
+  const accessToken = sign(payload, process.env.ACCESS_TOKEN, {
     expiresIn: "24h",
   });
 
   if (options.onlyAccess) return { accessToken };
 
-  const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN, {
+  const refreshToken = sign(payload, process.env.REFRESH_TOKEN, {
     expiresIn: "30d",
   });
 
@@ -40,13 +47,15 @@ const saveToken = async (userId, refreshToken) => {
     return tokenData;
   }
 
-const newSession = new UserSessionModel({ userId, refreshToken });
-return await newSession.save();
+  const newSession = new UserSessionModel({ userId, refreshToken });
+  return await newSession.save();
 };
 
 // Удаление refresh токена
 const removeToken = async (refreshToken) => {
-  const tokenData = await UserSessionModel.findOneAndDelete({ refreshToken }).exec();
+  const tokenData = await UserSessionModel.findOneAndDelete({
+    refreshToken,
+  }).exec();
   if (!tokenData) {
     throw ApiError.BadRequest("Токен не найден");
   }
@@ -55,28 +64,27 @@ const removeToken = async (refreshToken) => {
 
 // Проверка access токена
 const validateAccessToken = (token) => {
-   logger.info(token);
+  logger.info(token);
   if (!token) {
-  logger.error("Access token not provided");
-  return null;
-}
-  try {
-    return jwt.verify(token, process.env.ACCESS_TOKEN);
-  } catch (e) {
+    logger.error("Access token not provided");
     return null;
-    
+  }
+  try {
+    return verify(token, process.env.ACCESS_TOKEN);
+  } catch (_e) {
+    return null;
   }
 };
 
 // Проверка refresh токена
 const validateRefreshToken = (token) => {
   logger.info(token);
-  if(!token) {
+  if (!token) {
     return logger.error("Refresh token not found");
-  };
+  }
   try {
-    return jwt.verify(token, process.env.REFRESH_TOKEN);
-  } catch (e) {
+    return verify(token, process.env.REFRESH_TOKEN);
+  } catch (_e) {
     return null;
   }
 };
@@ -84,7 +92,7 @@ const validateRefreshToken = (token) => {
 // Проверка активационного токена
 const validateActivationToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_ACTIVATION_SECRET);
+    return verify(token, process.env.JWT_ACTIVATION_SECRET);
   } catch (e) {
     if (e.name === "TokenExpiredError") return { expired: true };
     return null;
@@ -98,17 +106,17 @@ const findToken = async (refreshToken) => {
 
 // Генерация и сохранение токена для сброса пароля
 const generatePasswordResetToken = async (userId, type) => {
-  const rawToken = crypto.randomBytes(32).toString("hex");
+  const rawToken = randomBytes(32).toString("hex");
 
   // JWT для клиента
-  const signedToken = jwt.sign(
-    { userId: userId.toString(), rawToken }, 
+  const signedToken = sign(
+    { userId: userId.toString(), rawToken },
     process.env.JWT_RESET_SECRET_KEY,
-    { expiresIn: "15m" } 
+    { expiresIn: "15m" },
   );
 
   // В БД храним хэш от rawToken
-  const hashedToken = await bcrypt.hash(rawToken, 10);
+  const hashedToken = await hash(rawToken, 10);
 
   const userSecurity = await UserSecurityModel.findOne({ userId });
   userSecurity.resetTokenHash = hashedToken;
@@ -121,24 +129,24 @@ const generatePasswordResetToken = async (userId, type) => {
 const verifyPasswordResetToken = async (token) => {
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_RESET_SECRET_KEY);
-  } catch (err) {
+    decoded = verify(token, process.env.JWT_RESET_SECRET_KEY);
+  } catch (_err) {
     throw ApiError.BadRequest("Неверный или истёкший токен");
   }
 
   const userId = decoded.userId;
   const userSecurity = await UserSecurityModel.findOne({ userId });
-  
-  if (!userSecurity || !userSecurity.resetTokenHash) {
+
+  if (!userSecurity?.resetTokenHash) {
     throw ApiError.BadRequest("Токен не найден или уже использован");
   }
 
-  const isMatch = await bcrypt.compare(decoded.rawToken, userSecurity.resetTokenHash);
+  const isMatch = await compare(decoded.rawToken, userSecurity.resetTokenHash);
   if (!isMatch) {
     // Увеличиваем счетчик неудачных попыток
     await UserSecurityModel.updateOne(
       { userId },
-      { $inc: { resetTokenAttempts: 1 } }
+      { $inc: { resetTokenAttempts: 1 } },
     );
     throw ApiError.BadRequest("Неверный токен");
   }
@@ -149,22 +157,23 @@ const verifyPasswordResetToken = async (token) => {
 
   // Проверяем лимит попыток
   if (userSecurity.resetTokenAttempts >= 5) {
-    throw ApiError.TooManyRequests("Превышено количество попыток. Запросите новый токен.");
+    throw ApiError.TooManyRequests(
+      "Превышено количество попыток. Запросите новый токен.",
+    );
   }
 
   return { userId, decoded };
 };
 
-
 function getRefreshTokenFromRequest(req) {
   // 1. Пробуем получить из cookie (для веб-клиентов, кроме Safari)
   let refreshToken = req.cookies?.refreshToken;
-  
+
   // 2. Пробуем получить из заголовков (для Safari и мобильных клиентов)
-  if (!refreshToken && req.headers['refresh-token']) {
-    refreshToken = req.headers['refresh-token'];
+  if (!refreshToken && req.headers["refresh-token"]) {
+    refreshToken = req.headers["refresh-token"];
   }
-  
+
   // 3. Пробуем получить из body (для API запросов)
   if (!refreshToken && req.body?.refreshToken) {
     refreshToken = req.body.refreshToken;
@@ -172,13 +181,17 @@ function getRefreshTokenFromRequest(req) {
 
   // Логируем источник токена для отладки
   if (refreshToken) {
-    const source = req.cookies?.refreshToken ? 'cookie' : 
-                  req.headers['refresh-token'] ? 'header' : 
-                  req.body?.refreshToken ? 'body' : 'unknown';
-    
+    const source = req.cookies?.refreshToken
+      ? "cookie"
+      : req.headers["refresh-token"]
+        ? "header"
+        : req.body?.refreshToken
+          ? "body"
+          : "unknown";
+
     logger.debug(`Refresh token obtained from ${source}`, {
       path: req.path,
-      tokenPreview: refreshToken.substring(0, 10) + '...'
+      tokenPreview: `${refreshToken.substring(0, 10)}...`,
     });
   }
 
@@ -191,13 +204,13 @@ function getRefreshTokenFromRequest(req) {
 async function validateRefreshTokenFromRequest(req, userData) {
   try {
     const refreshToken = getRefreshTokenFromRequest(req);
-    
+
     if (!refreshToken) {
       logger.warn("Refresh token not provided for protected route", {
         userId: userData.id,
         ip: req.ip,
         path: req.path,
-        userAgent: req.headers['user-agent']
+        userAgent: req.headers["user-agent"],
       });
       throw ApiError.UnauthorizedError("Требуется повторная авторизация");
     }
@@ -205,14 +218,15 @@ async function validateRefreshTokenFromRequest(req, userData) {
     // Дополнительная проверка: валидируем сам refresh token
     // (чтобы убедиться, что он принадлежит этому пользователю)
     try {
-      const refreshTokenData = await tokenService.validateRefreshToken(refreshToken);
-      
+      const refreshTokenData =
+        await tokenService.validateRefreshToken(refreshToken);
+
       if (!refreshTokenData || refreshTokenData.id !== userData.id) {
         logger.warn("Refresh token doesn't match user", {
           userId: userData.id,
           expectedUserId: refreshTokenData?.id,
           ip: req.ip,
-          path: req.path
+          path: req.path,
         });
         throw ApiError.UnauthorizedError("Невалидная сессия");
       }
@@ -222,7 +236,7 @@ async function validateRefreshTokenFromRequest(req, userData) {
         logger.warn("Refresh token validation failed", {
           userId: userData.id,
           error: validationError.message,
-          ip: req.ip
+          ip: req.ip,
         });
         throw ApiError.UnauthorizedError("Сессия устарела");
       }
@@ -236,44 +250,42 @@ async function validateRefreshTokenFromRequest(req, userData) {
         userId: userData.id,
         ip: req.ip,
         path: req.path,
-        refreshToken: refreshToken.substring(0, 10) + '...',
-        userAgent: req.headers['user-agent']
+        refreshToken: `${refreshToken.substring(0, 10)}...`,
+        userAgent: req.headers["user-agent"],
       });
-      throw ApiError.UnauthorizedError("Сессия была отозвана. Пожалуйста, войдите снова.");
+      throw ApiError.UnauthorizedError(
+        "Сессия была отозвана. Пожалуйста, войдите снова.",
+      );
     }
 
     logger.debug("Refresh token validation successful", {
       userId: userData.id,
       path: req.path,
-      tokenSource: req.cookies?.refreshToken ? 'cookie' : 'header'
+      tokenSource: req.cookies?.refreshToken ? "cookie" : "header",
     });
   } catch (error) {
     // Если ошибка не связана с отзывом токена, пробрасываем дальше
     if (error instanceof ApiError.UnauthorizedError) {
       throw error;
     }
-    
     // Для других ошибок (например, проблемы с Redis) логируем, но не блокируем доступ
     logger.error("Error during refresh token validation", {
       userId: userData.id,
       error: error.message,
       path: req.path,
-      stack: error.stack
+      stack: error.stack,
     });
-    
+
     // В продакшене можно решить, блокировать ли доступ при ошибках валидации
     // В зависимости от требований безопасности:
     // 1. Если безопасность критична - бросаем ошибку
     // 2. Если доступ важнее - пропускаем с предупреждением
-    
     // По умолчанию бросаем ошибку для безопасности
     throw ApiError.UnauthorizedError("Ошибка проверки сессии");
   }
 }
 
-
-
-module.exports = {
+export default {
   generateToken,
   saveToken,
   removeToken,
@@ -283,5 +295,5 @@ module.exports = {
   validateActivationToken,
   generatePasswordResetToken,
   verifyPasswordResetToken,
-  validateRefreshTokenFromRequest
+  validateRefreshTokenFromRequest,
 };

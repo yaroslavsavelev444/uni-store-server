@@ -1,5 +1,5 @@
-const bannerService = require("../services/bannerService");
-const ApiError = require("../exceptions/api-error");
+import ApiError from "../exceptions/api-error.js";
+import bannerService from "../services/bannerService.js";
 
 class BannerController {
   async create(req, res, next) {
@@ -7,11 +7,11 @@ class BannerController {
       const bannerData = req.body;
       const userId = req.user.id;
 
-      console.log('Получены данные для создания баннера:', {
+      console.log("Получены данные для создания баннера:", {
         bannerData,
-        media: bannerData.media
+        media: bannerData.media,
       });
-      
+
       // Обрабатываем медиа-файлы
       let uploadedMedia = [];
       if (bannerData.media && Array.isArray(bannerData.media)) {
@@ -36,21 +36,26 @@ class BannerController {
       const bannerData = req.body;
       const userId = req.user.id;
 
-      console.log('Получены данные для обновления баннера:', {
+      console.log("Получены данные для обновления баннера:", {
         id,
         bannerData,
-        media: bannerData.media
+        media: bannerData.media,
       });
-      
+
       // Проверка доступа к конкретному баннеру
       const existingBanner = await bannerService.getBannerById(id);
       if (!existingBanner) {
         throw ApiError.NotFoundError("Баннер не найден");
       }
-      
+
       // Можно добавить дополнительную проверку, например, что пользователь является создателем или администратором
-      if (existingBanner.createdBy.toString() !== userId && !req.user.roles.includes('admin')) {
-        throw ApiError.ForbiddenError("Нет доступа для редактирования этого баннера");
+      if (
+        existingBanner.createdBy.toString() !== userId &&
+        !req.user.roles.includes("admin")
+      ) {
+        throw ApiError.ForbiddenError(
+          "Нет доступа для редактирования этого баннера",
+        );
       }
 
       // Обрабатываем медиа-файлы
@@ -86,7 +91,6 @@ class BannerController {
     }
   }
 
-
   async getAll(req, res, next) {
     try {
       const banners = await bannerService.listBanners(req.query);
@@ -112,7 +116,7 @@ class BannerController {
       if (!banner) {
         throw ApiError.NotFoundError("Баннер не найден");
       }
-      
+
       await bannerService.deleteBanner(req.params.id);
       res.status(204).end();
     } catch (err) {
@@ -124,7 +128,7 @@ class BannerController {
     try {
       const updated = await bannerService.changeStatus(
         req.params.id,
-        req.body.status
+        req.body.status,
       );
       res.json(updated);
     } catch (err) {
@@ -135,8 +139,8 @@ class BannerController {
   async getForUser(req, res, next) {
     try {
       const banner = await bannerService.getBannerForUser(req.user);
-      console.log('banner', banner);
-      
+      console.log("banner", banner);
+
       res.json(banner ? [banner] : []);
     } catch (err) {
       next(err);

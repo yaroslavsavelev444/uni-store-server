@@ -1,5 +1,16 @@
 // controllers/faqController.js
-const faqService = require('../services/faqService');
+import {
+  addQuestion as _addQuestion,
+  createTopic as _createTopic,
+  deleteQuestion as _deleteQuestion,
+  deleteTopic as _deleteTopic,
+  getAllFaqForAdmin as _getAllFaqForAdmin,
+  getPublicFaq as _getPublicFaq,
+  reorderQuestions as _reorderQuestions,
+  reorderTopics as _reorderTopics,
+  updateQuestion as _updateQuestion,
+  updateTopic as _updateTopic,
+} from "../services/faqService.js";
 
 class FaqController {
   async getPublicFaq(req, res, next) {
@@ -61,7 +72,7 @@ class FaqController {
       const q = await faqService.updateQuestion(
         req.params.topicId,
         req.params.questionId,
-        req.body
+        req.body,
       );
       res.json({ success: true, data: q });
     } catch (e) {
@@ -71,7 +82,10 @@ class FaqController {
 
   async deleteQuestion(req, res, next) {
     try {
-      await faqService.deleteQuestion(req.params.topicId, req.params.questionId);
+      await faqService.deleteQuestion(
+        req.params.topicId,
+        req.params.questionId,
+      );
       res.json({ success: true });
     } catch (e) {
       next(e);

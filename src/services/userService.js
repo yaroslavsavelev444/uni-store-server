@@ -1,5 +1,5 @@
-const ApiError = require("../exceptions/api-error");
-const { UserModel } = require("../models/index.models");
+import ApiError from "../exceptions/api-error.js";
+import { UserModel } from "../models/index.models.js";
 
 const updateUserRole = async (userId) => {
   try {
@@ -14,7 +14,6 @@ const updateUserRole = async (userId) => {
     throw ApiError.InternalServerError(error.message || "Произошла ошибка");
   }
 };
-
 
 const getUsers = async (userId) => {
   try {
@@ -35,8 +34,10 @@ const deleteUser = async (userId) => {
   }
 };
 
-module.exports = {
+export default {
   updateUserRole,
   deleteUser,
-  getUsers
+  getUsers,
 };
+
+export { deleteUser, getUsers, updateUserRole };

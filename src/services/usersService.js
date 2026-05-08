@@ -1,7 +1,7 @@
 // services/user-service.js
-const { default: mongoose } = require("mongoose");
-const ApiError = require("../exceptions/api-error");
-const { UserModel } = require("../models/index.models");
+import { default as mongoose } from "mongoose";
+import ApiError from "../exceptions/api-error.js";
+import { UserModel } from "../models/index.models.js";
 
 class UserService {
   /**
@@ -18,7 +18,7 @@ class UserService {
     } catch (error) {
       throw ApiError.DatabaseError(
         `Ошибка при получении списка пользователей: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -38,7 +38,7 @@ class UserService {
         throw ApiError.BadRequest(
           `Недопустимая роль. Допустимые значения: ${allowedRoles.join(", ")}`,
           [],
-          null
+          null,
         );
       }
 
@@ -47,7 +47,7 @@ class UserService {
         throw ApiError.BadRequest(
           "Вы не можете изменить свою собственную роль",
           [],
-          null
+          null,
         );
       }
 
@@ -61,7 +61,7 @@ class UserService {
       if (currentUser.role !== "superadmin" && newRole === "superadmin") {
         throw ApiError.ForbiddenError(
           "Только суперадмин может назначать роль суперадмина",
-          null
+          null,
         );
       }
 
@@ -69,7 +69,7 @@ class UserService {
       if (user.role === "superadmin" && currentUser.role !== "superadmin") {
         throw ApiError.ForbiddenError(
           "Только суперадмин может изменять роль другого суперадмина",
-          null
+          null,
         );
       }
 
@@ -85,7 +85,7 @@ class UserService {
 
       // Логирование (опционально)
       console.log(
-        `Пользователь ${currentUser.id} изменил роль пользователя ${userId} с ${oldRole} на ${newRole}`
+        `Пользователь ${currentUser.id} изменил роль пользователя ${userId} с ${oldRole} на ${newRole}`,
       );
 
       return updatedUser;
@@ -97,7 +97,7 @@ class UserService {
 
       throw ApiError.DatabaseError(
         `Ошибка при обновлении роли пользователя: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -130,14 +130,16 @@ class UserService {
   async getUserById(userId) {
     try {
       const user = await UserModel.findById(userId)
-       .select(`
+        .select(
+          `
   -password
   -tokens.resetToken
   -tokens.resetTokenStatus
   -tokens.resetTokenExpiration
   -passwordChangeHistory
   -__v
-`)
+`,
+        )
         .lean();
 
       if (!user) {
@@ -151,18 +153,18 @@ class UserService {
       }
       throw ApiError.DatabaseError(
         `Ошибка при получении пользователя: ${error.message}`,
-        null
+        null,
       );
     }
   }
-// services/user-service.js (исправленный метод searchUsers)
-async searchUsers(searchParams) {
+  // services/user-service.js (исправленный метод searchUsers)
+  async searchUsers(searchParams) {
     try {
       const { query, status, role, page = 1, limit = 50 } = searchParams;
       const skip = (page - 1) * limit;
 
       // Строим базовый запрос
-      let filter = {};
+      const filter = {};
 
       // Обработка поискового запроса
       if (query && query.trim()) {
@@ -201,14 +203,16 @@ async searchUsers(searchParams) {
       // Выполняем поиск с пагинацией, исключая поля с select: false
       const [users, total] = await Promise.all([
         UserModel.find(filter)
-       .select(`
+          .select(
+            `
   -password
   -tokens.resetToken
   -tokens.resetTokenStatus
   -tokens.resetTokenExpiration
   -passwordChangeHistory
   -__v
-`)
+`,
+          )
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit)
@@ -229,7 +233,7 @@ async searchUsers(searchParams) {
           if (timeLeft > 0) {
             const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
             const minutesLeft = Math.floor(
-              (timeLeft % (1000 * 60 * 60)) / (1000 * 60)
+              (timeLeft % (1000 * 60 * 60)) / (1000 * 60),
             );
             blockInfo = {
               blockedUntil: user.blockedUntil,
@@ -255,10 +259,10 @@ async searchUsers(searchParams) {
         },
       };
     } catch (error) {
-      console.error('Search error details:', error);
+      console.error("Search error details:", error);
       throw ApiError.DatabaseError(
         `Ошибка при поиске пользователей: ${error.message}`,
-        null
+        null,
       );
     }
   }
@@ -271,14 +275,16 @@ async searchUsers(searchParams) {
   async getUserWithDetails(userId) {
     try {
       const user = await UserModel.findById(userId)
-        .select(`
+        .select(
+          `
   -password
   -tokens.resetToken
   -tokens.resetTokenStatus
   -tokens.resetTokenExpiration
   -passwordChangeHistory
   -__v
-`)
+`,
+        )
         .populate({
           path: "lastSanction",
           select: "reason duration expiresAt createdAt",
@@ -300,7 +306,7 @@ async searchUsers(searchParams) {
       }
       throw ApiError.DatabaseError(
         `Ошибка при получении детальной информации о пользователе: ${error.message}`,
-        null
+        null,
       );
     }
   }

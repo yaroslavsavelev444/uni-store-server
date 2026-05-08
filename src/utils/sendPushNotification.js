@@ -1,7 +1,6 @@
-const ApiError = require("../exceptions/api-error");
-const { NotificationModel } = require("../models/index.models");
-const logger = require("../logger/logger");
-const { createNotification } = require("../services/notificationsService");
+import { InternalServerError } from "../exceptions/api-error.js";
+import { info } from "../logger/logger.js";
+import { createNotification } from "../services/notificationsService.js";
 
 /**
  * Отправка пуш-уведомления
@@ -18,15 +17,14 @@ async function sendPushNotificationCustom(
   data = {},
   options = {},
   dbSave = true,
-  userId
+  userId,
 ) {
-
   logger.info(
     `sendPushNotificationCustom: ${JSON.stringify(
       { title, body, data, options, dbSave, userId },
       null,
-      2
-    )}`
+      2,
+    )}`,
   );
   const message = {
     sound: options.sound || "default",

@@ -1,20 +1,20 @@
-const mongoose = require("mongoose");
-const ApiError = require("../exceptions/api-error");
-const {
+import { Types } from "mongoose";
+import ApiError from "../exceptions/api-error.js";
+import {
   UserModel,
   UserSecurityModel,
   UserSessionModel,
-} = require("../models/index.models");
-const {
-  generate2FACode,
-  hashCode,
-  isCodeMatch,
-} = require("../utils/generators");
-const { sendEmailNotification } = require("../queues/taskQueues");
-const logger = require("../logger/logger");
-const UserDTO = require("../dtos/user.dto");
-const tokenService = require("./tokenService");
-const redisClient = require("../redis/redis.client");
+} from "../models/index.models.js";
+import _default from "../queues/taskQueues.js";
+import { generate2FACode, hashCode, isCodeMatch } from "../utils/generators.js";
+
+const { sendEmailNotification } = _default;
+
+import UserDTO from "../dtos/user.dto.js";
+import logger from "../logger/logger.js";
+import redisClient from "../redis/redis.client.js";
+import tokenService from "./tokenService.js";
+
 const create2FACodeAndNotify = async (userId, expiresInMinutes = 5) => {
   try {
     const result = await create2FACodeTransaction(userId, expiresInMinutes);
@@ -24,7 +24,7 @@ const create2FACodeAndNotify = async (userId, expiresInMinutes = 5) => {
       expiresInMinutes: result.expiresInMinutes,
     });
 
-     await redisClient.del(`verify:fa:resend:email:${result.email}`);
+    await redisClient.del(`verify:fa:resend:email:$result.email`);
 
     return true;
   } catch (error) {
@@ -36,22 +36,21 @@ const create2FACodeAndNotify = async (userId, expiresInMinutes = 5) => {
   }
 };
 
-
 const create2FACodeTransaction = async (userId, expiresInMinutes = 5) => {
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
+  if (!Types.ObjectId.isValid(userId)) {
     throw ApiError.BadRequest("Некорректный ID пользователя");
   }
 
   try {
     const userData = await UserModel.findById(userId);
-    const userSecurity = await UserSecurityModel.findOne({ userId });
+    const _userSecurity = await UserSecurityModel.findOne({ userId });
 
     if (!userData) {
       throw ApiError.BadRequest("Пользователь не найден");
     }
 
     const code = generate2FACode();
-    console.log(`2FA code for ${userData.email}: ${code}`);
+    console.log(`2FA code for ${userData.email}: $code`);
 
     const hashedCode = hashCode(code);
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
@@ -64,7 +63,7 @@ const create2FACodeTransaction = async (userId, expiresInMinutes = 5) => {
           twoFACodeExpiresAt: expiresAt,
           twoFAAttempts: 0,
         },
-      }
+      },
     );
 
     if (updateResult.matchedCount === 0) {
@@ -87,7 +86,6 @@ const create2FACodeTransaction = async (userId, expiresInMinutes = 5) => {
 
 // Функция только для верификации 2FA кода
 const verify2FACodeOnly = async (userId, inputCode) => {
-
   try {
     const [user, userSecurity] = await Promise.all([
       UserModel.findById(userId),
@@ -105,15 +103,20 @@ const verify2FACodeOnly = async (userId, inputCode) => {
     }
 
     if (userSecurity.twoFAAttempts >= 10) {
-      logger.warn("⛔ Превышено количество попыток", { userId, attempts: userSecurity.twoFAAttempts });
+      logger.warn("⛔ Превышено количество попыток", {
+        userId,
+        attempts: userSecurity.twoFAAttempts,
+      });
       throw ApiError.TooManyRequests("Превышено количество попыток ввода кода");
     }
 
     if (userSecurity.twoFACodeExpiresAt < new Date()) {
-      logger.warn("⛔ Код истёк", { expiresAt: userSecurity.twoFACodeExpiresAt });
+      logger.warn("⛔ Код истёк", {
+        expiresAt: userSecurity.twoFACodeExpiresAt,
+      });
       await UserSecurityModel.updateOne(
         { userId },
-        { $unset: { twoFACodeHash: "", twoFACodeExpiresAt: "" } }
+        { $unset: { twoFACodeHash: "", twoFACodeExpiresAt: "" } },
       );
       throw ApiError.BadRequest("Код истёк. Запросите новый.");
     }
@@ -124,25 +127,24 @@ const verify2FACodeOnly = async (userId, inputCode) => {
       logger.warn("⛔ Неверный код", { userId });
       await UserSecurityModel.updateOne(
         { userId },
-        { $inc: { twoFAAttempts: 1 } }
+        { $inc: { twoFAAttempts: 1 } },
       );
       throw ApiError.BadRequest("Неверный код");
     }
 
     await UserSecurityModel.updateOne(
-  { userId },
-  {
-    $unset: {
-      twoFACodeHash: "",
-      twoFACodeExpiresAt: "",
-    },
-    $set: { 
-      twoFAAttempts: 0,
-      twoFALastAttempt: null 
-    },
-  }
-);
-
+      { userId },
+      {
+        $unset: {
+          twoFACodeHash: "",
+          twoFACodeExpiresAt: "",
+        },
+        $set: {
+          twoFAAttempts: 0,
+          twoFALastAttempt: null,
+        },
+      },
+    );
 
     const freshUser = await UserModel.findById(userId);
 
@@ -162,7 +164,13 @@ const verify2FACodeOnly = async (userId, inputCode) => {
 };
 
 // Функция для создания сессии после успешной верификации
-const createSessionAfter2FA = async (userDto, freshUser, deviceType, ip, device) => {
+const createSessionAfter2FA = async (
+  userDto,
+  freshUser,
+  deviceType,
+  ip,
+  device,
+) => {
   try {
     const tokens = tokenService.generateToken({ ...userDto });
 
@@ -177,7 +185,7 @@ const createSessionAfter2FA = async (userDto, freshUser, deviceType, ip, device)
       ip: ip || null,
     };
 
-    const session = await createOrUpdateSession(sessionPayload);
+    const _session = await createOrUpdateSession(sessionPayload);
 
     return {
       ...tokens,
@@ -195,7 +203,8 @@ const createSessionAfter2FA = async (userDto, freshUser, deviceType, ip, device)
   }
 };
 
-const MAX_SESSIONS_PER_USER = parseInt(process.env.MAX_SESSIONS_PER_USER, 10) || 5;
+const MAX_SESSIONS_PER_USER =
+  parseInt(process.env.MAX_SESSIONS_PER_USER, 10) || 5;
 
 async function createOrUpdateSession({
   userId,
@@ -232,7 +241,11 @@ async function createOrUpdateSession({
   const options = { new: true, upsert: true };
 
   // атомарно обновляем или создаём
-  const session = await UserSessionModel.findOneAndUpdate(filter, update, options).exec();
+  const session = await UserSessionModel.findOneAndUpdate(
+    filter,
+    update,
+    options,
+  ).exec();
 
   // После успешного создания/обновления — принудительная очистка старых сессий
   await pruneSessions(userId, MAX_SESSIONS_PER_USER);
@@ -247,28 +260,35 @@ async function pruneSessions(userId, maxSessions) {
     .skip(maxSessions)
     .exec();
 
-  if (sessions && sessions.length) {
+  if (sessions?.length) {
     const ids = sessions.map((s) => s._id);
     await UserSessionModel.updateMany(
       { _id: { $in: ids } },
-      { $set: { revoked: true } }
+      { $set: { revoked: true } },
     );
     // логируем
     logger.info("Pruned sessions", { userId, count: ids.length });
   }
 }
 
-
 // Обновленная основная функция (для обратной совместимости)
 const verify2FACode = async (userId, inputCode, deviceType, ip, device) => {
-
   try {
     // Используем новую функцию для верификации
-    const { user: userDto, freshUser } = await verify2FACodeOnly(userId, inputCode);
-    
+    const { user: userDto, freshUser } = await verify2FACodeOnly(
+      userId,
+      inputCode,
+    );
+
     // Создаем сессию
-    const result = await createSessionAfter2FA(userDto, freshUser, deviceType, ip, device);
-    
+    const result = await createSessionAfter2FA(
+      userDto,
+      freshUser,
+      deviceType,
+      ip,
+      device,
+    );
+
     return result;
   } catch (error) {
     logger.error("⛔ Ошибка в verify2FACode", {
@@ -280,10 +300,17 @@ const verify2FACode = async (userId, inputCode, deviceType, ip, device) => {
   }
 };
 
-module.exports = {
+export default {
   create2FACodeAndNotify,
   create2FACodeTransaction,
+  createSessionAfter2FA,
   verify2FACode,
-  verify2FACodeOnly,  
-  createSessionAfter2FA
+  verify2FACodeOnly,
+};
+export {
+  create2FACodeAndNotify,
+  create2FACodeTransaction,
+  createSessionAfter2FA,
+  verify2FACode,
+  verify2FACodeOnly,
 };

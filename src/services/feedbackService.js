@@ -1,65 +1,76 @@
 // services/feedbackService.js
-const ApiError = require("../exceptions/api-error");
-const logger = require("../logger/logger");
-const { FeedbackModel, UserModel } = require("../models/index.models");
-const { sendEmailNotification } = require("../queues/taskQueues");
-const mongoose = require("mongoose");
-const FileManager = require("../utils/fileManager");
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { FeedbackModel, UserModel } from "../models/index.models.js";
+
+import _default from "../queues/taskQueues.js";
+
+const { sendEmailNotification } = _default;
+
+import { startSession, Types } from "mongoose";
+import FileManager from "../utils/fileManager.js";
 
 class FeedbackService {
   // Пользовательские методы
 
-async submitFeedback(data) {
-  let movedAttachments = [];
-  
-  try {
-    const {
-      title,
-      description,
-      type,
-      attachments = [],
-      userId,
-      userEmail,
-      userName,
-      userRole,
-      deviceInfo,
-      ipAddress
-    } = data;
+  async submitFeedback(data) {
+    let movedAttachments = [];
 
-    // Валидация
-    if (!title?.trim() || !description?.trim() || !type) {
-      throw ApiError.BadRequest("Заголовок, описание и тип обязательны");
-    }
+    try {
+      const {
+        title,
+        description,
+        type,
+        attachments = [],
+        userId,
+        userEmail,
+        userName,
+        userRole,
+        deviceInfo,
+        ipAddress,
+      } = data;
 
-    // Перемещаем файлы из временной папки в постоянную
-    if (attachments && attachments.length > 0) {
-      console.log(`[FEEDBACK_SUBMIT] Перемещение ${attachments.length} файлов...`);
-      
-      // НОРМАЛИЗУЕМ имена файлов перед перемещением
-      const normalizedAttachments = attachments.map(att => ({
-        ...att,
-        originalName: att.originalName ? FileManager.normalizeFileName(att.originalName) : att.tempName
-      }));
-      
-      movedAttachments = await FileManager.moveTempFilesToPermanent(
-        normalizedAttachments, 
-        'feedback'
-      );
-
-      console.log(`[FEEDBACK_SUBMIT] Перемещено файлов: ${movedAttachments.filter(a => a.moved).length}`);
-      
-      // Проверяем успешность перемещения
-      const failedAttachments = movedAttachments.filter(a => !a.moved);
-      if (failedAttachments.length > 0) {
-        console.warn('[FEEDBACK_SUBMIT] Некоторые файлы не удалось переместить:', 
-          failedAttachments.map(f => ({ 
-            name: f.originalName, 
-            error: f.error,
-            size: f.size 
-          }))
-        );
+      // Валидация
+      if (!title?.trim() || !description?.trim() || !type) {
+        throw ApiError.BadRequest("Заголовок, описание и тип обязательны");
       }
-    }
+
+      // Перемещаем файлы из временной папки в постоянную
+      if (attachments && attachments.length > 0) {
+        console.log(
+          `[FEEDBACK_SUBMIT] Перемещение ${attachments.length} файлов...`,
+        );
+
+        // НОРМАЛИЗУЕМ имена файлов перед перемещением
+        const normalizedAttachments = attachments.map((att) => ({
+          ...att,
+          originalName: att.originalName
+            ? FileManager.normalizeFileName(att.originalName)
+            : att.tempName,
+        }));
+
+        movedAttachments = await FileManager.moveTempFilesToPermanent(
+          normalizedAttachments,
+          "feedback",
+        );
+
+        console.log(
+          `[FEEDBACK_SUBMIT] Перемещено файлов: ${movedAttachments.filter((a) => a.moved).length}`,
+        );
+
+        // Проверяем успешность перемещения
+        const failedAttachments = movedAttachments.filter((a) => !a.moved);
+        if (failedAttachments.length > 0) {
+          console.warn(
+            "[FEEDBACK_SUBMIT] Некоторые файлы не удалось переместить:",
+            failedAttachments.map((f) => ({
+              name: f.originalName,
+              error: f.error,
+              size: f.size,
+            })),
+          );
+        }
+      }
 
       // Определяем приоритет на основе типа
       const priority = this.determinePriority(type, description);
@@ -77,14 +88,14 @@ async submitFeedback(data) {
         deviceInfo,
         ipAddress,
         createdBy: userId ? new mongoose.Types.ObjectId(userId) : null,
-        status: 'new'
+        status: "new",
       };
 
       // Добавляем перемещенные вложения
       if (movedAttachments.length > 0) {
         feedbackData.attachments = movedAttachments
-          .filter(a => a.moved)
-          .map(att => ({
+          .filter((a) => a.moved)
+          .map((att) => ({
             url: att.url,
             tempName: att.tempName,
             permanentName: att.permanentName,
@@ -92,7 +103,7 @@ async submitFeedback(data) {
             size: att.size,
             mimeType: att.mimeType,
             uploadedAt: new Date(),
-            movedAt: att.movedAt
+            movedAt: att.movedAt,
           }));
       }
 
@@ -106,21 +117,26 @@ async submitFeedback(data) {
       try {
         await this.cleanupUserTempFiles(userId);
       } catch (cleanupError) {
-        console.warn('[FEEDBACK_SUBMIT] Ошибка при очистке временных файлов:', cleanupError.message);
+        console.warn(
+          "[FEEDBACK_SUBMIT] Ошибка при очистке временных файлов:",
+          cleanupError.message,
+        );
       }
 
       return feedback;
-      
     } catch (error) {
       // Если произошла ошибка, откатываем перемещение файлов
-      console.error('[FEEDBACK_SUBMIT] Ошибка, откатываем изменения...');
-      
+      console.error("[FEEDBACK_SUBMIT] Ошибка, откатываем изменения...");
+
       try {
         await this.rollbackFileMoves(movedAttachments);
       } catch (rollbackError) {
-        console.error('[FEEDBACK_SUBMIT] Ошибка при откате файлов:', rollbackError.message);
+        console.error(
+          "[FEEDBACK_SUBMIT] Ошибка при откате файлов:",
+          rollbackError.message,
+        );
       }
-      
+
       logger.error("[FEEDBACK_SUBMIT] Ошибка:", error);
       if (error instanceof ApiError) throw error;
       throw ApiError.InternalServerError("Ошибка при создании фидбека");
@@ -131,16 +147,18 @@ async submitFeedback(data) {
    * Откатывает перемещение файлов при ошибке
    */
   async rollbackFileMoves(movedAttachments = []) {
-    const successfullyMoved = movedAttachments.filter(a => a.moved && a.permanentName);
-    
+    const successfullyMoved = movedAttachments.filter(
+      (a) => a.moved && a.permanentName,
+    );
+
     if (successfullyMoved.length === 0) {
       return;
     }
 
     console.log(`[ROLLBACK] Откатываем ${successfullyMoved.length} файлов...`);
 
-    const uploadsDir = path.join(__dirname, '..', 'uploads');
-    const feedbackDir = path.join(uploadsDir, 'feedback');
+    const uploadsDir = path.join(__dirname, "..", "uploads");
+    const feedbackDir = path.join(uploadsDir, "feedback");
 
     for (const attachment of successfullyMoved) {
       try {
@@ -148,7 +166,10 @@ async submitFeedback(data) {
         await fs.unlink(permanentPath);
         console.log(`[ROLLBACK] Удален файл: ${attachment.permanentName}`);
       } catch (error) {
-        console.warn(`[ROLLBACK] Не удалось удалить файл ${attachment.permanentName}:`, error.message);
+        console.warn(
+          `[ROLLBACK] Не удалось удалить файл ${attachment.permanentName}:`,
+          error.message,
+        );
       }
     }
   }
@@ -159,54 +180,56 @@ async submitFeedback(data) {
   async cleanupUserTempFiles(userId) {
     try {
       if (!userId) return;
-      
+
       // Находим все фидбеки пользователя
-      const userFeedbacks = await FeedbackModel.find({ 
+      const userFeedbacks = await FeedbackModel.find({
         userId: new mongoose.Types.ObjectId(userId),
-        'attachments.tempName': { $exists: true }
-      }).select('attachments');
-      
+        "attachments.tempName": { $exists: true },
+      }).select("attachments");
+
       // Собираем все tempName из всех фидбеков пользователя
       const allTempNames = [];
-      userFeedbacks.forEach(feedback => {
-        feedback.attachments.forEach(att => {
+      userFeedbacks.forEach((feedback) => {
+        feedback.attachments.forEach((att) => {
           if (att.tempName && att.permanentName) {
             allTempNames.push(att.tempName);
           }
         });
       });
-      
+
       // Удаляем временные файлы, которые уже перемещены
       if (allTempNames.length > 0) {
         await FileManager.cleanupTempFiles(allTempNames);
-        console.log(`[CLEANUP] Очищено ${allTempNames.length} временных файлов пользователя ${userId}`);
+        console.log(
+          `[CLEANUP] Очищено ${allTempNames.length} временных файлов пользователя ${userId}`,
+        );
       }
     } catch (error) {
-      console.error('[CLEANUP] Ошибка при очистке временных файлов:', error);
+      console.error("[CLEANUP] Ошибка при очистке временных файлов:", error);
       throw error;
     }
   }
 
-
   async getFeedback(id, userId, userRole) {
     try {
       const feedback = await FeedbackModel.findById(id).lean();
-      
+
       if (!feedback) {
         throw ApiError.NotFoundError("Фидбек не найден");
       }
 
       // Проверяем права доступа
       const isOwner = feedback.userId && feedback.userId.toString() === userId;
-      const isAdmin = ['admin', 'moderator'].includes(userRole);
-      
+      const isAdmin = ["admin", "moderator"].includes(userRole);
+
       if (!isOwner && !isAdmin) {
         throw ApiError.ForbiddenError("Нет доступа к этому фидбеку");
       }
 
       // Скрываем приватные заметки для не-админов
       if (!isAdmin) {
-        feedback.internalNotes = feedback.internalNotes?.filter(note => !note.isPrivate) || [];
+        feedback.internalNotes =
+          feedback.internalNotes?.filter((note) => !note.isPrivate) || [];
       }
 
       return feedback;
@@ -221,68 +244,69 @@ async submitFeedback(data) {
 
   async getAllFeedbacks(options = {}) {
     try {
-      const { 
-        page = 1, 
-        limit = 50, 
-        type, 
-        status, 
-        priority, 
+      const {
+        page = 1,
+        limit = 50,
+        type,
+        status,
+        priority,
         assignedTo,
         fromDate,
         toDate,
         search,
-        sortBy = 'createdAt',
-        sortOrder = 'desc'
+        sortBy = "createdAt",
+        sortOrder = "desc",
       } = options;
-      
+
       const skip = (page - 1) * limit;
-      const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-      
+      const sort = { [sortBy]: sortOrder === "desc" ? -1 : 1 };
+
       const query = {};
-      
+
       // Фильтры
       if (type) query.type = type;
       if (status) query.status = status;
       if (priority) query.priority = priority;
-      if (assignedTo) query.assignedTo = new mongoose.Types.ObjectId(assignedTo);
-      
+      if (assignedTo)
+        query.assignedTo = new mongoose.Types.ObjectId(assignedTo);
+
       // Диапазон дат
       if (fromDate || toDate) {
         query.createdAt = {};
         if (fromDate) query.createdAt.$gte = new Date(fromDate);
         if (toDate) query.createdAt.$lte = new Date(toDate);
       }
-      
+
       // Поиск
       if (search) {
         query.$or = [
-          { title: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
-          { userName: { $regex: search, $options: 'i' } },
-          { userEmail: { $regex: search, $options: 'i' } }
+          { title: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+          { userName: { $regex: search, $options: "i" } },
+          { userEmail: { $regex: search, $options: "i" } },
         ];
       }
-      
+
       const [feedbacks, total] = await Promise.all([
         FeedbackModel.find(query)
-          .populate('assignedTo', 'name email role')
-          .populate('createdBy', 'name email')
+          .populate("assignedTo", "name email role")
+          .populate("createdBy", "name email")
           .sort(sort)
           .skip(skip)
           .limit(limit)
           .lean(),
-        FeedbackModel.countDocuments(query)
+        FeedbackModel.countDocuments(query),
       ]);
-      
+
       // Агрегация по статусам для фильтров
       const statusStats = await FeedbackModel.aggregate([
         { $match: query },
-        { $group: { _id: '$status', count: { $sum: 1 } } }
+        { $group: { _id: "$status", count: { $sum: 1 } } },
       ]);
-      
+
       const priorityStats = await FeedbackModel.aggregate([
         { $match: query },
-        { $group: { _id: '$priority', count: { $sum: 1 } } }
+        { $group: { _id: "$priority", count: { $sum: 1 } } },
       ]);
 
       return {
@@ -293,12 +317,18 @@ async submitFeedback(data) {
           total,
           pages: Math.ceil(total / limit),
           hasNext: page * limit < total,
-          hasPrev: page > 1
+          hasPrev: page > 1,
         },
         filters: {
-          status: statusStats.reduce((acc, stat) => ({ ...acc, [stat._id]: stat.count }), {}),
-          priority: priorityStats.reduce((acc, stat) => ({ ...acc, [stat._id]: stat.count }), {})
-        }
+          status: statusStats.reduce(
+            (acc, stat) => ({ ...acc, [stat._id]: stat.count }),
+            {},
+          ),
+          priority: priorityStats.reduce(
+            (acc, stat) => ({ ...acc, [stat._id]: stat.count }),
+            {},
+          ),
+        },
       };
     } catch (error) {
       logger.error("[GET_ALL_FEEDBACKS] Ошибка:", error);
@@ -308,42 +338,47 @@ async submitFeedback(data) {
 
   async updateStatus(feedbackId, status, adminId, note) {
     const session = await mongoose.startSession();
-    
+
     try {
       session.startTransaction();
-      
-      const feedback = await FeedbackModel.findById(feedbackId).session(session);
-      
+
+      const feedback =
+        await FeedbackModel.findById(feedbackId).session(session);
+
       if (!feedback) {
         throw ApiError.NotFoundError("Фидбек не найден");
       }
-      
+
       const previousStatus = feedback.status;
       feedback.status = status;
       feedback.updatedBy = new mongoose.Types.ObjectId(adminId);
-      
+
       // Добавляем автоматическую заметку об изменении статуса
       if (note || previousStatus !== status) {
         if (!feedback.internalNotes) feedback.internalNotes = [];
         feedback.internalNotes.push({
           note: note || `Статус изменен с "${previousStatus}" на "${status}"`,
           createdBy: new mongoose.Types.ObjectId(adminId),
-          isPrivate: false
+          isPrivate: false,
         });
       }
-      
+
       await feedback.save({ session });
-      
+
       // Отправляем уведомление пользователю при изменении статуса
       if (feedback.userEmail && previousStatus !== status) {
-        await this.notifyUserAboutStatusChange(feedback, previousStatus, status);
+        await this.notifyUserAboutStatusChange(
+          feedback,
+          previousStatus,
+          status,
+        );
       }
-      
+
       await session.commitTransaction();
-      
+
       return {
         ...feedback.toObject(),
-        previousStatus
+        previousStatus,
       };
     } catch (error) {
       await session.abortTransaction();
@@ -359,17 +394,17 @@ async submitFeedback(data) {
     try {
       const feedback = await FeedbackModel.findByIdAndUpdate(
         feedbackId,
-        { 
+        {
           $set: { priority },
-          updatedBy: new mongoose.Types.ObjectId(adminId)
+          updatedBy: new mongoose.Types.ObjectId(adminId),
         },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
-      
+
       if (!feedback) {
         throw ApiError.NotFoundError("Фидбек не найден");
       }
-      
+
       return feedback;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -377,7 +412,6 @@ async submitFeedback(data) {
       throw ApiError.InternalServerError("Ошибка при обновлении приоритета");
     }
   }
-
 
   async addInternalNote(feedbackId, note, adminId, isPrivate = false) {
     try {
@@ -388,18 +422,18 @@ async submitFeedback(data) {
             internalNotes: {
               note: note.trim(),
               createdBy: new mongoose.Types.ObjectId(adminId),
-              isPrivate
-            }
+              isPrivate,
+            },
           },
-          updatedBy: new mongoose.Types.ObjectId(adminId)
+          updatedBy: new mongoose.Types.ObjectId(adminId),
         },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
-      
+
       if (!feedback) {
         throw ApiError.NotFoundError("Фидбек не найден");
       }
-      
+
       return feedback;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -413,23 +447,25 @@ async submitFeedback(data) {
       const feedback = await FeedbackModel.findOneAndUpdate(
         {
           _id: feedbackId,
-          'internalNotes._id': noteId,
-          'internalNotes.createdBy': adminId
+          "internalNotes._id": noteId,
+          "internalNotes.createdBy": adminId,
         },
         {
           $set: {
-            'internalNotes.$.note': note.trim(),
-            'internalNotes.$.updatedAt': new Date()
+            "internalNotes.$.note": note.trim(),
+            "internalNotes.$.updatedAt": new Date(),
           },
-          updatedBy: new mongoose.Types.ObjectId(adminId)
+          updatedBy: new mongoose.Types.ObjectId(adminId),
         },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
-      
+
       if (!feedback) {
-        throw ApiError.NotFoundError("Заметка не найдена или нет прав для редактирования");
+        throw ApiError.NotFoundError(
+          "Заметка не найдена или нет прав для редактирования",
+        );
       }
-      
+
       return feedback;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -444,17 +480,19 @@ async submitFeedback(data) {
         feedbackId,
         {
           $pull: {
-            internalNotes: { _id: noteId, createdBy: adminId }
+            internalNotes: { _id: noteId, createdBy: adminId },
           },
-          updatedBy: new mongoose.Types.ObjectId(adminId)
+          updatedBy: new mongoose.Types.ObjectId(adminId),
         },
-        { new: true }
+        { new: true },
       );
-      
+
       if (!feedback) {
-        throw ApiError.NotFoundError("Заметка не найдена или нет прав для удаления");
+        throw ApiError.NotFoundError(
+          "Заметка не найдена или нет прав для удаления",
+        );
       }
-      
+
       return feedback;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -469,15 +507,15 @@ async submitFeedback(data) {
         feedbackId,
         {
           $addToSet: { tags: tag.trim().toLowerCase() },
-          updatedBy: new mongoose.Types.ObjectId(adminId)
+          updatedBy: new mongoose.Types.ObjectId(adminId),
         },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
-      
+
       if (!feedback) {
         throw ApiError.NotFoundError("Фидбек не найден");
       }
-      
+
       return feedback;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -492,15 +530,15 @@ async submitFeedback(data) {
         feedbackId,
         {
           $pull: { tags: tag.trim().toLowerCase() },
-          updatedBy: new mongoose.Types.ObjectId(adminId)
+          updatedBy: new mongoose.Types.ObjectId(adminId),
         },
-        { new: true }
+        { new: true },
       );
-      
+
       if (!feedback) {
         throw ApiError.NotFoundError("Фидбек не найден");
       }
-      
+
       return feedback;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -511,51 +549,52 @@ async submitFeedback(data) {
 
   async markAsDuplicate(feedbackId, duplicateOfId, adminId, note) {
     const session = await mongoose.startSession();
-    
+
     try {
       session.startTransaction();
-      
+
       // Проверяем существование оригинального фидбека
-      const originalFeedback = await FeedbackModel.findById(duplicateOfId).session(session);
+      const originalFeedback =
+        await FeedbackModel.findById(duplicateOfId).session(session);
       if (!originalFeedback) {
         throw ApiError.NotFoundError("Оригинальный фидбек не найден");
       }
-      
-      const feedback = await FeedbackModel.findById(feedbackId).session(session);
+
+      const feedback =
+        await FeedbackModel.findById(feedbackId).session(session);
       if (!feedback) {
         throw ApiError.NotFoundError("Фидбек не найден");
       }
-      
+
       // Нельзя помечать как дубликат самого себя
       if (feedbackId === duplicateOfId) {
-        throw ApiError.BadRequest("Нельзя пометить фидбек как дубликат самого себя");
+        throw ApiError.BadRequest(
+          "Нельзя пометить фидбек как дубликат самого себя",
+        );
       }
-      
+
       feedback.duplicateOf = new mongoose.Types.ObjectId(duplicateOfId);
-      feedback.status = 'duplicate';
+      feedback.status = "duplicate";
       feedback.updatedBy = new mongoose.Types.ObjectId(adminId);
-      
+
       // Добавляем ссылку в оригинальный фидбек
-      await FeedbackModel.findByIdAndUpdate(
-        duplicateOfId,
-        {
-          $addToSet: { relatedTo: new mongoose.Types.ObjectId(feedbackId) }
-        }
-      ).session(session);
-      
+      await FeedbackModel.findByIdAndUpdate(duplicateOfId, {
+        $addToSet: { relatedTo: new mongoose.Types.ObjectId(feedbackId) },
+      }).session(session);
+
       // Добавляем заметку
       if (note) {
         if (!feedback.internalNotes) feedback.internalNotes = [];
         feedback.internalNotes.push({
           note: `Помечено как дубликат #${duplicateOfId}. ${note}`,
           createdBy: new mongoose.Types.ObjectId(adminId),
-          isPrivate: false
+          isPrivate: false,
         });
       }
-      
+
       await feedback.save({ session });
       await session.commitTransaction();
-      
+
       return feedback;
     } catch (error) {
       await session.abortTransaction();
@@ -570,18 +609,18 @@ async submitFeedback(data) {
   async deleteFeedback(feedbackId, adminId) {
     try {
       const feedback = await FeedbackModel.findByIdAndDelete(feedbackId);
-      
+
       if (!feedback) {
         throw ApiError.NotFoundError("Фидбек не найден");
       }
-      
+
       logger.warn("Фидбек удален", {
         feedbackId,
         adminId,
         title: feedback.title,
-        userId: feedback.userId
+        userId: feedback.userId,
       });
-      
+
       return true;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -594,10 +633,9 @@ async submitFeedback(data) {
 
   async incrementViewCount(feedbackId) {
     try {
-      await FeedbackModel.findByIdAndUpdate(
-        feedbackId,
-        { $inc: { viewCount: 1 } }
-      );
+      await FeedbackModel.findByIdAndUpdate(feedbackId, {
+        $inc: { viewCount: 1 },
+      });
     } catch (error) {
       logger.error("[INCREMENT_VIEW_COUNT] Ошибка:", error);
     }
@@ -617,35 +655,46 @@ async submitFeedback(data) {
       return await FeedbackModel.getStats(userId);
     } catch (error) {
       logger.error("[GET_USER_STATS] Ошибка:", error);
-      throw ApiError.InternalServerError("Ошибка при получении статистики пользователя");
+      throw ApiError.InternalServerError(
+        "Ошибка при получении статистики пользователя",
+      );
     }
   }
 
   async exportToCSV(options = {}) {
     try {
       const { fromDate, toDate, type, status } = options;
-      
+
       const query = {};
       if (type) query.type = type;
       if (status) query.status = status;
-      
+
       if (fromDate || toDate) {
         query.createdAt = {};
         if (fromDate) query.createdAt.$gte = new Date(fromDate);
         if (toDate) query.createdAt.$lte = new Date(toDate);
       }
-      
+
       const feedbacks = await FeedbackModel.find(query)
         .sort({ createdAt: -1 })
         .lean();
-      
+
       // Формируем CSV
       const headers = [
-        'ID', 'Title', 'Type', 'Status', 'Priority', 'User Email', 
-        'User Name', 'Created At', 'Updated At', 'Description', 'Tags'
+        "ID",
+        "Title",
+        "Type",
+        "Status",
+        "Priority",
+        "User Email",
+        "User Name",
+        "Created At",
+        "Updated At",
+        "Description",
+        "Tags",
       ];
-      
-      const rows = feedbacks.map(feedback => [
+
+      const rows = feedbacks.map((feedback) => [
         feedback._id,
         `"${feedback.title?.replace(/"/g, '""')}"`,
         feedback.type,
@@ -656,14 +705,14 @@ async submitFeedback(data) {
         new Date(feedback.createdAt).toISOString(),
         new Date(feedback.updatedAt).toISOString(),
         `"${feedback.description?.replace(/"/g, '""')}"`,
-        feedback.tags?.join(', ') || ''
+        feedback.tags?.join(", ") || "",
       ]);
-      
+
       const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.join(','))
-      ].join('\n');
-      
+        headers.join(","),
+        ...rows.map((row) => row.join(",")),
+      ].join("\n");
+
       return csvContent;
     } catch (error) {
       logger.error("[EXPORT_TO_CSV] Ошибка:", error);
@@ -675,61 +724,66 @@ async submitFeedback(data) {
 
   determinePriority(type, description) {
     const descriptionLower = description.toLowerCase();
-    
+
     // Критические баги
-    if (type === 'bug' && (
-      descriptionLower.includes('не работает') ||
-      descriptionLower.includes('ошибка') ||
-      descriptionLower.includes('критическ') ||
-      descriptionLower.includes('срочн') ||
-      descriptionLower.includes('urgent') ||
-      descriptionLower.includes('critical')
-    )) {
-      return 'critical';
+    if (
+      type === "bug" &&
+      (descriptionLower.includes("не работает") ||
+        descriptionLower.includes("ошибка") ||
+        descriptionLower.includes("критическ") ||
+        descriptionLower.includes("срочн") ||
+        descriptionLower.includes("urgent") ||
+        descriptionLower.includes("critical"))
+    ) {
+      return "critical";
     }
-    
+
     // Высокий приоритет для багов и важных фич
-    if (type === 'bug' || 
-        descriptionLower.includes('важн') ||
-        descriptionLower.includes('необход') ||
-        descriptionLower.includes('нужн')) {
-      return 'high';
+    if (
+      type === "bug" ||
+      descriptionLower.includes("важн") ||
+      descriptionLower.includes("необход") ||
+      descriptionLower.includes("нужн")
+    ) {
+      return "high";
     }
-    
+
     // Средний приоритет для улучшений
-    if (type === 'improvement') {
-      return 'medium';
+    if (type === "improvement") {
+      return "medium";
     }
-    
+
     // Низкий по умолчанию
-    return 'low';
+    return "low";
   }
 
   async notifyAdminsAboutNewFeedback(feedback) {
     try {
-      const admins = await UserModel.find({ 
-        role: { $in: ['admin'] },
-        email: { $exists: true, $ne: '' }
-      }).select('email name').lean();
-      
+      const admins = await UserModel.find({
+        role: { $in: ["admin"] },
+        email: { $exists: true, $ne: "" },
+      })
+        .select("email name")
+        .lean();
+
       if (admins.length === 0) return;
-      
+
       for (const admin of admins) {
-        await sendEmailNotification(admin.email, 'newFeedback', {
-  feedbackId: feedback._id,
-  title: feedback.title,
-  type: feedback.type,
-  userName: feedback.userName || 'Анонимный пользователь',
-  userEmail: feedback.userEmail || 'Не указан',
-  priority: feedback.priority,
-  createdAt: feedback.createdAt,
-  description: feedback.description.substring(0, 200) + '...'
-});
+        await sendEmailNotification(admin.email, "newFeedback", {
+          feedbackId: feedback._id,
+          title: feedback.title,
+          type: feedback.type,
+          userName: feedback.userName || "Анонимный пользователь",
+          userEmail: feedback.userEmail || "Не указан",
+          priority: feedback.priority,
+          createdAt: feedback.createdAt,
+          description: feedback.description.substring(0, 200) + "...",
+        });
       }
-      
+
       logger.info("Уведомления администраторам отправлены", {
         feedbackId: feedback._id,
-        adminCount: admins.length
+        adminCount: admins.length,
       });
     } catch (error) {
       logger.error("[NOTIFY_ADMINS] Ошибка:", error);
@@ -740,23 +794,23 @@ async submitFeedback(data) {
   async notifyUserAboutStatusChange(feedback, oldStatus, newStatus) {
     try {
       if (!feedback.userEmail) return;
-      
+
       const statusMessages = {
-        'new': 'Получен и ожидает рассмотрения',
-        'in_progress': 'Взяли в работу',
-        'resolved': 'Решен',
-        'closed': 'Закрыт',
-        'duplicate': 'Помечен как дубликат',
-        'wont_fix': 'Не будет исправлен'
+        new: "Получен и ожидает рассмотрения",
+        in_progress: "Взяли в работу",
+        resolved: "Решен",
+        closed: "Закрыт",
+        duplicate: "Помечен как дубликат",
+        wont_fix: "Не будет исправлен",
       };
-      
-      await sendEmailNotification(feedback.userEmail, 'feedbackStatusChanged', {
+
+      await sendEmailNotification(feedback.userEmail, "feedbackStatusChanged", {
         feedbackId: feedback._id,
         title: feedback.title,
         oldStatus: statusMessages[oldStatus] || oldStatus,
         newStatus: statusMessages[newStatus] || newStatus,
         userName: feedback.userName,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
     } catch (error) {
       logger.error("[NOTIFY_USER_STATUS_CHANGE] Ошибка:", error);
@@ -766,16 +820,16 @@ async submitFeedback(data) {
   async notifyAssignedUser(feedback, assignedUser) {
     try {
       if (!assignedUser.email) return;
-      
-      await sendEmailNotification(assignedUser.email, 'feedbackAssigned', {
+
+      await sendEmailNotification(assignedUser.email, "feedbackAssigned", {
         feedbackId: feedback._id,
         title: feedback.title,
         type: feedback.type,
         priority: feedback.priority,
         assignedBy: feedback.updatedBy, // ID админа
         userName: assignedUser.name,
-        description: feedback.description.substring(0, 150) + '...',
-        createdAt: feedback.createdAt
+        description: feedback.description.substring(0, 150) + "...",
+        createdAt: feedback.createdAt,
       });
     } catch (error) {
       logger.error("[NOTIFY_ASSIGNED_USER] Ошибка:", error);

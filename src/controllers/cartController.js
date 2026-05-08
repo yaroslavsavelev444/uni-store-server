@@ -1,11 +1,11 @@
-const cartService = require("../services/cartService");
+import cartService from "../services/cartService.js";
 
 class CartController {
   async getCart(req, res, next) {
     try {
       const cart = await cartService.getCart(req.user.id);
-      console.log('getCart', JSON.stringify(cart));
-      
+      console.log("getCart", JSON.stringify(cart));
+
       res.json(cart);
     } catch (error) {
       next(error);
@@ -15,7 +15,11 @@ class CartController {
   async addOrUpdateItem(req, res, next) {
     try {
       const { productId, quantity } = req.body;
-      const cart = await cartService.addOrUpdateItem(req.user.id, productId, quantity);
+      const cart = await cartService.addOrUpdateItem(
+        req.user.id,
+        productId,
+        quantity,
+      );
       res.status(200).json(cart);
     } catch (error) {
       next(error);

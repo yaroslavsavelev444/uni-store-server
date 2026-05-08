@@ -1,21 +1,25 @@
-const mailService = require("../../services/mailService");
-const logger = require("../../logger/logger");
-const {
-  taskQueues,
+import { default as mongoose } from "mongoose";
+import { error as _error, debug, info } from "../../logger/logger.js";
+import { disconnect } from "../../redis/redis.client.js";
+import { sendNotification } from "../../services/mailService.js";
+import { createHealthServer } from "../../utils/workerHealth.js";
+import {
   moderateQueues,
   pushNotificationsQueues,
-} = require("../bull");
+  taskQueues,
+} from "../bull.js";
 
 const { createHealthServer } = require("../../utils/workerHealth");
 const { disconnect } = require("../../redis/redis.client");
 const { default: mongoose } = require("mongoose");
 const healthServer = createHealthServer(4000);
-const sendPushNotificationCustom = require("../../utils/sendPushNotification");
-const { connectDB } = require("../../config/mongo");
-require("axios");
-require("../../models/index.models");
-const { moderateReview } = require("../../services/reviewService");
-const telegramNotifier = require("../../services/telegramNotifierService");
+
+import { connectDB } from "../../config/mongo.js";
+import sendPushNotificationCustom from "../../utils/sendPushNotification.js";
+import "axios";
+import "../../models/index.models.js";
+import { moderateReview } from "../../services/reviewService.js";
+import { processNotification } from "../../services/telegramNotifierService.js";
 
 const initProcessors = async () => {
   await connectDB();
@@ -39,7 +43,7 @@ const initProcessors = async () => {
     } catch (error) {
       logger.error(
         `Error processing email notification (Job ID: ${job.id}):`,
-        error
+        error,
       );
       done(error);
     }
@@ -56,7 +60,7 @@ const initProcessors = async () => {
         message,
         level,
         metadata,
-        options
+        options,
       );
 
       if (result === null) {
@@ -67,7 +71,7 @@ const initProcessors = async () => {
     } catch (error) {
       logger.error(
         `Error processing Telegram notification (Job ID: ${job.id}):`,
-        error.message
+        error.message,
       );
 
       // Для rate limit ошибок делаем повторную попытку
@@ -81,7 +85,7 @@ const initProcessors = async () => {
       if (job.attemptsMade >= job.opts.attempts - 1) {
         logger.error(
           `Telegram notification ${job.id} failed after ${job.attemptsMade} attempts:`,
-          error
+          error,
         );
       } else {
         throw error; // Пробрасываем для повторной попытки
@@ -98,7 +102,7 @@ const initProcessors = async () => {
     } catch (error) {
       logger.error(
         `Error processing email notification (Job ID: ${job.id}):`,
-        error
+        error,
       );
       done(error);
     }
@@ -107,8 +111,7 @@ const initProcessors = async () => {
   pushNotificationsQueues.process("sendPushNotification", 10, async (job) => {
     console.log("Mongo readyState:", mongoose.connection.readyState);
 
-    const {  title, body, data, options, dbSave, userId } =
-      job.data;
+    const { title, body, data, options, dbSave, userId } = job.data;
 
     console.log(`Processing push notification job ${job.id}`);
 
@@ -119,7 +122,7 @@ const initProcessors = async () => {
         data,
         options,
         dbSave,
-        userId
+        userId,
       );
 
       console.log(`✅ Push notification job ${job.id} completed`);

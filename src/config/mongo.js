@@ -1,6 +1,8 @@
-const mongoose = require("mongoose");
-const logger = require("../logger/logger");
-require("dotenv").config();
+import dotenv from "dotenv";
+import { disconnect as _disconnect, connect, connection } from "mongoose";
+import { error, info } from "../logger/logger.js";
+
+dotenv.config();
 
 // Подключение к базе данных
 const connectDB = async () => {
@@ -11,7 +13,7 @@ const connectDB = async () => {
       {
         serverSelectionTimeoutMS: 30000,
         socketTimeoutMS: 45000,
-      }
+      },
     );
 
     logger.info("✅ Подключено к MongoDB через Mongoose");
@@ -27,7 +29,6 @@ const connectDB = async () => {
     throw err;
   }
 };
-
 
 mongoose.connection.on("connected", () => {
   console.log("🟢 MONGO CONNECTED " + new Date().toISOString());
@@ -45,7 +46,7 @@ mongoose.connection.on("error", (err) => {
 const getDB = () => {
   if (!mongoose.connection.readyState) {
     throw new Error(
-      "❌ База данных не инициализирована. Вызовите connectDB() сначала."
+      "❌ База данных не инициализирована. Вызовите connectDB() сначала.",
     );
   }
   return mongoose.connection;
@@ -56,4 +57,4 @@ const disconnect = async () => {
   logger.info("✅ Отключено от MongoDB");
 };
 
-module.exports = { connectDB, getDB, disconnect };
+export { connectDB, disconnect, getDB };

@@ -1,30 +1,30 @@
-const helmet = require("helmet");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const cookieParser = require("cookie-parser");
-const useragent = require("express-useragent");
-const express = require("express");
-const corsConfig = require("../config/cors");
-const logger = require("../src/logger/logger");
+import pkg from "body-parser";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import { json } from "express";
+import { express as _express } from "express-useragent";
+import helmet from "helmet";
+import auditConfig from "../config/audit.js";
+import corsConfig from "../config/cors.js";
+import logger from "../src/logger/logger.js";
+import auditRequestMiddleware from "../src/middlewares/audit-request-middleware.js";
+import requestContextMiddleware from "../src/middlewares/request-context-middleware.js";
 
-const requestContextMiddleware = require("../src/middlewares/request-context-middleware");
-const auditRequestMiddleware = require("../src/middlewares/audit-request-middleware");
-const auditConfig = require("../config/audit");
-
-module.exports = (app) => {
+const { urlencoded } = pkg;
+export default (app) => {
   app.use(
     helmet({
       crossOriginResourcePolicy: false,
-    })
+    }),
   );
 
   app.use(cors(corsConfig));
-  app.use(express.json({ limit: "100mb" }));
-  app.use(bodyParser.urlencoded({ extended: true, limit: "100mb" }));
+  app.use(json({ limit: "100mb" }));
+  app.use(urlencoded({ extended: true, limit: "100mb" }));
   app.use(cookieParser());
-  app.use(useragent.express());
+  app.use(_express());
 
-  app.use((req, res, next) => {
+  app.use((req, _res, next) => {
     logger.info(`${req.method} ${req.url} | IP: ${req.ip}`);
     next();
   });

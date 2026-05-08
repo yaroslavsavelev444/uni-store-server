@@ -1,4 +1,3 @@
-
 const crypto = require("crypto");
 
 function generate2FACode() {
@@ -6,18 +5,17 @@ function generate2FACode() {
 }
 
 function hashCode(code) {
-  return crypto.createHash("sha256").update(code).digest("hex");
+  return createHash("sha256").update(code).digest("hex");
 }
 function isCodeMatch(inputCode, storedHash) {
   const inputHash = hashCode(inputCode);
-  return crypto.timingSafeEqual(
-    Buffer.from(inputHash),
-    Buffer.from(storedHash)
-  );
-};
+  return timingSafeEqual(Buffer.from(inputHash), Buffer.from(storedHash));
+}
 
-module.exports = {
+export default {
   generate2FACode,
   hashCode,
   isCodeMatch,
 };
+
+export { generate2FACode, hashCode, isCodeMatch };

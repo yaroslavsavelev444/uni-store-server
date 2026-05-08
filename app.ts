@@ -1,9 +1,8 @@
-const express = require("express");
-const path = require("path");
-
-const loadMiddlewares = require("./loaders/middlewares");
-const loadRoutes = require("./loaders/routes");
-const errorHandler = require("./src/error/error");
+import express from "express";
+import path from "path";
+import loadMiddlewares from "./loaders/middlewares.js";
+import loadRoutes from "./loaders/routes.js";
+import errorHandler from "./src/error/error.js";
 
 const app = express();
 
@@ -25,4 +24,4 @@ app.get("/api/test", (_, res) => {
 
 app.use(errorHandler);
 
-module.exports = app;
+export default app;

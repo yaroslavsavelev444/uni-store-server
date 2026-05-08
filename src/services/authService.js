@@ -1,54 +1,57 @@
-const ApiError = require("../exceptions/api-error");
-const logger = require("../logger/logger");
-const {
+import { compare, hash } from "bcryptjs";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import {
+  UserAcceptedConsentModel,
   UserModel,
   UserSecurityModel,
   UserSessionModel,
-  UserAcceptedConsentModel,
-} = require("../models/index.models");
-const { registerSchema } = require("../validators/user.validator");
-const bcrypt = require("bcryptjs");
-const {
-  create2FACodeAndNotify,
-  verify2FACode,
-  verify2FACodeOnly,
-} = require("./2faService");
-const UserDTO = require("../dtos/user.dto");
+} from "../models/index.models.js";
+import { registerSchema } from "../validators/user.validator.js";
+import faService from "./2faService.js";
+
+const { create2FACodeAndNotify, verify2FACode, verify2FACodeOnly } = _default;
+
+import UserDTO from "../dtos/user.dto.js";
+import tokenService from "./tokenService.js";
+
 const {
   validateRefreshToken,
   generateToken,
   validateAccessToken,
   generatePasswordResetToken,
   verifyPasswordResetToken,
-} = require("./tokenService");
-const moveFileToFinal = require("../utils/moveFileToFinal");
-const {
-  sendEmailNotification,
-  sendPushNotification,
-} = require("../queues/taskQueues");
-const { login_from_new_device } = require("../templates/templates");
-const redisClient = require("../redis/redis.client");
-const SessionService = require("./SessionService");
-const userSanctionService = require("./userSanctionService");
+} = tokenService;
+
+import taskQueues from "../queues/taskQueues.js";
+import moveFileToFinal from "../utils/moveFileToFinal.js";
+
+const { sendEmailNotification, sendPushNotification } = taskQueues;
+
+import redisClient from "../redis/redis.client.js";
+import SessionService from "./SessionService.js";
+import userSanctionService from "./userSanctionService.js";
 
 const login = async (userData) => {
   try {
     const { password } = userData;
     const email = userData.email.toLowerCase();
-    
+
     const user = await UserModel.findOne({ email }).select("+password").exec();
 
     if (!user) {
       throw ApiError.BadRequest("Пользователь не найден");
     }
 
-    //Заблокирован ли 
-    const sanctionData = await userSanctionService.checkUserBlockStatus(user._id);
+    //Заблокирован ли
+    const sanctionData = await userSanctionService.checkUserBlockStatus(
+      user._id,
+    );
 
     if (sanctionData.user.status === "blocked") {
       throw ApiError.ForbiddenError("Пользователь заблокирован");
     }
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) {
       throw ApiError.BadRequest("Неверный пароль");
     }
@@ -97,7 +100,6 @@ const logout = async (refreshToken, userData) => {
   }
 };
 
-
 const register = async (userData, meta = {}) => {
   try {
     const { error, value } = registerSchema.validate(userData, {
@@ -106,8 +108,8 @@ const register = async (userData, meta = {}) => {
     });
 
     if (error) {
-      const details = error.details.map(d => d.message).join("; ");
-      throw ApiError.BadRequest("Ошибка валидации: " + details);
+      const details = error.details.map((d) => d.message).join("; ");
+      throw ApiError.BadRequest(`Ошибка валидации: ${details}`);
     }
 
     const { name, password, acceptedConsents } = value;
@@ -116,13 +118,11 @@ const register = async (userData, meta = {}) => {
 
     const existingUser = await UserModel.findOne({ email }).exec();
     if (existingUser) {
-      throw ApiError.BadRequest(
-        "Пользователь с таким email уже существует"
-      );
+      throw ApiError.BadRequest("Пользователь с таким email уже существует");
     }
 
     const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await hash(password, saltRounds);
 
     const user = new UserModel({
       name,
@@ -139,7 +139,7 @@ const register = async (userData, meta = {}) => {
 
     // === СОХРАНЕНИЕ ПРИНЯТЫХ СОГЛАСИЙ ===
     if (Array.isArray(acceptedConsents) && acceptedConsents.length > 0) {
-      const consentDocs = acceptedConsents.map(consent => ({
+      const consentDocs = acceptedConsents.map((consent) => ({
         userId: user._id,
         consentSlug: consent.slug,
         consentVersion: consent.version,
@@ -147,10 +147,9 @@ const register = async (userData, meta = {}) => {
         userAgent: meta.userAgent || "unknown",
       }));
 
-      await UserAcceptedConsentModel.insertMany(
-        consentDocs,
-        { ordered: false }
-      );
+      await UserAcceptedConsentModel.insertMany(consentDocs, {
+        ordered: false,
+      });
     }
 
     return {
@@ -169,7 +168,7 @@ const register = async (userData, meta = {}) => {
 
     throw ApiError.InternalServerError(
       "Произошла ошибка при регистрации",
-      error
+      error,
     );
   }
 };
@@ -180,7 +179,7 @@ const verify2FAAndNotify = async (
   inputCode,
   deviceType,
   ip,
-  device
+  device,
 ) => {
   try {
     const result = await verify2FACode(
@@ -188,7 +187,7 @@ const verify2FAAndNotify = async (
       inputCode,
       deviceType,
       ip,
-      device
+      device,
     );
 
     if (result.sendNotification) {
@@ -221,7 +220,7 @@ const verify2FAAndNotify = async (
   }
 };
 
-const refreshService = async (refreshToken, deviceType, ip) => {
+const refreshService = async (refreshToken, _deviceType, ip) => {
   if (!refreshToken) {
     throw ApiError.UnauthorizedError("Refresh token не предоставлен");
   }
@@ -232,7 +231,7 @@ const refreshService = async (refreshToken, deviceType, ip) => {
     if (isRevoked) {
       logger.warn("Refresh attempt with revoked token", { ip });
       throw ApiError.UnauthorizedError(
-        "Сессия была отозвана. Пожалуйста, войдите снова."
+        "Сессия была отозвана. Пожалуйста, войдите снова.",
       );
     }
 
@@ -295,7 +294,7 @@ const refreshService = async (refreshToken, deviceType, ip) => {
       {
         new: true,
         runValidators: true,
-      }
+      },
     );
 
     if (!updatedSession) {
@@ -359,7 +358,7 @@ const updateUser = async (userId, userData, files) => {
     // Безопасная проверка свойств
     if (userData && typeof userData === "object") {
       for (const key of allowedFields) {
-        if (Object.prototype.hasOwnProperty.call(userData, key)) {
+        if (Object.hasOwn(userData, key)) {
           updatePayload[key] = userData[key];
         }
       }
@@ -374,7 +373,7 @@ const updateUser = async (userId, userData, files) => {
         "..",
         "uploads",
         "users",
-        uploadedFile.filename
+        uploadedFile.filename,
       );
 
       await moveFileToFinal(tempFilePath, finalFilePath);
@@ -383,7 +382,7 @@ const updateUser = async (userId, userData, files) => {
       updatePayload.avatarUrl = path.join(
         "uploads",
         "users",
-        uploadedFile.filename
+        uploadedFile.filename,
       );
     }
 
@@ -396,7 +395,7 @@ const updateUser = async (userId, userData, files) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       userId,
       { $set: updatePayload },
-      { new: true, runValidators: true } // Добавлены валидаторы
+      { new: true, runValidators: true }, // Добавлены валидаторы
     );
 
     return updatedUser;
@@ -404,7 +403,7 @@ const updateUser = async (userId, userData, files) => {
     logger.error("Ошибка в updateUser:", error);
     if (error instanceof ApiError) throw error;
     throw ApiError.InternalServerError(
-      "Не удалось обновить данные пользователя"
+      "Не удалось обновить данные пользователя",
     );
   }
 };
@@ -414,10 +413,10 @@ const changePassword = async (userId, oldPassword, newPassword) => {
     const user = await UserModel.findById(userId);
     if (!user) throw ApiError.NotFoundError("Пользователь не найден");
 
-    const isPasswordCorrect = await bcrypt.compare(oldPassword, user.password);
+    const isPasswordCorrect = await compare(oldPassword, user.password);
     if (!isPasswordCorrect) throw ApiError.BadRequest("Неправильный пароль");
 
-    user.password = await bcrypt.hash(newPassword, 10);
+    user.password = await hash(newPassword, 10);
     await user.save();
 
     //TODO увеломление
@@ -452,7 +451,7 @@ const checkService = async (accessToken, refreshToken, deviceType, ip) => {
     !!accessToken,
     !!refreshToken,
     deviceType,
-    ip
+    ip,
   );
 
   if (!accessToken || !refreshToken) {
@@ -468,7 +467,7 @@ const checkService = async (accessToken, refreshToken, deviceType, ip) => {
   const user = await UserModel.findById(refreshData.id);
   if (!user) throw ApiError.UnauthorizedError("Пользователь не найден");
 
-  let session = await UserSessionModel.findOne({
+  const session = await UserSessionModel.findOne({
     userId: user._id,
     refreshToken,
   });
@@ -498,7 +497,7 @@ const checkService = async (accessToken, refreshToken, deviceType, ip) => {
   const userDto = new UserDTO(user);
   const { accessToken: newAccess } = generateToken(
     { ...userDto },
-    { onlyAccess: true }
+    { onlyAccess: true },
   );
 
   return {
@@ -529,7 +528,7 @@ const completePasswordReset = async (email, resetToken, newPassword) => {
 
   // Хэшируем новый пароль
   const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 12;
-  const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+  const hashedPassword = await hash(newPassword, saltRounds);
 
   // Атомарно обновляем пароль и очищаем токен
   await Promise.all([
@@ -545,7 +544,7 @@ const completePasswordReset = async (email, resetToken, newPassword) => {
           resetTokenStatus: "completed",
           updatedAt: new Date(),
         },
-      }
+      },
     ),
   ]);
 
@@ -565,9 +564,11 @@ const completePasswordReset = async (email, resetToken, newPassword) => {
 };
 
 const verifyPasswordResetCode = async (email, code) => {
-  const userData = await UserModel.findOne({ email }); 
+  const userData = await UserModel.findOne({ email });
   if (!userData)
-    throw ApiError.NotFoundError("Пользователь не найден при подтвержлении восстановления пароля");
+    throw ApiError.NotFoundError(
+      "Пользователь не найден при подтвержлении восстановления пароля",
+    );
 
   const { user } = await verify2FACodeOnly(userData._id, code);
   const signedToken = await generatePasswordResetToken(user.id);
@@ -590,14 +591,14 @@ const resendResetCode = async (email) => {
     // Проверяем, не слишком ли часто запрашивается повторная отправка
     const userSecurity = await UserSecurityModel.findOne({ userId: user._id });
 
-    if (userSecurity && userSecurity.resetTokenExpiration) {
+    if (userSecurity?.resetTokenExpiration) {
       const timeSinceLastRequest =
         Date.now() - userSecurity.resetTokenExpiration.getTime();
 
       // Не позволяем запрашивать новый код чаще чем раз в 1 минуту
       if (timeSinceLastRequest < 60000) {
         throw ApiError.BadRequest(
-          "Новый код можно запросить только через 1 минуту после предыдущего"
+          "Новый код можно запросить только через 1 минуту после предыдущего",
         );
       }
     }
@@ -610,7 +611,7 @@ const resendResetCode = async (email) => {
     };
   } catch (error) {
     logger.error("Error resending reset code", {
-      email: email.substring(0, 3) + "***",
+      email: `${email.substring(0, 3)}***`,
       error: error.message,
     });
     throw error;
@@ -625,7 +626,7 @@ const updateOnlineStatusService = async (userId, online) => {
   await UserModel.findByIdAndUpdate(userId, { online }, { new: true });
 };
 
-module.exports = {
+export default {
   login,
   logout,
   register,

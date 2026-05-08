@@ -1,19 +1,10 @@
-const ApiError = require("../exceptions/api-error");
-const logger = require("../logger/logger");
-require("../models/index.models");
-const {
-  taskQueues,
-  moderateQueues,
-  pushNotificationsQueues,
-} = require("./bull");
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { moderateQueues, pushNotificationsQueues, taskQueues } from "./bull.js";
 
 async function sendEmailNotification(email, type, data) {
   logger.info(
-    `sendEmailNotificationLetter: ${JSON.stringify(
-      { email, type, data },
-      null,
-      2
-    )}`
+    `sendEmailNotificationLetter: ${JSON.stringify({ email, type, data }, null, 2)}`,
   );
 
   if (!email || !type || !data) {
@@ -44,16 +35,7 @@ async function sendPushNotification({
   delay = 0,
   jobId = null,
 }) {
-  console.log(
-    title,
-    body,
-    data,
-    options,
-    dbSave,
-    userId,
-    delay,
-    jobId
-  );
+  console.log(title, body, data, options, dbSave, userId, delay, jobId);
 
   try {
     const jobOptions = {
@@ -71,8 +53,8 @@ async function sendPushNotification({
 
     await pushNotificationsQueues.add(
       "sendPushNotification",
-      {  title, body, data, options, dbSave, userId },
-      jobOptions
+      { title, body, data, options, dbSave, userId },
+      jobOptions,
     );
   } catch (error) {
     console.log("Ошибка при отправке пуш-уведомления:", error);
@@ -98,7 +80,7 @@ async function sendTelegramNotification(
   message,
   level = "error",
   metadata = {},
-  options = {}
+  options = {},
 ) {
   try {
     const job = await taskQueues.add("sendTelegramNotification", {
@@ -115,9 +97,16 @@ async function sendTelegramNotification(
   }
 }
 
-module.exports = {
+export default {
   sendEmailNotification,
   sendPushNotification,
   reviewModerate,
+  sendTelegramNotification,
+};
+
+export {
+  reviewModerate,
+  sendEmailNotification,
+  sendPushNotification,
   sendTelegramNotification,
 };

@@ -1,73 +1,73 @@
-const CartModel = require("./cart-model");
-const ProductModel = require("./product-model");
-const ProductReviewModel = require("./product-review-model");
-const PromoBlockModel = require("./promo-block-model");
-const MainMaterialModel = require("./main-material-model");
-const ContactModel = require("./contact-model");
-const CategoryModel = require("./category-model");
-const CompanyModel = require("./company-model");
-const TokenModel = require("./token-model");
-const UserModel = require("./user-model");
-const {OrderModel,
-  OrderStatus,
-  DeliveryMethod} = require("./order-model");
-const UserSessionModel = require("./user-session-model");
-const UserSecurityModel = require("./user-security-model");
-const NotificationModel = require("./notification-model");
-const ConsentModel = require("./consent-model");
-const TopicModelCommon = require("./topic-model-common");
-const FeedbackModel = require("./feedback-model");
-const MessageModel = require("./message-model");
-const RoomModel = require("./room-model");
-const KeyEncryptModel = require("./key-encrypt-model");
-const UserSearchModel = require("./user-search-model");
-const { FaqTopicModel, FaqQuestionModel } = require("./faq-model");
-const WishlistModel = require("./wishlist-model");
-const PickupPointModel = require("./pickup-point-model");
-const TransportCompanyModel = require("./transport-company-model");
-const ContentBlockModel = require("./content-block-model");
-const UserSanctionModel = require("./user-sanction-model");
-const UserAcceptedConsentModel = require("./user-accepted-consent-model");
-const RefundModel = require("./refund-model");
-const BannerViewModel = require("./banner-view-model");
-const BannerModel = require("./banner-model");
-const FileModel = require("./file-model");
-const DiscountModel = require("./discount-model");
-module.exports = {
+// src/models/index.models.js
+
+export { default as BannerModel } from "./banner-model.js";
+export { default as BannerViewModel } from "./banner-view-model.js";
+export { default as CartModel } from "./cart-model.js";
+export { default as CategoryModel } from "./category-model.js";
+export { default as CompanyModel } from "./company-model.js";
+export { default as ConsentModel } from "./consent-model.js";
+export { default as ContactModel } from "./contact-model.js";
+export { default as ContentBlockModel } from "./content-block-model.js";
+export { default as DiscountModel } from "./discount-model.js";
+export { FaqQuestionModel, FaqTopicModel } from "./faq-model.js";
+export { default as FeedbackModel } from "./feedback-model.js";
+export { default as KeyEncryptModel } from "./key-encrypt-model.js";
+export { default as MainMaterialModel } from "./main-material-model.js";
+export { default as MessageModel } from "./message-model.js";
+export { default as NotificationModel } from "./notification-model.js";
+export { DeliveryMethod, OrderModel, OrderStatus } from "./order-model.js";
+export { default as PickupPointModel } from "./pickup-point-model.js";
+export { default as ProductModel } from "./product-model.js";
+export { default as ProductReviewModel } from "./product-review-model.js";
+export { default as PromoBlockModel } from "./promo-block-model.js";
+export { default as RefundModel } from "./refund-model.js";
+export { default as RoomModel } from "./room-model.js";
+export { default as TokenModel } from "./token-model.js";
+export { default as TopicModelCommon } from "./topic-model-common.js";
+export { default as TransportCompanyModel } from "./transport-company-model.js";
+export { default as UserAcceptedConsentModel } from "./user-accepted-consent-model.js";
+export { default as UserModel } from "./user-model.js";
+export { default as UserSanctionModel } from "./user-sanction-model.js";
+export { default as UserSearchModel } from "./user-search-model.js";
+export { default as UserSecurityModel } from "./user-security-model.js";
+export { default as UserSessionModel } from "./user-session-model.js";
+export { default as WishlistModel } from "./wishlist-model.js";
+
+// Опционально: оставляем default экспорт для обратной совместимости (если где-то ещё используется)
+export default {
+  BannerModel,
+  BannerViewModel,
   CartModel,
+  CategoryModel,
+  CompanyModel,
+  ConsentModel,
+  ContactModel,
+  ContentBlockModel,
+  DiscountModel,
+  FaqQuestionModel,
+  FaqTopicModel,
+  FeedbackModel,
+  KeyEncryptModel,
+  MainMaterialModel,
+  MessageModel,
+  NotificationModel,
+  DeliveryMethod,
+  OrderModel,
+  OrderStatus,
+  PickupPointModel,
   ProductModel,
   ProductReviewModel,
   PromoBlockModel,
-  MainMaterialModel,
-  ContactModel,
-  CategoryModel,
-  CompanyModel,
-  TokenModel,
-  UserModel,
-  OrderModel,
-  OrderStatus,
-  DeliveryMethod,
-  UserSessionModel,
-  UserSecurityModel,
-  NotificationModel,
-  ConsentModel,
-  TopicModelCommon,
-  FeedbackModel,
-  MessageModel,
-  RoomModel,
-  KeyEncryptModel,
-  UserSearchModel,
-  FaqTopicModel,
-  FaqQuestionModel,
-  WishlistModel,
-  PickupPointModel,
-  TransportCompanyModel,
-  ContentBlockModel,
-  UserSanctionModel,
-  FileModel,
-  UserAcceptedConsentModel,
   RefundModel,
-  BannerViewModel,
-  BannerModel,
-  DiscountModel
+  RoomModel,
+  TokenModel,
+  TopicModelCommon,
+  TransportCompanyModel,
+  UserAcceptedConsentModel,
+  UserModel,
+  UserSanctionModel,
+  UserSearchModel,
+  UserSecurityModel,
+  UserSessionModel,
+  WishlistModel,
 };

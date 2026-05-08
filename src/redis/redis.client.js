@@ -1,6 +1,6 @@
 // redis/redis.client.js
-const Redis = require('ioredis');
-const logger = require('../logger/logger');
+import Redis from "ioredis";
+import logger from "../logger/logger.js";
 
 class RedisClient {
   constructor() {
@@ -12,34 +12,34 @@ class RedisClient {
     if (this.isConnected) return this.client;
 
     this.client = new Redis({
-      host: process.env.REDIS_HOST || 'redis',
+      host: process.env.REDIS_HOST || "redis",
       port: process.env.REDIS_PORT || 6379,
       maxRetriesPerRequest: 3,
       connectTimeout: 180000,
       retryStrategy: (times) => Math.min(times * 50, 2000),
       enableOfflineQueue: true,
-      autoResendUnfulfilledCommands: true
+      autoResendUnfulfilledCommands: true,
     });
 
     return new Promise((resolve, reject) => {
-      this.client.on('connect', () => {
+      this.client.on("connect", () => {
         this.isConnected = true;
-        logger.info('[Redis] Connected successfully');
+        logger.info("[Redis] Connected successfully");
         resolve(this.client);
       });
 
-      this.client.on('error', (err) => {
+      this.client.on("error", (err) => {
         logger.error(`[Redis] Connection error: ${err.message}`);
         if (!this.isConnected) reject(err);
       });
 
-      this.client.on('reconnecting', () => {
-        logger.warn('[Redis] Reconnecting...');
+      this.client.on("reconnecting", () => {
+        logger.warn("[Redis] Reconnecting...");
       });
 
-      this.client.on('end', () => {
+      this.client.on("end", () => {
         this.isConnected = false;
-        logger.info('[Redis] Connection closed');
+        logger.info("[Redis] Connection closed");
       });
     });
   }
@@ -48,7 +48,7 @@ class RedisClient {
     if (this.client && this.isConnected) {
       await this.client.quit();
       this.isConnected = false;
-      logger.info('[Redis] Disconnected gracefully');
+      logger.info("[Redis] Disconnected gracefully");
       return true;
     }
     return false;
@@ -120,11 +120,11 @@ class RedisClient {
   async pipeline(operations) {
     if (!this.isConnected) await this.connect();
     const pipeline = this.client.pipeline();
-    
+
     operations.forEach(([operation, ...args]) => {
       pipeline[operation](...args);
     });
-    
+
     return pipeline.exec();
   }
 
@@ -225,7 +225,7 @@ class RedisClient {
   async zrange(key, start, stop, withScores = false) {
     if (!this.isConnected) await this.connect();
     const args = [key, start, stop];
-    if (withScores) args.push('WITHSCORES');
+    if (withScores) args.push("WITHSCORES");
     return this.client.zrange(...args);
   }
 
@@ -249,14 +249,14 @@ class RedisClient {
     if (!this.isConnected) await this.connect();
     const stream = this.client.scanStream({
       match: pattern,
-      count: 100
+      count: 100,
     });
-    
+
     const keys = [];
     for await (const resultKeys of stream) {
       keys.push(...resultKeys);
     }
-    
+
     if (keys.length > 0) {
       return this.client.del(...keys);
     }
@@ -302,37 +302,37 @@ class RedisClient {
   async bulkSetex(keyValueTtlArray) {
     if (!this.isConnected) await this.connect();
     const pipeline = this.client.pipeline();
-    
+
     keyValueTtlArray.forEach(([key, ttl, value]) => {
       pipeline.setex(key, ttl, value);
     });
-    
+
     return pipeline.exec();
   }
 
   async bulkDel(keys) {
     if (!this.isConnected) await this.connect();
     if (keys.length === 0) return [];
-    
+
     const pipeline = this.client.pipeline();
-    keys.forEach(key => {
+    keys.forEach((key) => {
       pipeline.del(key);
     });
-    
+
     return pipeline.exec();
   }
 
   async bulkExists(keys) {
     if (!this.isConnected) await this.connect();
     if (keys.length === 0) return [];
-    
+
     const pipeline = this.client.pipeline();
-    keys.forEach(key => {
+    keys.forEach((key) => {
       pipeline.exists(key);
     });
-    
+
     const results = await pipeline.exec();
-    return results.map(([err, exists]) => exists === 1);
+    return results.map(([_err, exists]) => exists === 1);
   }
 }
 

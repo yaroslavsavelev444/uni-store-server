@@ -1,6 +1,5 @@
-const {ProductModel, UserSearchModel} = require("../models/index.models"); // существующая модель продукта
-const { ProductStatus } = require('../models/product-model');
-
+import { ProductModel, UserSearchModel } from "../models/index.models.js";
+import _default from "../models/product-model.js";
 
 class SearchService {
   /**
@@ -17,7 +16,7 @@ class SearchService {
       const record = await UserSearchModel.findOneAndUpdate(
         { userId, selectedProductId: productId },
         { $currentDate: { updatedAt: true } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true },
       );
       return record;
     } catch (err) {
@@ -89,7 +88,9 @@ class SearchService {
           status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
           isVisible: true,
         })
-          .select("title sku mainImage priceForIndividual discount status category")
+          .select(
+            "title sku mainImage priceForIndividual discount status category",
+          )
           .populate("category", "name slug")
           .limit(10);
       }
@@ -102,10 +103,12 @@ class SearchService {
             status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
             isVisible: true,
           },
-          { score: { $meta: "textScore" } }
+          { score: { $meta: "textScore" } },
         )
           .sort({ score: { $meta: "textScore" }, title: 1 })
-          .select("title sku mainImage priceForIndividual discount status category")
+          .select(
+            "title sku mainImage priceForIndividual discount status category",
+          )
           .populate("category", "name slug")
           .limit(10);
       }
@@ -122,7 +125,9 @@ class SearchService {
           status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
           isVisible: true,
         })
-          .select("title sku mainImage priceForIndividual discount status category")
+          .select(
+            "title sku mainImage priceForIndividual discount status category",
+          )
           .populate("category", "name slug")
           .limit(10);
       }
@@ -133,7 +138,8 @@ class SearchService {
         if (product.discount?.isActive) {
           const now = new Date();
           const validFrom = product.discount.validFrom || new Date(0);
-          const validUntil = product.discount.validUntil || new Date("9999-12-31");
+          const validUntil =
+            product.discount.validUntil || new Date("9999-12-31");
 
           if (now >= validFrom && now <= validUntil) {
             if (product.discount.percentage > 0) {
@@ -153,7 +159,9 @@ class SearchService {
           label: product.title,
           sku: product.sku,
           price: finalPrice,
-          originalPrice: product.discount?.isActive ? product.priceForIndividual : null,
+          originalPrice: product.discount?.isActive
+            ? product.priceForIndividual
+            : null,
           hasDiscount: product.discount?.isActive || false,
           image: product.mainImage,
           category: product.category?.name || null,
@@ -162,14 +170,15 @@ class SearchService {
         };
       });
 
-      console.log(`[SearchService] getHints: query="${query}" results=${formattedResults.length}`);
+      console.log(
+        `[SearchService] getHints: query="${query}" results=${formattedResults.length}`,
+      );
       return formattedResults;
     } catch (err) {
       console.error(`[SearchService] getHints error: ${err.message}`);
       throw err;
     }
   }
-
 
   /**
    * Заглушка метода расчёта цены (реализация в вашем ProductService)

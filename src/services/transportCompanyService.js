@@ -1,4 +1,4 @@
-const {TransportCompanyModel} = require("../models/index.models");
+import { TransportCompanyModel } from "../models/index.models.js";
 
 class TransportCompanyService {
   /**

@@ -1,5 +1,5 @@
-const ApiError = require("../exceptions/api-error");
-const searchService = require("../services/searchService");
+import ApiError from "../exceptions/api-error.js";
+import searchService from "../services/searchService.js";
 
 class SearchController {
   async saveSearchHistory(req, res, next) {
@@ -14,7 +14,10 @@ class SearchController {
 
       if (!productId) throw ApiError.BadRequest("Недостаточно данных");
 
-      const record = await searchService.saveSearchHistory(req.user.id, productId);
+      const record = await searchService.saveSearchHistory(
+        req.user.id,
+        productId,
+      );
       res.json(record);
     } catch (err) {
       next(err);
@@ -57,12 +60,10 @@ class SearchController {
       next(
         error instanceof ApiError
           ? error
-          : ApiError.InternalServerError(errorMessage)
+          : ApiError.InternalServerError(errorMessage),
       );
     }
   }
-
-  
 
   async searchProducts(req, res, next) {
     try {

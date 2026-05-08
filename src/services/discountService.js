@@ -1,6 +1,7 @@
-const { DiscountModel } = require("../models/index.models");
-const ApiError = require("../exceptions/api-error");
-const mongoose = require("mongoose");
+import { Types } from "mongoose";
+import ApiError from "../exceptions/api-error.js";
+import { DiscountModel } from "../models/index.models.js";
+
 class DiscountService {
   /**
    * Создание новой скидки

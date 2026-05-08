@@ -1,8 +1,8 @@
-const ApiError = require("../exceptions/api-error");
-const { PromoBlockModel, MainMaterialModel } = require("../models/index.models");
-const fs = require("fs");
-const fsPromises = require("fs/promises");
-const path = require("path");
+import { existsSync, unlink } from "node:fs";
+import { unlink as _unlink } from "node:fs/promises";
+import { join } from "node:path";
+import ApiError from "../exceptions/api-error.js";
+import { MainMaterialModel, PromoBlockModel } from "../models/index.models.js";
 
 const createPromoBlock = async (data) => {
   const block = new PromoBlockModel(data);
@@ -24,20 +24,22 @@ const deletePromoBlock = async (id) => {
     throw ApiError.NotFoundError("Промо блок не найден");
   }
 
-  const relativePath = promoBlock.image.startsWith('/')
+  const relativePath = promoBlock.image.startsWith("/")
     ? promoBlock.image.slice(1)
     : promoBlock.image;
 
-  const instructionPath = path.join(__dirname, "..", relativePath);
+  const instructionPath = join(__dirname, "..", relativePath);
   console.log("Путь к файлу для удаления:", instructionPath);
 
   try {
-    if (fs.existsSync(instructionPath)) {
-      await fsPromises.unlink(instructionPath);
+    if (existsSync(instructionPath)) {
+      await _unlink(instructionPath);
     }
   } catch (e) {
     console.error("Ошибка при удалении файла:", e.message);
-    throw ApiError.InternalServerError('Произошла ошибка при удалении промо блока');
+    throw ApiError.InternalServerError(
+      "Произошла ошибка при удалении промо блока",
+    );
   }
 
   return await PromoBlockModel.findByIdAndDelete(id);
@@ -49,7 +51,9 @@ const createMainMaterial = async (data) => {
 };
 
 const updateMainMaterial = async (id, updateData) => {
-  return await MainMaterialModel.findByIdAndUpdate(id, updateData, { new: true });
+  return await MainMaterialModel.findByIdAndUpdate(id, updateData, {
+    new: true,
+  });
 };
 
 const deleteMainMaterial = async (id) => {
@@ -60,9 +64,9 @@ const deleteMainMaterial = async (id) => {
     ? material.mediaUrl.slice(1)
     : material.mediaUrl;
 
-  const absolutePath = path.join(__dirname, "..", relativePath);
+  const absolutePath = join(__dirname, "..", relativePath);
   try {
-    await fs.unlink(absolutePath);
+    await unlink(absolutePath);
   } catch (e) {
     console.warn("Файл не найден или уже удален:", e.message);
   }
@@ -74,9 +78,7 @@ const getMainMaterials = async () => {
   return await MainMaterialModel.find().sort({ createdAt: -1 }); // последние первыми
 };
 
-
-
-module.exports = {
+export default {
   createPromoBlock,
   getPromoBlock,
   deletePromoBlock,
@@ -84,5 +86,16 @@ module.exports = {
   createMainMaterial,
   updateMainMaterial,
   deleteMainMaterial,
-  getMainMaterials
+  getMainMaterials,
+};
+
+export {
+  createMainMaterial,
+  createPromoBlock,
+  deleteMainMaterial,
+  deletePromoBlock,
+  getMainMaterials,
+  getPromoBlock,
+  updateMainMaterial,
+  updatePromoBlock,
 };

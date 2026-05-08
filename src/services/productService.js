@@ -1,13 +1,12 @@
-const ApiError = require("../exceptions/api-error");
-const mongoose = require("mongoose");
-const { ProductStatus } = require("../models/product-model");
-const { ProductModel, UserSearchModel } = require("../models/index.models");
-const CategoryModel = require("../models/category-model"); // ДОБАВЛЕНО
-const fileService = require("../utils/fileManager");
-const PurchaseCheckService = require("./purchaseCheckService");
-const ReviewsService = require("./reviewService");
-const FileManager = require("../utils/fileManager");
-const ProductDiscountService = require("./ProductDiscountService");
+import { Types } from "mongoose";
+import ApiError from "../exceptions/api-error.js";
+import { ProductModel } from "../models/index.models.js";
+import { ProductStatus } from "../models/product-model.js";
+import fileService from "../utils/fileManager.js";
+import FileManager from "../utils/fileManager.js";
+import ProductDiscountService from "./ProductDiscountService.js";
+import purchaseCheckService from "./purchaseCheckService.js";
+import reviewService from "./reviewService.js";
 
 class ProductService {
   async getAllProducts(query = {}) {
@@ -58,7 +57,7 @@ class ProductService {
 
     // 2. Фильтр по категории (через ID категории)
     if (category) {
-      if (!mongoose.Types.ObjectId.isValid(category)) {
+      if (!Types.ObjectId.isValid(category)) {
         throw ApiError.BadRequest("Некорректный ID категории");
       }
       filter.category = category;
@@ -69,15 +68,15 @@ class ProductService {
     if (slug) {
       try {
         // Находим категорию по slug
-        const categoryDoc = await CategoryModel.findOne({ slug });
+        const categoryDoc = await ProductModel.findOne({ slug });
 
         if (!categoryDoc) {
           // Если категория не найдена, возвращаем пустой результат
           return {
             products: [],
             pagination: {
-              page: parseInt(page),
-              limit: parseInt(limit),
+              page: parseInt(page, 10),
+              limit: parseInt(limit, 10),
               total: 0,
               pages: 0,
               hasNext: false,
@@ -88,7 +87,7 @@ class ProductService {
 
         categoryIdFromSlug = categoryDoc._id;
         filter.category = categoryIdFromSlug;
-      } catch (error) {
+      } catch (_error) {
         throw ApiError.DatabaseError("Ошибка при поиске категории");
       }
     }
@@ -111,7 +110,7 @@ class ProductService {
     // 8. ИСКЛЮЧЕНИЕ ID продуктов
     if (excludeIds && excludeIds.length > 0) {
       const validExcludeIds = excludeIds.filter((id) =>
-        mongoose.Types.ObjectId.isValid(id),
+        Types.ObjectId.isValid(id),
       );
 
       if (validExcludeIds.length > 0) {
@@ -148,7 +147,7 @@ class ProductService {
       let query = ProductModel.find(filter)
         .sort(sortOptions)
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(parseInt(limit, 10))
         .lean({ virtuals: true });
 
       // ДЛЯ СВЯЗАННЫХ ПРОДУКТОВ ТАКЖЕ УЧИТЫВАЕМ isAdmin
@@ -187,9 +186,7 @@ class ProductService {
         const finalPrice = this.calculateFinalPrice(product);
 
         // Получаем количество отзывов для этого продукта
-        const reviewsCount = await ReviewsService.getProductReviewsCountStatic(
-          product._id,
-        );
+        const reviewsCount = await getProductReviewsCountStatic(product._id);
 
         return {
           ...product,
@@ -242,8 +239,7 @@ class ProductService {
 
         // Обработка инструкции
         if (
-          processedProduct.instruction &&
-          processedProduct.instruction.url &&
+          processedProduct.instruction?.url &&
           !processedProduct.instruction.url.startsWith("http")
         ) {
           processedProduct.instruction.url = FileManager.getFileUrl(
@@ -276,21 +272,21 @@ class ProductService {
       return {
         products: processedProducts,
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
+          page: parseInt(page, 10),
+          limit: parseInt(limit, 10),
           total,
           pages: Math.ceil(total / limit),
           hasNext: page * limit < total,
           hasPrev: page > 1,
         },
       };
-    } catch (error) {
+    } catch (_error) {
       throw ApiError.DatabaseError("Ошибка при получении продуктов");
     }
   }
 
   async getSimilarProducts(productId, options = {}) {
-    if (!mongoose.Types.ObjectId.isValid(productId)) {
+    if (!Types.ObjectId.isValid(productId)) {
       throw ApiError.BadRequest("Некорректный формат ID продукта");
     }
 
@@ -358,7 +354,7 @@ class ProductService {
   }
 
   async getProductById(id, options = {}) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id)) {
       throw ApiError.BadRequest("Некорректный формат ID продукта");
     }
 
@@ -473,12 +469,12 @@ class ProductService {
 
       if (options.userId) {
         product.hasPurchased =
-          await PurchaseCheckService.hasUserPurchasedProduct(
+          await purchaseCheckService.hasUserPurchasedProduct(
             options.userId,
             product._id.toString(),
           );
 
-        product.hasReviewed = await ReviewsService.checkIfUserHasReviewedStatic(
+        product.hasReviewed = await reviewService.checkIfUserHasReviewedStatic(
           options.userId,
           product._id.toString(),
         );
@@ -502,7 +498,7 @@ class ProductService {
       }
 
       // Проверка существования категории
-      const categoryExists = await CategoryModel.findById(productData.category);
+      const categoryExists = await findById(productData.category);
       if (!categoryExists) {
         throw ApiError.BadRequest("Указанная категория не существует");
       }
@@ -540,7 +536,7 @@ class ProductService {
   }
 
   async updateProduct(id, updateData, userId) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id)) {
       throw ApiError.BadRequest("Некорректный формат ID продукта");
     }
 
@@ -563,9 +559,7 @@ class ProductService {
 
       // Проверка категории
       if (updateData.category) {
-        const categoryExists = await CategoryModel.findById(
-          updateData.category,
-        );
+        const categoryExists = await findById(updateData.category);
         if (!categoryExists) {
           throw ApiError.BadRequest("Указанная категория не существует");
         }
@@ -653,7 +647,7 @@ class ProductService {
   }
 
   // Добавить новый метод для обработки инструкции
-  async processInstructionForDb(instructionData, oldInstruction = null) {
+  async processInstructionForDb(instructionData, _oldInstruction = null) {
     if (!instructionData) return null;
 
     // Если инструкция помечена на удаление
@@ -682,7 +676,7 @@ class ProductService {
       // Проверяем URL
       try {
         new URL(instructionData.url);
-      } catch (error) {
+      } catch (_error) {
         throw ApiError.BadRequest("Некорректный URL инструкции");
       }
 
@@ -795,8 +789,7 @@ class ProductService {
 
     // Удаляем старое основное изображение если оно изменилось
     if (
-      oldMainImage &&
-      oldMainImage.url &&
+      oldMainImage?.url &&
       (!newMainImage || newMainImage.url !== oldMainImage.url)
     ) {
       try {
@@ -810,8 +803,7 @@ class ProductService {
 
     // Удаляем старую инструкцию если она изменилась
     if (
-      oldInstruction &&
-      oldInstruction.url &&
+      oldInstruction?.url &&
       (!newInstruction || newInstruction.url !== oldInstruction.url)
     ) {
       try {
@@ -829,7 +821,7 @@ class ProductService {
     const filesToDelete = [];
 
     // Основное изображение
-    if (productData.mainImage && productData.mainImage.url) {
+    if (productData.mainImage?.url) {
       filesToDelete.push(productData.mainImage.url);
     }
 
@@ -843,7 +835,7 @@ class ProductService {
     }
 
     // Инструкция
-    if (productData.instructionFile && productData.instructionFile.url) {
+    if (productData.instructionFile?.url) {
       filesToDelete.push(productData.instructionFile.url);
     }
 
@@ -864,7 +856,7 @@ class ProductService {
     const productObj = product.toObject ? product.toObject() : product;
 
     // Преобразуем пути файлов в полные URL
-    if (productObj.mainImage && productObj.mainImage.url) {
+    if (productObj.mainImage?.url) {
       productObj.mainImage.url = fileService.getFileUrl(
         productObj.mainImage.url,
       );
@@ -877,7 +869,7 @@ class ProductService {
       }));
     }
 
-    if (productObj.instructionFile && productObj.instructionFile.url) {
+    if (productObj.instructionFile?.url) {
       productObj.instructionFile.url = fileService.getFileUrl(
         productObj.instructionFile.url,
       );
@@ -889,7 +881,7 @@ class ProductService {
     return productObj;
   }
   async updateProductStatus(id, status, userId) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id)) {
       throw ApiError.BadRequest("Некорректный формат ID продукта");
     }
 
@@ -920,12 +912,10 @@ class ProductService {
     }
   }
 
-  
-
   async addRelatedProduct(productId, relatedProductId, userId) {
     if (
-      !mongoose.Types.ObjectId.isValid(productId) ||
-      !mongoose.Types.ObjectId.isValid(relatedProductId)
+      !Types.ObjectId.isValid(productId) ||
+      !Types.ObjectId.isValid(relatedProductId)
     ) {
       throw ApiError.BadRequest("Некорректный формат ID продукта");
     }
@@ -960,7 +950,7 @@ class ProductService {
   }
 
   async getRelatedProducts(productId, options = {}) {
-    if (!mongoose.Types.ObjectId.isValid(productId)) {
+    if (!Types.ObjectId.isValid(productId)) {
       throw ApiError.BadRequest("Некорректный формат ID продукта");
     }
 
@@ -1060,19 +1050,19 @@ class ProductService {
     }
   }
 
-  async checkProductOrders(productId) {
+  async checkProductOrders(_productId) {
     // Здесь должна быть реализация проверки заказов
     // Временно возвращаем false
     return false;
   }
 
   async logStockChange(
-    productId,
-    quantity,
-    operation,
-    reason,
-    userId,
-    newQuantity,
+    _productId,
+    _quantity,
+    _operation,
+    _reason,
+    _userId,
+    _newQuantity,
   ) {
     // Реализация логирования изменений склада
     // Можно использовать отдельную модель StockLog

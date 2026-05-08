@@ -1,6 +1,7 @@
 // services/faqService.js
-const { FaqTopicModel } = require("../models/index.models");
-const redis = require("../redis/redis.client");
+import { FaqTopicModel } from "../models/index.models.js";
+
+import redis from "../redis/redis.client.js";
 
 const FAQ_PUBLIC_CACHE_KEY = "faq:public:v1";
 const FAQ_PUBLIC_TTL = 60 * 60; // 1 hour
@@ -108,7 +109,7 @@ class FaqService {
           filter: { _id: o.topicId },
           update: { $set: { order: o.order } },
         },
-      }))
+      })),
     );
 
     await this.invalidatePublicCache();

@@ -1,6 +1,6 @@
-const ApiError = require("../exceptions/api-error");
-const logger = require("../logger/logger");
-const notificationsService = require("../services/notificationsService");
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import notificationsService from "../services/notificationsService.js";
 
 const getNotifications = async (req, res, next) => {
   const userData = req.user;
@@ -12,7 +12,7 @@ const getNotifications = async (req, res, next) => {
     const notifications = await notificationsService.getNotificationsService(
       userData,
       Number(req.query.limit) || 10,
-      Number(req.query.skip) || 0
+      Number(req.query.skip) || 0,
     );
     logger.info("notifications", notifications);
     res.status(200).json(notifications);
@@ -44,9 +44,8 @@ const deleteNotifications = async (req, res, next) => {
     throw ApiError.BadRequest("Недостаточно данных для запроса.");
   }
   try {
-    const notifications = await notificationsService.deleteNotificationsService(
-      userData
-    );
+    const notifications =
+      await notificationsService.deleteNotificationsService(userData);
     res.status(200).json(notifications);
   } catch (e) {
     next(e);
@@ -70,5 +69,5 @@ module.exports = {
   getNotifications,
   markNotificationAsRead,
   deleteNotifications,
-  getUnreadCount
+  getUnreadCount,
 };

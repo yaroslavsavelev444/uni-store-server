@@ -1,5 +1,4 @@
-const ApiError = require("../exceptions/api-error");
-const wishlistService = require("../services/wishlistService");
+import wishlistService from "../services/wishlistService.js";
 
 class WishlistController {
   async getWishlist(req, res, next) {
@@ -14,7 +13,11 @@ class WishlistController {
   async addProduct(req, res, next) {
     try {
       const { productId, notes } = req.body;
-      const products = await wishlistService.addProduct(req.user.id, productId, notes);
+      const products = await wishlistService.addProduct(
+        req.user.id,
+        productId,
+        notes,
+      );
       res.status(200).json(products);
     } catch (error) {
       next(error);
@@ -24,7 +27,10 @@ class WishlistController {
   async removeProduct(req, res, next) {
     try {
       const { productId } = req.params;
-      const products = await wishlistService.removeProduct(req.user.id, productId);
+      const products = await wishlistService.removeProduct(
+        req.user.id,
+        productId,
+      );
       res.status(200).json(products);
     } catch (error) {
       next(error);
@@ -43,13 +49,19 @@ class WishlistController {
   async toggleProduct(req, res, next) {
     try {
       const { productId, notes } = req.body;
-      const products = await wishlistService.toggleProduct(req.user.id, productId, notes);
-      
-      const exists = products.some(p => p._id.toString() === productId);
+      const products = await wishlistService.toggleProduct(
+        req.user.id,
+        productId,
+        notes,
+      );
+
+      const exists = products.some((p) => p._id.toString() === productId);
       res.status(200).json({
         products,
-        action: exists ? 'added' : 'removed',
-        message: exists ? 'Товар добавлен в избранное' : 'Товар удален из избранного'
+        action: exists ? "added" : "removed",
+        message: exists
+          ? "Товар добавлен в избранное"
+          : "Товар удален из избранного",
       });
     } catch (error) {
       next(error);
@@ -68,7 +80,10 @@ class WishlistController {
   async isInWishlist(req, res, next) {
     try {
       const { productId } = req.params;
-      const isInWishlist = await wishlistService.isInWishlist(req.user.id, productId);
+      const isInWishlist = await wishlistService.isInWishlist(
+        req.user.id,
+        productId,
+      );
       res.json({ isInWishlist });
     } catch (error) {
       next(error);
@@ -77,7 +92,9 @@ class WishlistController {
 
   async getProductIds(req, res, next) {
     try {
-      const productIds = await wishlistService.getWishlistProductIds(req.user.id);
+      const productIds = await wishlistService.getWishlistProductIds(
+        req.user.id,
+      );
       res.json(productIds);
     } catch (error) {
       next(error);
@@ -95,15 +112,20 @@ class WishlistController {
 
   async getPaginated(req, res, next) {
     try {
-      const { page = 1, limit = 50, sortBy = 'addedAt', sortOrder = 'desc' } = req.query;
-      
+      const {
+        page = 1,
+        limit = 50,
+        sortBy = "addedAt",
+        sortOrder = "desc",
+      } = req.query;
+
       const result = await wishlistService.getWishlistPaginated(req.user.id, {
         page: parseInt(page),
         limit: parseInt(limit),
         sortBy,
-        sortOrder
+        sortOrder,
       });
-      
+
       res.json(result);
     } catch (error) {
       next(error);

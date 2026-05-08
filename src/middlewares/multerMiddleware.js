@@ -1,9 +1,9 @@
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const crypto = require("crypto"); // Добавлен импорт
-const sanitize = require("sanitize-filename");
-const logger = require("../logger/logger");
+import { randomUUID } from "node:crypto"; // Добавлен импорт
+import { existsSync, mkdirSync } from "node:fs";
+import { basename, extname, join } from "node:path";
+import multer, { diskStorage } from "multer";
+import sanitize from "sanitize-filename";
+import logger from "../logger/logger.js";
 
 // Разрешённые расширения и MIME (вынести в config)
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
@@ -21,7 +21,9 @@ const ensureDirExists = (dirPath) => {
 const fileFilterImagesOnly = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
   const mime = file.mimetype;
-  logger.info(`[UPLOAD LOG] Проверка файла: ${file.originalname}, MIME: ${mime}, EXT: ${ext}`);
+  logger.info(
+    `[UPLOAD LOG] Проверка файла: ${file.originalname}, MIME: ${mime}, EXT: ${ext}`,
+  );
   if (ALLOWED_MIME.includes(mime) && ALLOWED_EXTENSIONS.includes(ext)) {
     return cb(null, true);
   }
@@ -55,7 +57,9 @@ const multerMiddleware = ({
       const safeName = sanitize(path.basename(file.originalname, ext));
       const timestamp = Date.now();
       const newFilename = `${safeName}-${timestamp}-${uniqueId.substring(0, 8)}${ext}`;
-      logger.info(`[UPLOAD] Переименование: ${file.originalname} -> ${newFilename}`);
+      logger.info(
+        `[UPLOAD] Переименование: ${file.originalname} -> ${newFilename}`,
+      );
       cb(null, newFilename);
     },
   });
@@ -88,7 +92,7 @@ const multerMiddleware = ({
         if (Array.isArray(req.files)) {
           uploadedFiles = req.files;
         } else {
-          Object.values(req.files).forEach(arr => uploadedFiles.push(...arr));
+          Object.values(req.files).forEach((arr) => uploadedFiles.push(...arr));
         }
       } else if (req.file) {
         uploadedFiles = [req.file];

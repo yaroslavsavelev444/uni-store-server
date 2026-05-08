@@ -1,6 +1,7 @@
-const discountService = require("../services/discountService");
-const ApiError = require("../exceptions/api-error");
-const mongoose = require("mongoose");
+import { Types } from "mongoose";
+import ApiError from "../exceptions/api-error.js";
+import discountService from "../services/discountService.js";
+
 class DiscountController {
   /**
    * Создание скидки

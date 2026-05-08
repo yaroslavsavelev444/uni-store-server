@@ -1,69 +1,66 @@
-const express = require('express');
-const router = express.Router();
-const categoryController = require('../controllers/categoriesController');
-const authMiddleware = require('../middlewares/auth-middleware');
-const {
-  validateCategory,
-  validateCategoryQuery,
+import { Router } from "express";
+
+const router = Router();
+
+import categoriesController from "../controllers/categoriesController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import { validateObjectId } from "../middlewares/validation.middleware.js";
+import {
+  categoryListQuerySchema,
+  categoryQuerySchema,
   createCategorySchema,
   updateCategorySchema,
-  categoryQuerySchema,
-  categoryListQuerySchema
-} = require('../validators/category.validator');
-const {
-  validateObjectId
-} = require('../middlewares/validation.middleware');
+  validateCategory,
+  validateCategoryQuery,
+} from "../validators/category.validator.js";
 
 // Публичные эндпоинты (доступны всем)
 router.get(
-  '/',
+  "/",
   validateCategoryQuery(categoryQuerySchema),
-  categoryController.getAllCategories
+  categoriesController.getAllCategories,
 );
 
 router.get(
-  '/list',
+  "/list",
   validateCategoryQuery(categoryListQuerySchema),
-  categoryController.getCategoryList
+  categoriesController.getCategoryList,
+);
+
+router.get("/slug/:slug", categoriesController.getCategoryBySlug);
+
+router.get(
+  "/:id",
+  validateObjectId("id"),
+  categoriesController.getCategoryById,
 );
 
 router.get(
-  '/slug/:slug',
-  categoryController.getCategoryBySlug
-);
-
-router.get(
-  '/:id',
-  validateObjectId('id'),
-  categoryController.getCategoryById
-);
-
-router.get(
-  '/:id/products/count',
-  validateObjectId('id'),
-  categoryController.getProductCount
+  "/:id/products/count",
+  validateObjectId("id"),
+  categoriesController.getProductCount,
 );
 
 // Защищенные эндпоинты (только для администраторов)
-router.use(authMiddleware(['admin']));
+router.use(authMiddleware(["admin"]));
 
 router.post(
-  '/',
+  "/",
   validateCategory(createCategorySchema),
-  categoryController.createCategory
+  categoriesController.createCategory,
 );
 
 router.put(
-  '/:id',
-  validateObjectId('id'),
+  "/:id",
+  validateObjectId("id"),
   validateCategory(updateCategorySchema),
-  categoryController.updateCategory
+  categoriesController.updateCategory,
 );
 
 router.delete(
-  '/:id',
-  validateObjectId('id'),
-  categoryController.deleteCategory
+  "/:id",
+  validateObjectId("id"),
+  categoriesController.deleteCategory,
 );
 
 module.exports = router;

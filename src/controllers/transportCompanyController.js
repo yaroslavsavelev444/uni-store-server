@@ -1,4 +1,4 @@
-const TransportCompanyService = require("../services/transportCompanyService");
+import TransportCompanyService from "../services/transportCompanyService.js";
 
 class TransportCompanyController {
   // Для пользователя: получить только активные компании
@@ -36,7 +36,7 @@ class TransportCompanyController {
     try {
       const company = await TransportCompanyService.update(
         req.params.id,
-        req.body
+        req.body,
       );
       res.json(company);
     } catch (error) {

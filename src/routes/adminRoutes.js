@@ -1,6 +1,8 @@
-const express = require("express");
-const router = express.Router();
-const adminController = require("../controllers/adminController");
+import { Router } from "express";
+
+const router = Router();
+
+import adminController from "../controllers/adminController.js";
 
 // ============== USERS (Пользователи) ==============
 router.get("/users", adminController.getUsers);

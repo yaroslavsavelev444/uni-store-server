@@ -1,8 +1,9 @@
 // services/delivery/pickup-point.service.js
-const ApiError = require("../exceptions/api-error");
-const { PickupPointModel } = require("../models/index.models");
-const DeliveryCacheService = require("../cache-service/delivery-cache.service");
-const logger = require("../logger/logger");
+
+import DeliveryCacheService from "../cache-service/delivery-cache.service.js";
+import ApiError from "../exceptions/api-error.js";
+import logger from "../logger/logger.js";
+import { PickupPointModel } from "../models/index.models.js";
 
 class PickupPointService {
   constructor() {
@@ -21,7 +22,7 @@ class PickupPointService {
       }
 
       const query = includeInactive ? {} : { isActive: true };
-      
+
       const points = await PickupPointModel.find(query)
         .sort({ isMain: -1, orderIndex: 1, createdAt: -1 })
         .lean();
@@ -33,8 +34,8 @@ class PickupPointService {
 
       return points;
     } catch (error) {
-      logger.error('[PickupPointService] Error getting pickup points:', error);
-      throw ApiError.DatabaseError('Ошибка при получении пунктов самовывоза');
+      logger.error("[PickupPointService] Error getting pickup points:", error);
+      throw ApiError.DatabaseError("Ошибка при получении пунктов самовывоза");
     }
   }
 
@@ -43,15 +44,20 @@ class PickupPointService {
    */
   async getMainPickupPoint() {
     try {
-      const point = await PickupPointModel.findOne({ 
-        isMain: true, 
-        isActive: true 
+      const point = await PickupPointModel.findOne({
+        isMain: true,
+        isActive: true,
       }).lean();
 
       return point;
     } catch (error) {
-      logger.error('[PickupPointService] Error getting main pickup point:', error);
-      throw ApiError.DatabaseError('Ошибка при получении главного пункта самовывоза');
+      logger.error(
+        "[PickupPointService] Error getting main pickup point:",
+        error,
+      );
+      throw ApiError.DatabaseError(
+        "Ошибка при получении главного пункта самовывоза",
+      );
     }
   }
 
@@ -61,16 +67,19 @@ class PickupPointService {
   async getPickupPointById(id) {
     try {
       const point = await PickupPointModel.findById(id).lean();
-      
+
       if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
+        throw ApiError.NotFound("Пункт самовывоза не найден");
       }
 
       return point;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error getting pickup point by id:', error);
-      throw ApiError.DatabaseError('Ошибка при получении пункта самовывоза');
+      logger.error(
+        "[PickupPointService] Error getting pickup point by id:",
+        error,
+      );
+      throw ApiError.DatabaseError("Ошибка при получении пункта самовывоза");
     }
   }
 
@@ -82,7 +91,7 @@ class PickupPointService {
       const pointData = {
         ...data,
         createdBy: userId,
-        updatedBy: userId
+        updatedBy: userId,
       };
 
       // Если это первый пункт, делаем его главным
@@ -97,17 +106,21 @@ class PickupPointService {
       // Инвалидируем кеш
       await this.cache.invalidatePickupPoints();
 
-      logger.info(`[PickupPointService] Pickup point created: ${point.name} by user ${userId}`);
+      logger.info(
+        `[PickupPointService] Pickup point created: ${point.name} by user ${userId}`,
+      );
 
       return point.toObject();
     } catch (error) {
-      logger.error('[PickupPointService] Error creating pickup point:', error);
-      
+      logger.error("[PickupPointService] Error creating pickup point:", error);
+
       if (error.code === 11000) {
-        throw ApiError.BadRequest('Пункт самовывоза с таким именем уже существует');
+        throw ApiError.BadRequest(
+          "Пункт самовывоза с таким именем уже существует",
+        );
       }
-      
-      throw ApiError.DatabaseError('Ошибка при создании пункта самовывоза');
+
+      throw ApiError.DatabaseError("Ошибка при создании пункта самовывоза");
     }
   }
 
@@ -117,14 +130,14 @@ class PickupPointService {
   async updatePickupPoint(id, data, userId) {
     try {
       const point = await PickupPointModel.findById(id);
-      
+
       if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
+        throw ApiError.NotFound("Пункт самовывоза не найден");
       }
 
       // Обновляем поля
-      Object.keys(data).forEach(key => {
-        if (key !== '_id' && key !== '__v') {
+      Object.keys(data).forEach((key) => {
+        if (key !== "_id" && key !== "__v") {
           point[key] = data[key];
         }
       });
@@ -135,13 +148,15 @@ class PickupPointService {
       // Инвалидируем кеш
       await this.cache.invalidatePickupPoints();
 
-      logger.info(`[PickupPointService] Pickup point updated: ${point.name} by user ${userId}`);
+      logger.info(
+        `[PickupPointService] Pickup point updated: ${point.name} by user ${userId}`,
+      );
 
       return point.toObject();
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error updating pickup point:', error);
-      throw ApiError.DatabaseError('Ошибка при обновлении пункта самовывоза');
+      logger.error("[PickupPointService] Error updating pickup point:", error);
+      throw ApiError.DatabaseError("Ошибка при обновлении пункта самовывоза");
     }
   }
 
@@ -151,16 +166,16 @@ class PickupPointService {
   async deletePickupPoint(id, userId) {
     try {
       const point = await PickupPointModel.findById(id);
-      
+
       if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
+        throw ApiError.NotFound("Пункт самовывоза не найден");
       }
 
       // Если удаляем главный пункт, назначаем новый главный
       if (point.isMain) {
-        const nextPoint = await PickupPointModel.findOne({ 
-          _id: { $ne: id }, 
-          isActive: true 
+        const nextPoint = await PickupPointModel.findOne({
+          _id: { $ne: id },
+          isActive: true,
         }).sort({ orderIndex: 1 });
 
         if (nextPoint) {
@@ -174,13 +189,15 @@ class PickupPointService {
       // Инвалидируем кеш
       await this.cache.invalidatePickupPoints();
 
-      logger.info(`[PickupPointService] Pickup point deleted: ${point.name} by user ${userId}`);
+      logger.info(
+        `[PickupPointService] Pickup point deleted: ${point.name} by user ${userId}`,
+      );
 
-      return { success: true, message: 'Пункт самовывоза удален' };
+      return { success: true, message: "Пункт самовывоза удален" };
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error deleting pickup point:', error);
-      throw ApiError.DatabaseError('Ошибка при удалении пункта самовывоза');
+      logger.error("[PickupPointService] Error deleting pickup point:", error);
+      throw ApiError.DatabaseError("Ошибка при удалении пункта самовывоза");
     }
   }
 
@@ -190,9 +207,9 @@ class PickupPointService {
   async togglePickupPointStatus(id, userId) {
     try {
       const point = await PickupPointModel.findById(id);
-      
+
       if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
+        throw ApiError.NotFound("Пункт самовывоза не найден");
       }
 
       point.isActive = !point.isActive;
@@ -201,9 +218,9 @@ class PickupPointService {
 
       // Если деактивируем главный пункт, назначаем новый
       if (!point.isActive && point.isMain) {
-        const nextPoint = await PickupPointModel.findOne({ 
-          _id: { $ne: id }, 
-          isActive: true 
+        const nextPoint = await PickupPointModel.findOne({
+          _id: { $ne: id },
+          isActive: true,
         }).sort({ orderIndex: 1 });
 
         if (nextPoint) {
@@ -215,13 +232,20 @@ class PickupPointService {
       // Инвалидируем кеш
       await this.cache.invalidatePickupPoints();
 
-      logger.info(`[PickupPointService] Pickup point status toggled: ${point.name} to ${point.isActive} by user ${userId}`);
+      logger.info(
+        `[PickupPointService] Pickup point status toggled: ${point.name} to ${point.isActive} by user ${userId}`,
+      );
 
       return point.toObject();
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error toggling pickup point status:', error);
-      throw ApiError.DatabaseError('Ошибка при изменении статуса пункта самовывоза');
+      logger.error(
+        "[PickupPointService] Error toggling pickup point status:",
+        error,
+      );
+      throw ApiError.DatabaseError(
+        "Ошибка при изменении статуса пункта самовывоза",
+      );
     }
   }
 
@@ -231,19 +255,19 @@ class PickupPointService {
   async setAsMainPickupPoint(id, userId) {
     try {
       const point = await PickupPointModel.findById(id);
-      
+
       if (!point) {
-        throw ApiError.NotFound('Пункт самовывоза не найден');
+        throw ApiError.NotFound("Пункт самовывоза не найден");
       }
 
       if (!point.isActive) {
-        throw ApiError.BadRequest('Нельзя сделать неактивный пункт главным');
+        throw ApiError.BadRequest("Нельзя сделать неактивный пункт главным");
       }
 
       // Сбрасываем isMain у всех пунктов
       await PickupPointModel.updateMany(
         { _id: { $ne: id } },
-        { isMain: false }
+        { isMain: false },
       );
 
       // Устанавливаем выбранный пункт как главный
@@ -254,13 +278,18 @@ class PickupPointService {
       // Инвалидируем кеш
       await this.cache.invalidatePickupPoints();
 
-      logger.info(`[PickupPointService] Pickup point set as main: ${point.name} by user ${userId}`);
+      logger.info(
+        `[PickupPointService] Pickup point set as main: ${point.name} by user ${userId}`,
+      );
 
       return point.toObject();
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error('[PickupPointService] Error setting pickup point as main:', error);
-      throw ApiError.DatabaseError('Ошибка при установке главного пункта');
+      logger.error(
+        "[PickupPointService] Error setting pickup point as main:",
+        error,
+      );
+      throw ApiError.DatabaseError("Ошибка при установке главного пункта");
     }
   }
 
@@ -270,7 +299,7 @@ class PickupPointService {
   async updatePickupPointsOrder(orderedIds, userId) {
     try {
       const session = await mongoose.startSession();
-      
+
       try {
         session.startTransaction();
 
@@ -278,11 +307,11 @@ class PickupPointService {
           const id = orderedIds[i];
           await PickupPointModel.findByIdAndUpdate(
             id,
-            { 
+            {
               orderIndex: i,
-              updatedBy: userId
+              updatedBy: userId,
             },
-            { session }
+            { session },
           );
         }
 
@@ -291,9 +320,11 @@ class PickupPointService {
         // Инвалидируем кеш
         await this.cache.invalidatePickupPoints();
 
-        logger.info(`[PickupPointService] Pickup points order updated by user ${userId}`);
+        logger.info(
+          `[PickupPointService] Pickup points order updated by user ${userId}`,
+        );
 
-        return { success: true, message: 'Порядок пунктов обновлен' };
+        return { success: true, message: "Порядок пунктов обновлен" };
       } catch (error) {
         await session.abortTransaction();
         throw error;
@@ -301,8 +332,11 @@ class PickupPointService {
         session.endSession();
       }
     } catch (error) {
-      logger.error('[PickupPointService] Error updating pickup points order:', error);
-      throw ApiError.DatabaseError('Ошибка при обновлении порядка пунктов');
+      logger.error(
+        "[PickupPointService] Error updating pickup points order:",
+        error,
+      );
+      throw ApiError.DatabaseError("Ошибка при обновлении порядка пунктов");
     }
   }
 }

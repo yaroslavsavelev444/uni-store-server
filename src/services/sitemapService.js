@@ -1,6 +1,12 @@
 // src/services/sitemapService.js
 
-const redis = require("../redis/redis.client");
+import {
+  CategoryModel,
+  ProductModel,
+  TopicModelCommon,
+} from "../models/index.models.js";
+import _default from "../models/product-model.js";
+import redis from "../redis/redis.client.js";
 
 const {
   ProductModel,
@@ -41,9 +47,7 @@ exports.getXml = async () => {
 
   categories.forEach((c) => {
     // Изменено: /categories/{slug} вместо /catalog/{slug}
-    urls.push(
-      buildUrl(`/categories/${c.slug}`, "weekly", 0.8, c.updatedAt)
-    );
+    urls.push(buildUrl(`/categories/${c.slug}`, "weekly", 0.8, c.updatedAt));
   });
 
   products.forEach((p) => {
@@ -55,22 +59,18 @@ exports.getXml = async () => {
           `/categories/${p.category.slug}/products/${p.slug}`,
           "weekly",
           0.7,
-          p.updatedAt
-        )
+          p.updatedAt,
+        ),
       );
     } else {
       // Fallback на старый формат если категория не найдена
       console.warn(`Product ${p.slug} has no category, using fallback URL`);
-      urls.push(
-        buildUrl(`/product/${p.slug}`, "weekly", 0.7, p.updatedAt)
-      );
+      urls.push(buildUrl(`/product/${p.slug}`, "weekly", 0.7, p.updatedAt));
     }
   });
 
   topics.forEach((t) => {
-    urls.push(
-      buildUrl(`/topics/${t.slug}`, "monthly", 0.5, t.updatedAt)
-    );
+    urls.push(buildUrl(`/topics/${t.slug}`, "monthly", 0.5, t.updatedAt));
   });
 
   const xml = buildXml(urls);
@@ -99,9 +99,7 @@ function buildUrl(path, freq, priority, lastmod) {
     loc: `${SITE_URL}${path}`,
     changefreq: freq,
     priority,
-    lastmod: lastmod
-      ? lastmod.toISOString().split("T")[0]
-      : null,
+    lastmod: lastmod ? lastmod.toISOString().split("T")[0] : null,
   };
 }
 

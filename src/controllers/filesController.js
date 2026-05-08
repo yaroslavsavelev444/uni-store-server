@@ -1,5 +1,6 @@
-const logger = require("../logger/logger.js");
-const fileStorageService = require("../services/fileStorage.service.js");
+// controllers/filesController.js
+import logger from "../logger/logger.js";
+import fileService from "../services/fileService.js";
 
 const uploadFiles = async (req, res, next) => {
   try {

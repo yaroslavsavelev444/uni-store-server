@@ -1,9 +1,9 @@
-const fs = require("fs").promises;
-const path = require("path");
-const crypto = require("crypto");
-const logger = require("../logger/logger");
-const serverConfig = require("../config/serverConfig");
-const FileManager = require("../utils/fileManager"); 
+import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import { basename, join, parse } from "node:path";
+import { getTempFileUrl, uploadsDir } from "../config/serverConfig.js";
+import logger from "../logger/logger.js";
+import FileManager from "../utils/fileManager.js";
 
 class FileService {
   constructor() {
@@ -19,16 +19,18 @@ class FileService {
     try {
       await fs.mkdir(this.uploadsDir, { recursive: true });
       await fs.mkdir(this.tempDir, { recursive: true });
-      
+
       // Создаем .gitkeep файлы
       await Promise.all([
-        fs.writeFile(path.join(this.uploadsDir, '.gitkeep'), ''),
-        fs.writeFile(path.join(this.tempDir, '.gitkeep'), '')
+        fs.writeFile(path.join(this.uploadsDir, ".gitkeep"), ""),
+        fs.writeFile(path.join(this.tempDir, ".gitkeep"), ""),
       ]);
-      
+
       logger.info(`[FILE_SERVICE] Директории созданы: ${this.tempDir}`);
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка создания директорий: ${error.message}`);
+      logger.error(
+        `[FILE_SERVICE] Ошибка создания директорий: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -40,13 +42,15 @@ class FileService {
     try {
       // Проверяем входные данные
       if (!file || !file.filename || !file.path) {
-        throw new Error('Некорректные данные файла');
+        throw new Error("Некорректные данные файла");
       }
 
       const tempName = file.filename;
       const tempPath = file.path;
 
-      logger.info(`[FILE_SERVICE] Сохранение файла: ${tempName} для пользователя ${userId}`);
+      logger.info(
+        `[FILE_SERVICE] Сохранение файла: ${tempName} для пользователя ${userId}`,
+      );
 
       // Проверяем существование файла
       try {
@@ -66,7 +70,7 @@ class FileService {
         userId,
         path: `/uploads/temp/${tempName}`,
         url: serverConfig.getTempFileUrl(tempName),
-        alt: path.parse(file.originalname).name
+        alt: path.parse(file.originalname).name,
       };
 
       // Сохраняем метаданные
@@ -75,9 +79,11 @@ class FileService {
       logger.info(`[FILE_SERVICE] Файл сохранен: ${tempName}`);
 
       return fileMeta;
-
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка сохранения файла: ${error.message}`, error);
+      logger.error(
+        `[FILE_SERVICE] Ошибка сохранения файла: ${error.message}`,
+        error,
+      );
       throw error;
     }
   }
@@ -90,23 +96,29 @@ class FileService {
     let existingMeta = [];
 
     try {
-      const metaContent = await fs.readFile(metaPath, 'utf8');
+      const metaContent = await fs.readFile(metaPath, "utf8");
       existingMeta = JSON.parse(metaContent);
     } catch (error) {
       // Файл не существует, создаем новый
-      logger.info(`[FILE_SERVICE] Создание нового файла метаданных для пользователя ${userId}`);
+      logger.info(
+        `[FILE_SERVICE] Создание нового файла метаданных для пользователя ${userId}`,
+      );
     }
 
     // Удаляем старую запись с таким же tempName
-    existingMeta = existingMeta.filter(meta => meta.tempName !== fileMeta.tempName);
-    
+    existingMeta = existingMeta.filter(
+      (meta) => meta.tempName !== fileMeta.tempName,
+    );
+
     // Добавляем новую запись
     existingMeta.push(fileMeta);
 
     // Сохраняем
-    await fs.writeFile(metaPath, JSON.stringify(existingMeta, null, 2), 'utf8');
-    
-    logger.debug(`[FILE_SERVICE] Метаданные сохранены для файла: ${fileMeta.tempName}`);
+    await fs.writeFile(metaPath, JSON.stringify(existingMeta, null, 2), "utf8");
+
+    logger.debug(
+      `[FILE_SERVICE] Метаданные сохранены для файла: ${fileMeta.tempName}`,
+    );
   }
 
   /**
@@ -119,40 +131,42 @@ class FileService {
       try {
         // Для временных файлов в папке temp
         const filePath = path.join(this.tempDir, tempName);
-        
+
         // Проверяем существование файла
         try {
           await fs.access(filePath);
         } catch (error) {
           logger.warn(`[FILE_SERVICE] Файл ${tempName} не существует`);
-          results.push({ 
-            success: true, 
-            tempName, 
-            message: 'Файл не существует (возможно уже удален)' 
+          results.push({
+            success: true,
+            tempName,
+            message: "Файл не существует (возможно уже удален)",
           });
           continue;
         }
-        
+
         // Удаляем файл
         await fs.unlink(filePath);
-        
+
         // Очищаем метаданные
         await this.cleanupMetadata(tempName);
-        
-        results.push({ 
-          success: true, 
-          tempName, 
-          message: 'Файл успешно удален' 
-        });
-        
-        logger.info(`[FILE_SERVICE] Файл удален: ${tempName}`);
 
+        results.push({
+          success: true,
+          tempName,
+          message: "Файл успешно удален",
+        });
+
+        logger.info(`[FILE_SERVICE] Файл удален: ${tempName}`);
       } catch (error) {
-        logger.error(`[FILE_SERVICE] Ошибка удаления файла ${tempName}:`, error);
-        results.push({ 
-          success: false, 
-          tempName, 
-          error: error.message 
+        logger.error(
+          `[FILE_SERVICE] Ошибка удаления файла ${tempName}:`,
+          error,
+        );
+        results.push({
+          success: false,
+          tempName,
+          error: error.message,
         });
       }
     }
@@ -161,53 +175,50 @@ class FileService {
   }
 
   async deleteFilesByUrls(fileUrls) {
-  const results = [];
-  
-  for (const fileUrl of fileUrls) {
-    try {
-      logger.info(`[FILE_SERVICE] Удаление файла из массива: ${fileUrl}`);
-      console.log('[FILE_SERVICE] deleteFile вызван с параметром:');
-    console.log('  Значение:', fileUrls);
-    console.log('  Тип:', typeof fileUrls);
-    console.log('  Конструктор:', fileUrls?.constructor?.name);
-    
-    if (fileUrls) {
-      console.log('  String():', String(fileUrls));
-    }
-    
-    logger.info(`[FILE_SERVICE] Удаление файла: ${fileUrls}`);
+    const results = [];
 
-      // Используем FileManager для удаления
-      const success = await FileManager.deleteFile(fileUrl);
-      
-      // Если это был временный файл, очищаем метаданные
-      if (fileUrl.includes('/temp/')) {
-        const filename = path.basename(fileUrl);
-        await this.cleanupMetadata(filename);
+    for (const fileUrl of fileUrls) {
+      try {
+        logger.info(`[FILE_SERVICE] Удаление файла из массива: ${fileUrl}`);
+        console.log("[FILE_SERVICE] deleteFile вызван с параметром:");
+        console.log("  Значение:", fileUrls);
+        console.log("  Тип:", typeof fileUrls);
+        console.log("  Конструктор:", fileUrls?.constructor?.name);
+
+        if (fileUrls) {
+          console.log("  String():", String(fileUrls));
+        }
+
+        logger.info(`[FILE_SERVICE] Удаление файла: ${fileUrls}`);
+
+        // Используем FileManager для удаления
+        const success = await FileManager.deleteFile(fileUrl);
+
+        // Если это был временный файл, очищаем метаданные
+        if (fileUrl.includes("/temp/")) {
+          const filename = path.basename(fileUrl);
+          await this.cleanupMetadata(filename);
+        }
+
+        results.push({
+          success: true,
+          fileUrl,
+          message: "Файл успешно удален",
+        });
+
+        logger.info(`[FILE_SERVICE] Файл удален: ${fileUrl}`);
+      } catch (error) {
+        logger.error(`[FILE_SERVICE] Ошибка удаления файла ${fileUrl}:`, error);
+        results.push({
+          success: false,
+          fileUrl,
+          error: error.message,
+        });
       }
-      
-      results.push({ 
-        success: true, 
-        fileUrl, 
-        message: 'Файл успешно удален' 
-      });
-      
-      logger.info(`[FILE_SERVICE] Файл удален: ${fileUrl}`);
-      
-    } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка удаления файла ${fileUrl}:`, error);
-      results.push({ 
-        success: false, 
-        fileUrl, 
-        error: error.message 
-      });
     }
+
+    return results;
   }
-  
-  return results;
-}
-
-
 
   /**
    * Удаление файла по полному URL или пути (новый метод)
@@ -215,19 +226,22 @@ class FileService {
   async deleteFile(filePathOrUrl) {
     try {
       logger.info(`[FILE_SERVICE] Удаление файла: ${filePathOrUrl}`);
-      
+
       // Используем FileManager для удаления
       const result = await FileManager.deleteFile(filePathOrUrl);
-      
+
       // Если это был временный файл, очищаем метаданные
-      if (filePathOrUrl.includes('/temp/')) {
+      if (filePathOrUrl.includes("/temp/")) {
         const filename = path.basename(filePathOrUrl);
         await this.cleanupMetadata(filename);
       }
-      
+
       return result;
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка удаления файла ${filePathOrUrl}:`, error);
+      logger.error(
+        `[FILE_SERVICE] Ошибка удаления файла ${filePathOrUrl}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -237,10 +251,15 @@ class FileService {
    */
   async moveFile(sourcePath, targetPath) {
     try {
-      logger.info(`[FILE_SERVICE] Перемещение файла: ${sourcePath} -> ${targetPath}`);
+      logger.info(
+        `[FILE_SERVICE] Перемещение файла: ${sourcePath} -> ${targetPath}`,
+      );
       return await FileManager.moveFile(sourcePath, targetPath);
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка перемещения файла: ${error.message}`, error);
+      logger.error(
+        `[FILE_SERVICE] Ошибка перемещения файла: ${error.message}`,
+        error,
+      );
       throw error;
     }
   }
@@ -253,7 +272,10 @@ class FileService {
       logger.debug(`[FILE_SERVICE] Проверка существования файла: ${filePath}`);
       return await FileManager.validateFileExists(filePath);
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка проверки файла: ${error.message}`, error);
+      logger.error(
+        `[FILE_SERVICE] Ошибка проверки файла: ${error.message}`,
+        error,
+      );
       throw error;
     }
   }
@@ -278,23 +300,33 @@ class FileService {
   async cleanupMetadata(tempName) {
     try {
       const metaFiles = await fs.readdir(this.tempDir);
-      const userMetaFiles = metaFiles.filter(f => f.endsWith('_meta.json'));
+      const userMetaFiles = metaFiles.filter((f) => f.endsWith("_meta.json"));
 
       for (const metaFile of userMetaFiles) {
         const metaPath = path.join(this.tempDir, metaFile);
-        const metaContent = await fs.readFile(metaPath, 'utf8');
+        const metaContent = await fs.readFile(metaPath, "utf8");
         const metadata = JSON.parse(metaContent);
 
         // Фильтруем записи без указанного файла
-        const filteredMetadata = metadata.filter(meta => meta.tempName !== tempName);
+        const filteredMetadata = metadata.filter(
+          (meta) => meta.tempName !== tempName,
+        );
 
         if (filteredMetadata.length !== metadata.length) {
-          await fs.writeFile(metaPath, JSON.stringify(filteredMetadata, null, 2), 'utf8');
-          logger.debug(`[FILE_SERVICE] Метаданные очищены для файла: ${tempName}`);
+          await fs.writeFile(
+            metaPath,
+            JSON.stringify(filteredMetadata, null, 2),
+            "utf8",
+          );
+          logger.debug(
+            `[FILE_SERVICE] Метаданные очищены для файла: ${tempName}`,
+          );
         }
       }
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка очистки метаданных: ${error.message}`);
+      logger.error(
+        `[FILE_SERVICE] Ошибка очистки метаданных: ${error.message}`,
+      );
     }
   }
 
@@ -304,24 +336,26 @@ class FileService {
   async getFileInfo(tempName) {
     try {
       const metaFiles = await fs.readdir(this.tempDir);
-      const userMetaFiles = metaFiles.filter(f => f.endsWith('_meta.json'));
+      const userMetaFiles = metaFiles.filter((f) => f.endsWith("_meta.json"));
 
       for (const metaFile of userMetaFiles) {
         const metaPath = path.join(this.tempDir, metaFile);
-        const metaContent = await fs.readFile(metaPath, 'utf8');
+        const metaContent = await fs.readFile(metaPath, "utf8");
         const metadata = JSON.parse(metaContent);
-        
-        const fileInfo = metadata.find(m => m.tempName === tempName);
-        
+
+        const fileInfo = metadata.find((m) => m.tempName === tempName);
+
         if (fileInfo) {
           return fileInfo;
         }
       }
 
       return null;
-
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка получения информации о файле ${tempName}:`, error);
+      logger.error(
+        `[FILE_SERVICE] Ошибка получения информации о файле ${tempName}:`,
+        error,
+      );
       return null;
     }
   }
@@ -331,7 +365,7 @@ class FileService {
    */
   async getFilePath(tempName) {
     const filePath = path.join(this.tempDir, tempName);
-    
+
     try {
       await fs.access(filePath);
       return filePath;
@@ -346,22 +380,22 @@ class FileService {
   async getUserFiles(userId) {
     try {
       const metaPath = path.join(this.tempDir, `${userId}_meta.json`);
-      
+
       try {
         await fs.access(metaPath);
       } catch (error) {
         return []; // Файл метаданных не существует
       }
 
-      const metaContent = await fs.readFile(metaPath, 'utf8');
+      const metaContent = await fs.readFile(metaPath, "utf8");
       const metadata = JSON.parse(metaContent);
 
       // Проверяем существование файлов
       const validFiles = [];
-      
+
       for (const fileMeta of metadata) {
         const filePath = path.join(this.tempDir, fileMeta.tempName);
-        
+
         try {
           await fs.access(filePath);
           validFiles.push(fileMeta);
@@ -372,9 +406,11 @@ class FileService {
       }
 
       return validFiles;
-
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка получения файлов пользователя ${userId}:`, error);
+      logger.error(
+        `[FILE_SERVICE] Ошибка получения файлов пользователя ${userId}:`,
+        error,
+      );
       return [];
     }
   }
@@ -385,8 +421,8 @@ class FileService {
   async getFilesStats() {
     try {
       const files = await fs.readdir(this.tempDir);
-      const metaFiles = files.filter(f => f.endsWith('_meta.json'));
-      
+      const metaFiles = files.filter((f) => f.endsWith("_meta.json"));
+
       let totalFiles = 0;
       let totalSize = 0;
       const users = new Set();
@@ -394,11 +430,11 @@ class FileService {
       for (const metaFile of metaFiles) {
         try {
           const metaPath = path.join(this.tempDir, metaFile);
-          const metaContent = await fs.readFile(metaPath, 'utf8');
+          const metaContent = await fs.readFile(metaPath, "utf8");
           const metadata = JSON.parse(metaContent);
-          
+
           totalFiles += metadata.length;
-          metadata.forEach(meta => {
+          metadata.forEach((meta) => {
             totalSize += meta.size || 0;
             if (meta.userId) {
               users.add(meta.userId);
@@ -413,11 +449,12 @@ class FileService {
         totalFiles,
         totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
         uniqueUsers: users.size,
-        storagePath: this.tempDir
+        storagePath: this.tempDir,
       };
-
     } catch (error) {
-      logger.error(`[FILE_SERVICE] Ошибка получения статистики файлов: ${error.message}`);
+      logger.error(
+        `[FILE_SERVICE] Ошибка получения статистики файлов: ${error.message}`,
+      );
       return null;
     }
   }

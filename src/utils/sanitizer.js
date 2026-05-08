@@ -10,4 +10,4 @@ const sanitizeHtml = (value) => {
   });
 };
 
-module.exports = { sanitizeHtml };
+export { sanitizeHtml };
