@@ -171,7 +171,7 @@ const logout = async (req, res, next) => {
     // ВСЕГДА очищаем cookie и возвращаем подтверждение
     res.clearCookie("refreshToken", {
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".npo-polet.store" : undefined,
+      domain: process.env.NODE_ENV === "production" ? ".npo-polet.ru" : undefined,
     });
 
     // Логирование выхода
@@ -200,7 +200,7 @@ const logout = async (req, res, next) => {
     // Даже при ошибке очищаем cookie
     res.clearCookie("refreshToken", {
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".npo-polet.store" : undefined,
+      domain: process.env.NODE_ENV === "production" ? ".npo-polet.ru" : undefined,
     });
     
     logger.error(`[LOGOUT] ${error.message}`);

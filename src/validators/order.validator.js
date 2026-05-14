@@ -378,6 +378,7 @@ const validateCreateOrder = (req, res, next) => {
       message: detail.message
     }));
     
+    console.error(errors);
     return res.status(400).json({
       success: false,
       message: 'Ошибка валидации данных заказа',
