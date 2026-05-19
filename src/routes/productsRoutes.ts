@@ -1,18 +1,19 @@
-const express = require("express");
-const router = express.Router();
-const productController = require("../controllers/productsController.js");
-const authMiddleware = require("../middlewares/auth-middleware.js");
-const {
-  createProductSchema,
-  updateProductSchema,
-  productQuerySchema,
-} = require("../validators/product.validator.js");
-const {
+import express from "express";
+import Joi from "joi";
+import productController from "../controllers/productsController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+import {
   validateObjectId,
   validateQueryParams,
-} = require("../middlewares/validation.middleware.js");
-const Joi = require("joi");
-const { validateProduct } = require("../validators/product.validator.js"); // или где у вас лежит файл
+} from "../middlewares/validators.js";
+import {
+  createProductSchema,
+  productQuerySchema,
+  updateProductSchema,
+  validateProduct,
+} from "../validators/product.validator.js";
+
+const router = express.Router();
 
 router.get(
   "/:id/similar",
@@ -25,34 +26,35 @@ router.get(
         .default("mixed"),
     }),
   ),
-  productController.getSimilarProducts,
+  productController.getSimilarProducts as any,
 );
 
 // Публичные эндпоинты
 router.get(
   "/",
   validateQueryParams(productQuerySchema),
-  authMiddleware.optionalAuth({
-    allowedRoles: ["user", "admin"],
-    checkBlock: true,
-  }),
-  productController.getAllProducts,
+  authMiddleware.optional(["all"]),
+  productController.getAllProducts as any,
 );
 
 router.get("/statuses", productController.getProductStatuses);
 
-router.get("/:id", validateObjectId("id"), productController.getProductById);
+router.get(
+  "/:id",
+  validateObjectId("id"),
+  productController.getProductById as any,
+);
 
 router.get(
   "/sku/:sku",
-  authMiddleware.optionalAuth("all", true),
+  authMiddleware.optionalAuth,
   productController.getProductBySku,
 );
 
 router.get(
   "/:id/related",
   validateObjectId("id"),
-  productController.getRelatedProducts,
+  productController.getRelatedProducts as any,
 );
 
 // Защищенные эндпоинты (только для администраторов)
@@ -61,14 +63,14 @@ router.use(authMiddleware(["admin"])); // ИЗМЕНЕНО: middleware авто�
 router.post(
   "/",
   validateProduct(createProductSchema),
-  productController.createProduct,
+  productController.createProduct as any,
 );
 router.put(
   "/:id",
   authMiddleware(["admin"]),
   validateObjectId("id"),
   validateProduct(updateProductSchema), // Этот middleware теперь будет логировать всё
-  productController.updateProduct,
+  productController.updateProduct as any,
 );
 
 router.patch(
@@ -76,7 +78,7 @@ router.patch(
   authMiddleware(["admin"]), // ДОБАВИТЬ
   validateObjectId("id"),
   // validateProduct(updateStatusSchema), // ДОБАВИТЬ: валидация данных
-  productController.updateProductStatus,
+  productController.updateProductStatus as any,
 );
 
 router.post(
@@ -90,7 +92,7 @@ router.post(
         .required(),
     }),
   ), // ДОБАВИТЬ
-  productController.addRelatedProduct,
+  productController.addRelatedProduct as any,
 );
 
 export default router;

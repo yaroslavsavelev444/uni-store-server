@@ -18,27 +18,27 @@ import {
 router.get(
   "/",
   validateCategoryQuery(categoryQuerySchema),
-  categoriesController.getAllCategories,
+  categoriesController.getAllCategories as any,
 );
 
 router.get(
   "/list",
   validateCategoryQuery(categoryListQuerySchema),
-  categoriesController.getCategoryList,
+  categoriesController.getCategoryList as any,
 );
 
-router.get("/slug/:slug", categoriesController.getCategoryBySlug);
+router.get("/slug/:slug", categoriesController.getCategoryBySlug as any);
 
 router.get(
   "/:id",
   validateObjectId("id"),
-  categoriesController.getCategoryById,
+  categoriesController.getCategoryById as any,
 );
 
 router.get(
   "/:id/products/count",
   validateObjectId("id"),
-  categoriesController.getProductCount,
+  categoriesController.getProductCount as any,
 );
 
 // Защищенные эндпоинты (только для администраторов)
@@ -47,20 +47,20 @@ router.use(authMiddleware.requireRole("admin"));
 router.post(
   "/",
   validateCategory(createCategorySchema),
-  categoriesController.createCategory,
+  categoriesController.createCategory as any,
 );
 
 router.put(
   "/:id",
   validateObjectId("id"),
   validateCategory(updateCategorySchema),
-  categoriesController.updateCategory,
+  categoriesController.updateCategory as any,
 );
 
 router.delete(
   "/:id",
   validateObjectId("id"),
-  categoriesController.deleteCategory,
+  categoriesController.deleteCategory as any,
 );
 
 export default router;

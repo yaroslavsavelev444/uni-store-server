@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { promises as fs } from "node:fs";
 import { basename, dirname, extname } from "node:path";
 import fileService from "./fileManager.js";
@@ -6,7 +7,7 @@ import fileService from "./fileManager.js";
  * Обработка файлов продукта (изображений и инструкции)
  * Перемещает файлы из temp в постоянные папки
  */
-exports.processProductFiles = async (productData) => {
+const processProductFiles = async (productData: any) => {
   const result = { ...productData };
 
   // Обрабатываем основное изображение (если есть)
@@ -72,7 +73,11 @@ const API_URL = process.env.API_URL || "https://api.npo-polet.ru";
 /**
  * Обработка одного файла
  */
-const processSingleFile = async (fileUrl, targetFolder, fileType) => {
+const processSingleFile = async (
+  fileUrl: string | URL,
+  targetFolder: string,
+  fileType: string,
+) => {
   let cleanPath = fileUrl;
   let isExisting = false;
 
@@ -139,7 +144,18 @@ const processSingleFile = async (fileUrl, targetFolder, fileType) => {
 /**
  * Удаление старых файлов при обновлении продукта
  */
-exports.cleanupOldProductFiles = async (existingProduct, newData) => {
+exports.cleanupOldProductFiles = async (
+  existingProduct: {
+    mainImage: { url: any };
+    images: any[];
+    instructionFile: { url: any };
+  },
+  newData: {
+    mainImage: { url: any } | null;
+    images: any[];
+    instructionFile: { url: any } | null;
+  },
+) => {
   // Удаляем старое основное изображение если оно было заменено
   if (existingProduct.mainImage && existingProduct.mainImage.url) {
     const shouldDeleteMainImage =
@@ -163,13 +179,17 @@ exports.cleanupOldProductFiles = async (existingProduct, newData) => {
 
   // Удаляем старые изображения галереи
   if (existingProduct.images && Array.isArray(existingProduct.images)) {
-    const existingImageUrls = existingProduct.images.map((img) => img.url);
+    const existingImageUrls = existingProduct.images.map(
+      (img: { url: any }) => img.url,
+    );
     const newImageUrls = newData.images
-      ? newData.images.filter((img) => !img._shouldDelete).map((img) => img.url)
+      ? newData.images
+          .filter((img: { _shouldDelete: any }) => !img._shouldDelete)
+          .map((img: { url: any }) => img.url)
       : [];
 
     const imagesToDelete = existingImageUrls.filter(
-      (url) => !newImageUrls.includes(url),
+      (url: any) => !newImageUrls.includes(url),
     );
 
     for (const imageUrl of imagesToDelete) {

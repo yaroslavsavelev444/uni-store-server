@@ -1,6 +1,5 @@
-// category.controller.ts
+// controllers/categoriesController.ts
 import type { NextFunction, Response } from "express";
-import ApiError from "../exceptions/api-error.js";
 import categoryService from "../services/categoryService.js";
 import type { ICategory } from "../types/category.types.js";
 import type {
@@ -29,24 +28,27 @@ class CategoryController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const {
-        active = true,
-        search,
-        sortBy = "order",
-        sortOrder = "asc",
-        includeInactive = false,
-        withProductCount = true,
-      } = req.validatedQuery || req.query;
+      // Безопасное извлечение параметров из query (с поддержкой validatedQuery)
+      const query =
+        (req.validatedQuery as Record<string, unknown>) || req.query || {};
+
+      const active = query.active === "false" ? false : true;
+      const search = query.search as string | undefined;
+      const sortBy = (query.sortBy as string) || "order";
+      const sortOrder = (query.sortOrder === "desc" ? "desc" : "asc") as
+        | "asc"
+        | "desc";
+      const includeInactive =
+        query.includeInactive === "true" || query.includeInactive === true;
+      const withProductCount = query.withProductCount !== "false";
 
       const categories = await categoryService.getAllCategories(
         { active, search },
         {
-          sortBy: sortBy as string,
-          sortOrder: sortOrder as "asc" | "desc",
-          includeInactive:
-            includeInactive === "true" || includeInactive === true,
-          withProductCount:
-            withProductCount === "true" || withProductCount === true,
+          sortBy,
+          sortOrder,
+          includeInactive,
+          withProductCount,
         },
       );
 
@@ -69,9 +71,11 @@ class CategoryController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const { includeInactive = false } = req.validatedQuery || req.query;
+      const query =
+        (req.validatedQuery as Record<string, unknown>) || req.query || {};
+      const includeInactive = query.includeInactive === "true";
       const categories = await categoryService.getCategoryList({
-        includeInactive: includeInactive === "true" || includeInactive === true,
+        includeInactive,
       });
       res.json({
         success: true,
@@ -92,10 +96,10 @@ class CategoryController {
   ): Promise<void> => {
     try {
       const { id } = req.params;
-      const { includeInactive = false } = req.query;
+      const includeInactive = req.query?.includeInactive === "true";
       const category = await categoryService.getCategoryById(id, {
         withProductCount: true,
-        includeInactive: includeInactive === "true",
+        includeInactive,
       });
       res.json({
         success: true,
@@ -116,9 +120,9 @@ class CategoryController {
   ): Promise<void> => {
     try {
       const { slug } = req.params;
-      const { includeInactive = false } = req.query;
+      const includeInactive = req.query?.includeInactive === "true";
       const category = await categoryService.getCategoryBySlug(slug, {
-        includeInactive: includeInactive === "true",
+        includeInactive,
         withProductCount: true,
       });
       res.json({
@@ -166,10 +170,33 @@ class CategoryController {
     try {
       const { id } = req.params;
       const updateData = req.validatedData || req.body;
+
+      // Приводим поле image к типу ICategoryImage | undefined
+      if (updateData.image !== undefined) {
+        if (updateData.image === null) {
+          updateData.image = undefined; // удалить изображение
+        } else if (typeof updateData.image === "string") {
+          // Если пришла строка URL, преобразуем в объект
+          updateData.image = { url: updateData.image };
+        } else if (
+          typeof updateData.image === "object" &&
+          updateData.image !== null
+        ) {
+          // Оставляем как есть, но убеждаемся, что это ICategoryImage
+          const img = updateData.image as Record<string, unknown>;
+          updateData.image = {
+            url: img.url as string | undefined,
+            alt: img.alt as string | undefined,
+            size: img.size as number | undefined,
+            mimetype: img.mimetype as string | undefined,
+          };
+        }
+      }
+
       const userId = req.user.id;
       const category = await categoryService.updateCategory(
         id,
-        updateData,
+        updateData as Partial<ICategory>,
         userId,
       );
       res.json({

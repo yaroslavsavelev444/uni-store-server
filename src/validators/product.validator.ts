@@ -5,15 +5,6 @@ import Joi from "joi";
 import type { ProductStatusType } from "../types/product.types.js";
 import { ProductStatus } from "../types/product.types.js";
 
-// Расширяем интерфейс Request для добавления validatedData
-declare global {
-  namespace Express {
-    interface Request {
-      validatedData?: any;
-    }
-  }
-}
-
 // Вспомогательные схемы
 const imageSchema = Joi.object({
   url: Joi.string()
@@ -302,16 +293,10 @@ export function validateProductWithLogging<T = any>(
   } else {
     console.log(
       `[VALIDATOR${context ? ` ${context}` : ""}] Валидация успешна:`,
-      {
-        timestamp: new Date().toISOString(),
-        validFields: Object.keys(value).length,
-        hasImages: !!value.images,
-        imagesCount: Array.isArray(value.images) ? value.images.length : 0,
-      },
     );
   }
 
-  return { error, value };
+  return { error: error ? error : null, value };
 }
 
 // Middleware для валидации с логированием

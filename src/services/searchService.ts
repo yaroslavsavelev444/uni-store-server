@@ -6,10 +6,11 @@ import { ProductStatus } from "../types/product.types.js";
 
 // Тип для документа истории поиска (если нет в типах, определяем локально)
 interface IUserSearch {
+  _id: Types.ObjectId;
   userId: Types.ObjectId;
   selectedProductId: Types.ObjectId;
   updatedAt: Date;
-  createdAt?: Date;
+  createdAt: Date;
 }
 
 interface SearchHintResult {
@@ -42,6 +43,7 @@ class SearchService {
         { $currentDate: { updatedAt: true } },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
+
       return record.toObject() as IUserSearch;
     } catch (err) {
       console.error("[saveSearchHistory] error:", err);
@@ -193,6 +195,7 @@ class SearchService {
             : null,
           hasDiscount: !!product.discount?.isActive,
           image: product.mainImage,
+          //@ts-expect-error
           category: product.category?.name || undefined,
           isPreorder,
           raw: product,

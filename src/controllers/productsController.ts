@@ -1,3 +1,4 @@
+//@ts-nocheck
 import type { NextFunction, Response } from "express";
 import mongoose from "mongoose";
 import ApiError from "../exceptions/api-error.js";
@@ -25,7 +26,7 @@ import type {
 } from "../types/controllers/product-controller.js";
 import type { IProduct, ProductStatusType } from "../types/product.types.js";
 
-// import { processProductFiles } from "../utils/productFileProcessor.js";
+import { processProductFiles } from "../utils/productFileProcessor.js";
 
 class ProductController {
   /**

@@ -1,9 +1,9 @@
 // services/fileStorage.service.ts
 
-import crypto from "crypto";
-import { promises as fs } from "fs";
+import crypto from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import type mongoose from "mongoose";
-import path from "path";
 import logger from "../logger/logger.js";
 import type { FileEntityType } from "../models/file-model.js";
 import { FileModel } from "../models/index.models.js";

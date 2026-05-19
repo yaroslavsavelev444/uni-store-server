@@ -21,6 +21,7 @@ export interface ContentBlockInput {
 
 // Для создания темы
 export interface CreateTopicBody {
+  [key: string]: unknown;
   title: string;
   slug: string;
   description?: string;
@@ -30,6 +31,7 @@ export interface CreateTopicBody {
 
 // Для обновления темы
 export interface UpdateTopicBody {
+  [key: string]: unknown;
   title?: string;
   slug?: string;
   description?: string;

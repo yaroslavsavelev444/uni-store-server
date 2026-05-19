@@ -1,15 +1,15 @@
-const express = require("express");
+import express from "express";
+
 const router = express.Router();
-const notificationsController = require("../controllers/notificationsController.js");
 
-router.get("/getNotifications", notificationsController.getNotifications);
-router.get("/getUnreadCount", notificationsController.getUnreadCount);
+import notificationsController from "../controllers/notificationsController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
 
-import {
-  deleteNotifications,
-  getNotifications,
-  getUnreadCount,
-  markNotificationAsRead,
-} from "../controllers/notificationsController.js";
+router.use(authMiddleware.requireAuth);
+router.get(
+  "/getNotifications",
+  notificationsController.getNotifications as any,
+);
+router.get("/getUnreadCount", notificationsController.getUnreadCount as any);
 
 export default router;

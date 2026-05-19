@@ -17,7 +17,7 @@ import type { IUserSession } from "../types/userSession.types.js";
 import { registerSchema } from "../validators/user.validator.js";
 import faService from "./2faService.js";
 import SessionService from "./SessionService.js";
-import tokenService from "./tokenService.js";
+import tokenService, { type TokenPayload } from "./tokenService.js";
 import userSanctionService from "./userSanctionService.js";
 
 const { create2FACodeAndNotify, verify2FACode, verify2FACodeOnly } = faService;

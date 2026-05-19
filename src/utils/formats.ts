@@ -79,31 +79,28 @@ function toDateSafe(input: unknown): Date | null {
   }
 
   if (input instanceof Date) {
-    return isNaN(input.getTime()) ? null : input;
+    return Number.isNaN(input.getTime()) ? null : input;
   }
 
-  if (typeof input === "number" && isFinite(input)) {
+  if (typeof input === "number" && Number.isFinite(input)) {
     const d = new Date(input);
-    return isNaN(d.getTime()) ? null : d;
+    return Number.isNaN(d.getTime()) ? null : d;
   }
 
   if (typeof input === "string") {
-    // Попытка распарсить строку
     const trimmed = input.trim();
     if (trimmed === "") return null;
 
     const d = new Date(trimmed);
-    // Проверка, что дата валидна и строка не привела к "Invalid Date"
-    if (!isNaN(d.getTime())) {
+    if (!Number.isNaN(d.getTime())) {
       return d;
     }
 
-    // Дополнительная эвристика: пробуем разобрать "dd.mm.yyyy" или "dd-mm-yyyy"
     const dateMatch = trimmed.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
     if (dateMatch) {
       const [, day, month, year] = dateMatch;
       const d2 = new Date(Number(year), Number(month) - 1, Number(day));
-      if (!isNaN(d2.getTime())) {
+      if (!Number.isNaN(d2.getTime())) {
         return d2;
       }
     }
@@ -138,22 +135,19 @@ export function formattedDate(
   date: unknown,
   options?: DateFormatOptions | Intl.DateTimeFormatOptions,
 ): string {
-  const {
-    locale = "ru-RU",
-    fallbackValue = "Некорректная дата",
-    ...formatOptions
-  } = typeof options === "object" && options !== null
-    ? {
-        locale: (options as DateFormatOptions).locale,
-        fallbackValue: (options as DateFormatOptions).fallbackValue,
-        ...options,
-      }
-    : { locale: "ru-RU", fallbackValue: "Некорректная дата", ...options };
+  const isOptionsObject = typeof options === "object" && options !== null;
+
+  const locale = isOptionsObject
+    ? ((options as DateFormatOptions).locale ?? "ru-RU")
+    : "ru-RU";
+  const fallbackValue = isOptionsObject
+    ? ((options as DateFormatOptions).fallbackValue ?? "Некорректная дата")
+    : "Некорректная дата";
+
+  const formatOptions = isOptionsObject ? { ...options } : {};
 
   const dateObj = toDateSafe(date);
-  if (!dateObj) {
-    return fallbackValue;
-  }
+  if (!dateObj) return fallbackValue;
 
   try {
     return dateObj.toLocaleString(
@@ -161,7 +155,6 @@ export function formattedDate(
       formatOptions as Intl.DateTimeFormatOptions,
     );
   } catch (err) {
-    // Если локаль или опции вызвали ошибку (редко), возвращаем fallback
     console.warn(`[dateFormatter] Ошибка форматирования: ${err}`);
     return fallbackValue;
   }

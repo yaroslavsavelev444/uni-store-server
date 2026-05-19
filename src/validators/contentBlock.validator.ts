@@ -19,9 +19,7 @@ export interface ContentBlock {
   metadata?: Record<string, any>;
 }
 
-export interface UpdateContentBlock extends Partial<ContentBlock> {
-  // все поля опциональны, но для ясности можно оставить как Partial
-}
+export interface UpdateContentBlock extends Partial<ContentBlock> {}
 
 export interface IdParam {
   id: string;
@@ -77,13 +75,14 @@ export const idSchema = Joi.object<IdParam>({
 });
 
 // Схема для обновления (все поля опциональны, переопределяем сообщения)
-export const updateSchema = contentBlockSchema.keys<UpdateContentBlock>({
-  title: Joi.string().min(1).max(200).optional().messages({
-    "string.min": "Заголовок должен содержать хотя бы 1 символ",
-    "string.max": "Заголовок не должен превышать 200 символов",
-  }),
-  subtitle: Joi.string().min(1).max(500).optional().messages({
-    "string.min": "Подзаголовок должен содержать хотя бы 1 символ",
-    "string.max": "Подзаголовок не должен превышать 500 символов",
-  }),
-});
+export const updateSchema: Joi.ObjectSchema<UpdateContentBlock> =
+  contentBlockSchema.keys({
+    title: Joi.string().min(1).max(200).optional().messages({
+      "string.min": "Заголовок должен содержать хотя бы 1 символ",
+      "string.max": "Заголовок не должен превышать 200 символов",
+    }),
+    subtitle: Joi.string().min(1).max(500).optional().messages({
+      "string.min": "Подзаголовок должен содержать хотя бы 1 символ",
+      "string.max": "Подзаголовок не должен превышать 500 символов",
+    }),
+  });

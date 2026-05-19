@@ -18,11 +18,11 @@ router.post(
     maxFileSizeMB: 60,
     useTemp: true,
   }),
-  uploadFiles,
+  uploadFiles as any,
 );
 
-router.get("/:fileId", authMiddleware.optional(["all"]), serveFile);
+router.get("/:fileId", authMiddleware.optional(["all"]), serveFile as any);
 
-router.delete("/:fileId", authMiddleware.requireAuth, deleteFile);
+router.delete("/:fileId", authMiddleware.requireAuth, deleteFile as any);
 
 export default router;

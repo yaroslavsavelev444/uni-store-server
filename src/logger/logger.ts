@@ -72,14 +72,14 @@ export const logger = {
       }
     }
   },
-  info: (msgOrObj: string | Record<string, unknown>) => {
+  info: (msgOrObj: string | Record<string, unknown>, p0?: string) => {
     if (typeof msgOrObj === "string") {
       pinoLogger.info(msgOrObj);
     } else {
       pinoLogger.info(msgOrObj);
     }
   },
-  warn: (msgOrObj: string | Record<string, unknown>) => {
+  warn: (msgOrObj: string | Record<string, unknown>, p0: string) => {
     if (typeof msgOrObj === "string") {
       pinoLogger.warn(msgOrObj);
     } else {

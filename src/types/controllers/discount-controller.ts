@@ -16,6 +16,7 @@ export interface IdParam {
 
 // Тело запроса для создания скидки
 export interface CreateDiscountBody {
+  [key: string]: unknown;
   name: string;
   description?: string;
   type: "percentage" | "fixed" | "quantity_based";

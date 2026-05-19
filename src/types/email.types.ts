@@ -151,36 +151,45 @@ export interface ConsentUpdatedData {
   documentUrl?: string;
   effectiveDate: string;
 }
-
-export interface NewFeedbackData {
+export interface NewFeedbackEmailData {
   feedbackId: string;
   title: string;
   type: string;
   userName: string;
   userEmail: string;
   priority: string;
-  createdAt: Date | string;
+  createdAtFormatted: string;
+  createdAtRaw: string;
   description: string;
+  hasAttachments: boolean;
 }
 
 export interface FeedbackStatusChangedData {
   feedbackId: string;
+  feedbackUrl: string; // ссылка для перехода к фидбеку (клиентская или админская)
   title: string;
-  oldStatus: string;
-  newStatus: string;
-  userName: string;
-  updatedAt: Date | string;
+  oldStatus: string; // человекочитаемый старый статус
+  newStatus: string; // человекочитаемый новый статус
+  oldStatusCode: string; // оригинальный код статуса (new, in_progress...)
+  newStatusCode: string;
+  comment?: string; // комментарий администратора (если есть)
+  userName: string; // имя пользователя (для обращения в письме)
+  updatedAtFormatted: string; // уже отформатированная дата и время
+  updatedAtRaw?: string; // ISO-строка (опционально)
 }
 
 export interface FeedbackAssignedData {
   feedbackId: string;
+  feedbackUrl: string; // ссылка на фидбек в админке
   title: string;
-  type: string;
-  priority: string;
-  description: string;
-  createdAt: Date | string;
-  userName: string;
-  assignedBy: string;
+  type: string; // "bug" | "improvement" | ...
+  priority: string; // "low" | "medium" | ...
+  description: string; // описание (уже обрезано, но можно полное)
+  createdAtFormatted: string; // отформатированная дата создания
+  createdAtRaw?: string; // ISO-строка (опционально)
+  assignedToName: string; // имя назначенного сотрудника (админа)
+  assignedByName: string; // имя администратора, который назначил
+  assignedByEmail?: string;
 }
 
 export type OrderCancelledByUserData = {

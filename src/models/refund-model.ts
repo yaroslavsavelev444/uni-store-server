@@ -119,7 +119,7 @@ const RefundSchema = new Schema<IRefund, IRefundModel, IRefundMethods>(
     toJSON: {
       virtuals: true,
       transform: (_doc, ret) => {
-        delete ret.__v;
+        delete (ret as any).__v;
         // ✅ безопасное удаление опционального поля
         delete (ret as Record<string, unknown>).updatedAt;
         return ret;

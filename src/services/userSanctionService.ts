@@ -101,7 +101,7 @@ class UserSanctionService {
 
       // Update user status
       user.status = "blocked";
-      user.blockedUntil = sanction.expiresAt;
+      user.blockedUntil = sanction.expiresAt ?? null;
       user.lastSanction = sanction._id;
       await user.save({ session });
 
@@ -152,10 +152,14 @@ class UserSanctionService {
       await session.commitTransaction();
 
       // Populate references outside transaction
-      const populatedSanction = (await UserSanctionModel.findById(sanction._id)
+      const populatedSanction = await UserSanctionModel.findById(sanction._id)
         .populate("user", "name email role status")
         .populate("admin", "name email role")
-        .lean()) as UserSanctionDocument;
+        .exec();
+
+      if (!populatedSanction) {
+        throw ApiError.DatabaseError("Не удалось получить созданную санкцию");
+      }
 
       logger.info({
         msg: "User blocked",
@@ -164,7 +168,7 @@ class UserSanctionService {
         sanctionId: sanction._id,
       });
 
-      return populatedSanction;
+      return populatedSanction as unknown as UserSanctionDocument;
     } catch (error) {
       await session.abortTransaction();
       if (error instanceof ApiError) throw error;

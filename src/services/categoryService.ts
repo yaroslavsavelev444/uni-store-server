@@ -39,11 +39,11 @@ class CategoryService {
       const timestamp = Date.now();
       const filename = path.basename(filePath);
       const newWebPath = `/uploads/categories/images/${timestamp}_${filename}`;
-      await fileManager.moveFile(filePath, newWebPath);
+      // await fileManager.moveFile(filePath, newWebPath);
       return newWebPath;
     }
 
-    await fileManager.validateFileExists(filePath);
+    // await fileManager.validateFileExists(filePath);
     return filePath;
   }
 
@@ -218,13 +218,13 @@ class CategoryService {
     if (updateData.image !== undefined) {
       if (updateData.image === null) {
         if (existingCategory.image?.url) {
-          await fileManager.deleteFile(existingCategory.image.url);
+          // await fileManager.deleteFile(existingCategory.image.url);
         }
         updateData.image = null as unknown as ICategory["image"];
       } else if (updateData.image?.url) {
         const newImageUrl = await this.processImage(updateData.image.url);
         if (existingCategory.image?.url) {
-          await fileManager.deleteFile(existingCategory.image.url);
+          // await fileManager.deleteFile(existingCategory.image.url);
         }
         updateData.image.url = newImageUrl;
       }
@@ -254,7 +254,7 @@ class CategoryService {
     }
 
     if (category.image?.url) {
-      await fileManager.deleteFile(category.image.url);
+      // await fileManager.deleteFile(category.image.url);
     }
 
     await category.deleteOne();

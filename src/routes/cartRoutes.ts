@@ -8,10 +8,13 @@ import { validateCartItem } from "../validators/cart.validator.js";
 
 router.use(authMiddleware.requireAuth);
 
-router.get("/", cartController.getCart);
-router.put("/items", validateCartItem, cartController.addOrUpdateItem);
-router.delete("/items/:productId", cartController.removeItem);
-router.delete("/", cartController.clearCart);
-router.patch("/items/:productId/decrease", cartController.decreaseQuantity);
+router.get("/", cartController.getCart as any);
+router.put("/items", validateCartItem, cartController.addOrUpdateItem as any);
+router.delete("/items/:productId", cartController.removeItem as any);
+router.delete("/", cartController.clearCart as any);
+router.patch(
+  "/items/:productId/decrease",
+  cartController.decreaseQuantity as any,
+);
 
 export default router;

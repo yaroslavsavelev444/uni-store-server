@@ -9,28 +9,28 @@ import authMiddleware from "../middlewares/auth-middleware.js";
 // ========== USER ROUTES ==========
 router.use(authMiddleware.requireRole("user"));
 // Создание компании
-router.post("/", companyController.createCompany);
+router.post("/", companyController.createCompany as any);
 
 // Получение всех компаний пользователя
-router.get("/", companyController.getCompanies);
+router.get("/", companyController.getCompanies as any);
 
 // Получение компании по ID
-router.get("/:id", companyController.getCompanyById);
+router.get("/:id", companyController.getCompanyById as any);
 
 // Получение компании по ИНН
-router.get("/tax/:taxNumber", companyController.getCompanyByTaxNumber);
+router.get("/tax/:taxNumber", companyController.getCompanyByTaxNumber as any);
 
 // Обновление компании
-router.put("/:id", companyController.updateCompany);
+router.put("/:id", companyController.updateCompany as any);
 
 // Удаление компании
-router.delete("/:id", companyController.deleteCompany);
+router.delete("/:id", companyController.deleteCompany as any);
 
 // Поиск компаний
-router.get("/search", companyController.searchCompanies);
+router.get("/search", companyController.searchCompanies as any);
 
 // Получение дефолтной компании
-router.get("/default", companyController.getDefaultCompany);
+router.get("/default", companyController.getDefaultCompany as any);
 
 // ========== ADMIN ROUTES ==========
 
@@ -38,7 +38,7 @@ router.get("/default", companyController.getDefaultCompany);
 router.post(
   "/sync-cache",
   authMiddleware.requireRole("admin"),
-  companyController.syncCache,
+  companyController.syncCache as any,
 );
 
 export default router;

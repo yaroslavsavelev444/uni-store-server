@@ -24,6 +24,7 @@ export interface IdParam {
 
 // Тело запроса для создания баннера
 export interface CreateBannerBody {
+  [key: string]: unknown;
   title: string;
   subtitle?: string;
   description?: string;

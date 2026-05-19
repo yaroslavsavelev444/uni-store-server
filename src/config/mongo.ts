@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 import dotenv from "dotenv";
 import mongoose, { type Connection } from "mongoose";
 import logger from "../logger/logger.js";

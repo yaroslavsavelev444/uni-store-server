@@ -15,11 +15,11 @@ router.post("/calculate", discountController.getForCart);
 router.use(authMiddleware(["admin"]));
 
 // CRUD операции для скидок
-router.post("/", discountController.create);
-router.put("/:id", discountController.update);
+router.post("/", discountController.create as any);
+router.put("/:id", discountController.update as any);
 router.get("/", discountController.getAll);
 router.get("/:id", discountController.getById);
-router.delete("/:id", discountController.remove);
-router.patch("/:id/status", discountController.changeStatus);
+router.delete("/:id", discountController.remove as any);
+router.patch("/:id/status", discountController.changeStatus as any);
 
 export default router;

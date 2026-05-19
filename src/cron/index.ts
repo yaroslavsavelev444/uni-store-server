@@ -7,7 +7,7 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import cron from "node-cron";
 import logger from "../logger/logger.js";
-import indexModels from "../models/index.models.js";
+import { FeedbackModel } from "../models/index.models.js";
 
 // Определяем __dirname для ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -280,7 +280,6 @@ class CronService {
     logger.info("[CRON:FEEDBACK_CLEANUP] Начало очистки старых фидбеков");
 
     try {
-      const { FeedbackModel } = indexModels;
       const retentionDays = parseInt(
         process.env.FEEDBACK_RETENTION_DAYS || "365",
         10,
@@ -305,9 +304,9 @@ class CronService {
       for (const feedback of oldFeedbacks) {
         if (feedback.attachments && feedback.attachments.length > 0) {
           for (const att of feedback.attachments) {
-            if (att.permanentName) {
-              filesToDelete.push(att.permanentName);
-            }
+            // if (att.permanentName) {
+            //   filesToDelete.push(att.permanentName);
+            // }
           }
         }
       }

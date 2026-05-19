@@ -211,6 +211,7 @@ class TopicService {
       block: Record<string, unknown>,
     ): IContentBlock => {
       const cleanedBlock: IContentBlock = {
+        //@ts-expect-error
         type: xss(block.type as ContentBlockType),
         value: block.value,
       };

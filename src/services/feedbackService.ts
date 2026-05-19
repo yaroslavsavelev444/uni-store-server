@@ -1,8 +1,13 @@
+import { formatDate } from "date-fns";
 import mongoose, { Types } from "mongoose";
 import ApiError from "../exceptions/api-error.js";
 import logger from "../logger/logger.js";
 import { FeedbackModel, FileModel, UserModel } from "../models/index.models.js";
 import { sendEmailNotification } from "../queues/taskQueues.js";
+import type {
+  FeedbackAssignedData,
+  FeedbackStatusChangedData,
+} from "../types/email.types.js";
 import type {
   FeedbackPriority,
   FeedbackStatus,
@@ -30,7 +35,7 @@ import type {
   UpdateStatusParams,
   UserStatsResult,
 } from "../types/feedback-service.js";
-import type { IUser } from "../types/user.js";
+import type { IUser } from "../types/user.types.js";
 import fileStorageService from "./fileStorage.service.js";
 
 class FeedbackService {
@@ -52,7 +57,9 @@ class FeedbackService {
         deviceInfo,
         ipAddress,
       } = data;
-
+      if (!userId) {
+        throw ApiError.NotFoundError("Пользователь не найден");
+      }
       if (!title?.trim() || !description?.trim() || !type) {
         throw ApiError.BadRequest("Заголовок, описание и тип обязательны");
       }
@@ -89,16 +96,16 @@ class FeedbackService {
         title: title.trim(),
         description: description.trim(),
         type,
-        userId: userId ? new Types.ObjectId(userId) : null,
+        userId: userId ? new Types.ObjectId(userId) : undefined,
         userEmail: userEmail?.toLowerCase()?.trim(),
         userName: userName?.trim(),
         userRole,
         priority,
         deviceInfo,
         ipAddress,
-        createdBy: userId ? new Types.ObjectId(userId) : null,
+        createdBy: userId ? new Types.ObjectId(userId) : undefined,
         status: "new",
-        attachments: attachmentIds, // ← массив строк
+        // attachments: attachmentIds, // ← массив строк
       };
 
       const feedback = new FeedbackModel(feedbackData);
@@ -656,7 +663,8 @@ class FeedbackService {
 
   async getUserStats(userId: string): Promise<UserStatsResult> {
     try {
-      return await FeedbackModel.getStats(userId);
+      const userObjectId = new Types.ObjectId(userId);
+      return await FeedbackModel.getStats(userObjectId);
     } catch (error) {
       logger.error({
         message:
@@ -782,15 +790,26 @@ class FeedbackService {
       if (admins.length === 0) return;
 
       for (const admin of admins) {
+        const formattedDate = formatDate(
+          feedback.createdAt ? feedback.createdAt : new Date(),
+          "dd.MM.yyyy HH:mm",
+        );
+
         await sendEmailNotification(admin.email, "newFeedback", {
-          feedbackId: feedback._id,
+          feedbackId: feedback._id.toString(),
           title: feedback.title,
           type: feedback.type,
           userName: feedback.userName || "Анонимный пользователь",
           userEmail: feedback.userEmail || "Не указан",
           priority: feedback.priority,
-          createdAt: feedback.createdAt,
-          description: feedback.description.substring(0, 200) + "...",
+          createdAtFormatted: formattedDate,
+          createdAtRaw: feedback.createdAt
+            ? feedback.createdAt.toISOString()
+            : "",
+          description:
+            feedback.description.substring(0, 300) +
+            (feedback.description.length > 300 ? "…" : ""),
+          hasAttachments: !!feedback.attachments?.length,
         });
       }
 
@@ -812,31 +831,48 @@ class FeedbackService {
     feedback,
     oldStatus,
     newStatus,
-  }: NotifyUserStatusChangeParams): Promise<void> {
+    comment, // добавим параметр (можно передавать из updateStatus)
+  }: NotifyUserStatusChangeParams & { comment?: string }): Promise<void> {
     try {
       if (!feedback.userEmail) return;
 
+      // Человекочитаемые статусы
       const statusMessages: Record<string, string> = {
         new: "получен и ожидает рассмотрения",
-        in_progress: "взяли в работу",
-        resolved: "решен",
+        in_progress: "взят в работу",
+        resolved: "решён",
         closed: "закрыт",
         duplicate: "помечен как дубликат",
         wont_fix: "не будет исправлен",
       };
 
-      await sendEmailNotification(feedback.userEmail, "feedbackStatusChanged", {
-        feedbackId: feedback._id,
+      // Формируем ссылку на фидбек в личном кабинете пользователя
+      const feedbackUrl = `${process.env.CLIENT_URL}/profile/feedbacks/${feedback._id}`;
+      const formattedDate = formatDate(new Date(), "dd.MM.yyyy HH:mm");
+
+      const emailData: FeedbackStatusChangedData = {
+        feedbackId: feedback._id.toString(),
+        feedbackUrl,
         title: feedback.title,
         oldStatus: statusMessages[oldStatus] || oldStatus,
         newStatus: statusMessages[newStatus] || newStatus,
-        userName: feedback.userName,
-        updatedAt: new Date(),
-      });
+        oldStatusCode: oldStatus,
+        newStatusCode: newStatus,
+        comment: comment || undefined,
+        userName: feedback.userName || "Уважаемый пользователь",
+        updatedAtFormatted: formattedDate,
+        updatedAtRaw: new Date().toISOString(),
+      };
+
+      await sendEmailNotification(
+        feedback.userEmail,
+        "feedbackStatusChanged",
+        emailData,
+      );
     } catch (error) {
       logger.error({
         message:
-          "[NOTIFY_USER_ABOUT_STATUS_CHANGE] Ошибка при отправке уведомления о изменении статуса",
+          "[NOTIFY_USER_ABOUT_STATUS_CHANGE] Ошибка при отправке уведомления",
         error,
       });
     }
@@ -849,20 +885,48 @@ class FeedbackService {
     try {
       if (!assignedUser.email) return;
 
-      await sendEmailNotification(assignedUser.email, "feedbackAssigned", {
-        feedbackId: feedback._id,
+      // Получаем данные администратора, который назначил фидбек (feedback.updatedBy)
+      let assignedByName = "Система";
+      let assignedByEmail: string | undefined;
+      if (feedback.updatedBy) {
+        const assigner = await UserModel.findById(feedback.updatedBy)
+          .select("name email")
+          .lean();
+        if (assigner) {
+          assignedByName = assigner.name || "Администратор";
+          assignedByEmail = assigner.email;
+        }
+      }
+
+      // Ссылка на фидбек в админке
+      const adminLink = `${process.env.ADMIN_URL}/feedbacks/${feedback._id}`;
+      const formattedDate = formatDate(feedback.createdAt, "dd.MM.yyyy HH:mm");
+
+      const emailData: FeedbackAssignedData = {
+        feedbackId: feedback._id.toString(),
+        feedbackUrl: adminLink,
         title: feedback.title,
         type: feedback.type,
         priority: feedback.priority,
-        assignedBy: feedback.updatedBy, // ID админа
-        userName: assignedUser.name,
-        description: feedback.description.substring(0, 150) + "...",
-        createdAt: feedback.createdAt,
-      });
+        description:
+          feedback.description.substring(0, 300) +
+          (feedback.description.length > 300 ? "…" : ""),
+        createdAtFormatted: formattedDate,
+        createdAtRaw: feedback.createdAt.toISOString(),
+        assignedToName: assignedUser.name || "Сотрудник",
+        assignedByName,
+        assignedByEmail,
+      };
+
+      await sendEmailNotification(
+        assignedUser.email,
+        "feedbackAssigned",
+        emailData,
+      );
     } catch (error) {
       logger.error({
         message:
-          "[NOTIFY_ASSIGNED_USER] Ошибка при отправке уведомления о назначении фидбека",
+          "[NOTIFY_ASSIGNED_USER] Ошибка при отправке уведомления о назначении",
         error,
       });
     }

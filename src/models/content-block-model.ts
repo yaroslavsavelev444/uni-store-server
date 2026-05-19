@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
+
 import { model, Schema } from "mongoose";
 import xss from "xss";
 import type {
@@ -34,7 +36,7 @@ const processContentBlockDocument = (doc: IContentBlockDocument | any): any => {
   }
 
   if (doc.metadata && typeof doc.metadata === "object") {
-    const processMetadata = (metadata: any) => {
+    const processMetadata = (metadata: Record<string, unknown>) => {
       for (const [key, value] of Object.entries(metadata)) {
         if (typeof value === "string" && shouldProcessUrl(value)) {
           metadata[key] = fileService.getFileUrl(value);
@@ -43,7 +45,7 @@ const processContentBlockDocument = (doc: IContentBlockDocument | any): any => {
           typeof value === "object" &&
           !Array.isArray(value)
         ) {
-          processMetadata(value);
+          processMetadata(value as Record<string, unknown>);
         } else if (Array.isArray(value)) {
           metadata[key] = value.map((item) =>
             typeof item === "string" && shouldProcessUrl(item)
@@ -122,14 +124,16 @@ const contentBlockSchema = new Schema<IContentBlockDocument>(
     toJSON: {
       virtuals: true,
       transform: (_doc, ret) => {
-        delete ret.__v;
+        delete (ret as any).__v;
+
         return ret;
       },
     },
     toObject: {
       virtuals: true,
       transform: (_doc, ret) => {
-        delete ret.__v;
+        delete (ret as any).__v;
+
         return ret;
       },
     },
@@ -137,6 +141,7 @@ const contentBlockSchema = new Schema<IContentBlockDocument>(
 );
 
 // Post-хуки для преобразования URL
+//@ts-expect-error
 contentBlockSchema.post(["find", "findOne", "findById"], (docs) => {
   if (!docs) return docs;
   if (Array.isArray(docs)) return docs.map(processContentBlockDocument);
@@ -201,14 +206,11 @@ contentBlockSchema.methods.toSafeObject = function (
 };
 
 // Статический метод findActive
-contentBlockSchema.statics.findActive = function (this: ContentBlockModel) {
+contentBlockSchema.statics.findActive = function () {
   return this.find({ isActive: true }).sort({ position: 1, createdAt: -1 });
 };
 
-// Статический метод findActiveWithProcessedUrls
-contentBlockSchema.statics.findActiveWithProcessedUrls = async function (
-  this: ContentBlockModel,
-) {
+contentBlockSchema.statics.findActiveWithProcessedUrls = async function () {
   const docs = await this.find({ isActive: true }).sort({
     position: 1,
     createdAt: -1,

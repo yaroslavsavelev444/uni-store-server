@@ -6,15 +6,6 @@ import Joi from "joi";
 import mongoose from "mongoose";
 import { DeliveryMethod, PaymentMethod } from "../types/order.types.js";
 
-// Расширяем Request (если validatedData нужен)
-declare global {
-  namespace Express {
-    interface Request {
-      validatedData?: any;
-    }
-  }
-}
-
 // Базовые схемы адресов
 const doorToDoorAddressSchema = Joi.object({
   street: Joi.string().required().min(5).max(200).messages({

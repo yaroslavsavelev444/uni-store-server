@@ -1,5 +1,7 @@
-import type { Document, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
+import type { UserRole } from "./user.types.js";
 
+// === Вспомогательные типы ===
 export type FeedbackType = "bug" | "improvement" | "feature" | "other";
 export type FeedbackStatus =
   | "new"
@@ -9,7 +11,6 @@ export type FeedbackStatus =
   | "duplicate"
   | "wont_fix";
 export type FeedbackPriority = "low" | "medium" | "high" | "critical";
-export type UserRole = "user" | "lawyer" | "admin" | "moderator";
 
 export interface IAttachment {
   url: string;
@@ -35,6 +36,7 @@ export interface IDeviceInfo {
   screenResolution?: string;
 }
 
+// === Базовый интерфейс данных (только поля, сохраняемые в БД) ===
 export interface IFeedback {
   _id: Types.ObjectId;
   title: string;
@@ -60,21 +62,17 @@ export interface IFeedback {
   dueDate?: Date;
   deviceInfo?: IDeviceInfo;
   ipAddress?: string;
-  createdBy?: Types.ObjectId;
+  createdBy: Types.ObjectId;
   updatedBy?: Types.ObjectId;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export type IFeedbackVirtuals = {};
-
+// === Методы экземпляра (пустые, т.к. их нет) ===
 export type IFeedbackMethods = {};
 
-export interface FeedbackModelType extends Model<
-  IFeedbackDocument,
-  {},
-  IFeedbackMethods
-> {
+// === Статические методы модели ===
+export interface IFeedbackModel extends Model<IFeedback, {}, IFeedbackMethods> {
   getStats(userId: Types.ObjectId): Promise<{
     total: number;
     open: number;
@@ -87,7 +85,5 @@ export interface FeedbackModelType extends Model<
   }>;
 }
 
-export type IFeedbackDocument = Document<unknown, {}, IFeedback> &
-  IFeedback &
-  IFeedbackVirtuals &
-  IFeedbackMethods;
+// === Тип полноценного документа (с методами) ===
+export type FeedbackDocument = HydratedDocument<IFeedback, IFeedbackMethods>;

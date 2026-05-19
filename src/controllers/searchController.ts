@@ -40,7 +40,17 @@ class SearchController {
         req.user.id,
         productId,
       );
-      res.json(record);
+      const response: SaveSearchHistoryResponse = {
+        ...(record ?? record),
+        _id: record._id.toString(),
+        selectedProductId: record.selectedProductId.toString(),
+        createdAt: record.createdAt.toISOString(),
+        updatedAt: record.updatedAt.toISOString(),
+        // Если в record есть другие поля типа ObjectId (например, userId), их тоже нужно привести
+        ...(record.userId && { userId: record.userId.toString() }),
+      };
+
+      res.json(response);
     } catch (err) {
       next(err);
     }
@@ -110,46 +120,6 @@ class SearchController {
           ? error
           : ApiError.InternalServerError(errorMessage),
       );
-    }
-  };
-
-  /**
-   * GET /api/search/products?q=...&category=...&limit=10&page=1
-   * Поиск товаров с пагинацией
-   */
-  searchProducts = async (
-    req: SearchProductsReq,
-    res: Response<SearchProductsResponse>,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const validated = req.validatedQuery;
-      const query = validated?.q ?? (req.query.q as string);
-      const category = validated?.category ?? (req.query.category as string);
-      const limit =
-        validated?.limit ??
-        (req.query.limit ? parseInt(req.query.limit as string, 10) : 10);
-      const page =
-        validated?.page ??
-        (req.query.page ? parseInt(req.query.page as string, 10) : 1);
-
-      if (!query) {
-        throw ApiError.BadRequest("Параметр 'q' обязателен");
-      }
-
-      const result = await searchService.searchProducts(query, {
-        limit,
-        page,
-        category,
-      });
-
-      res.json({
-        success: true,
-        data: result.products,
-        pagination: result.pagination,
-      });
-    } catch (error) {
-      next(error);
     }
   };
 }

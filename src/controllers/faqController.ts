@@ -85,8 +85,8 @@ class FaqController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const { id } = req.params;
-      const topic = await faqService.updateTopic(id, req.body);
+      const { topicId } = req.params;
+      const topic = await faqService.updateTopic(topicId, req.body);
       res.json({ success: true, data: topic });
     } catch (error) {
       next(error);
@@ -103,7 +103,7 @@ class FaqController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      await faqService.deleteTopic(req.params.id);
+      await faqService.deleteTopic(req.params.topicId);
       res.json({ success: true, data: null });
     } catch (error) {
       next(error);

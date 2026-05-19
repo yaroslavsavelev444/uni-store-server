@@ -1,11 +1,12 @@
 import { model, Schema, type Types } from "mongoose";
-import type { FeedbackModelType } from "../types/feedback.types.js";
-
-const feedbackSchema = new Schema<
+import type {
+  FeedbackDocument,
   IFeedback,
-  FeedbackModelType,
-  IFeedbackMethods
->(
+  IFeedbackMethods,
+  IFeedbackModel,
+} from "../types/feedback.types.js";
+
+const feedbackSchema = new Schema<IFeedback, IFeedbackModel, IFeedbackMethods>(
   {
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, required: true, trim: true, maxlength: 5000 },
@@ -80,7 +81,7 @@ const feedbackSchema = new Schema<
   },
 );
 
-// Индексы
+// === Индексы ===
 feedbackSchema.index({ status: 1, createdAt: -1 });
 feedbackSchema.index({ type: 1, createdAt: -1 });
 feedbackSchema.index({ priority: 1, createdAt: -1 });
@@ -90,8 +91,8 @@ feedbackSchema.index({ tags: 1 });
 feedbackSchema.index({ createdAt: -1 });
 feedbackSchema.index({ updatedAt: -1 });
 
-// Pre-save hook для установки resolvedAt/closedAt
-feedbackSchema.pre("save", function (this: IFeedbackDocument, next) {
+// === Хук pre-save (типизация через FeedbackDocument) ===
+feedbackSchema.pre("save", function (this: FeedbackDocument, next) {
   if (this.status === "resolved" && !this.resolvedAt) {
     this.resolvedAt = new Date();
   }
@@ -101,9 +102,9 @@ feedbackSchema.pre("save", function (this: IFeedbackDocument, next) {
   next();
 });
 
-// Статический метод getStats
+// === Статические методы ===
 feedbackSchema.statics.getStats = async function (
-  this: FeedbackModelType,
+  this: IFeedbackModel,
   userId: Types.ObjectId,
 ) {
   return {
@@ -117,10 +118,7 @@ feedbackSchema.statics.getStats = async function (
   };
 };
 
-// Статический метод getAdminStats
-feedbackSchema.statics.getAdminStats = async function (
-  this: FeedbackModelType,
-) {
+feedbackSchema.statics.getAdminStats = async function (this: IFeedbackModel) {
   const stats = await this.aggregate([
     {
       $group: {
@@ -154,7 +152,5 @@ feedbackSchema.statics.getAdminStats = async function (
   return stats[0] || { total: 0, byStatus: [] };
 };
 
-export default model<IFeedbackDocument, FeedbackModelType>(
-  "Feedback",
-  feedbackSchema,
-);
+// === Экспорт модели ===
+export default model<IFeedback, IFeedbackModel>("Feedback", feedbackSchema);

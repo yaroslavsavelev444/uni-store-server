@@ -188,3 +188,24 @@ export interface IOrderModel extends Model<IOrder, {}, IOrderMethods> {
 
 // === Тип документа с методами ===
 export type OrderDocument = HydratedDocument<IOrder, IOrderMethods>;
+
+export interface IDelivery {
+  method: DeliveryMethodType;
+  address?: IDeliveryAddress;
+  pickupPoint?: Types.ObjectId;
+  transportCompany?: Types.ObjectId;
+  trackingNumber?: string;
+  estimatedDelivery?: Date;
+  notes?: string;
+  carrier?: string; // <-- добавлено
+}
+
+export interface IAttachment {
+  _id?: Types.ObjectId; // <-- добавлено
+  name?: string;
+  path?: string;
+  size?: number;
+  mimeType?: string;
+  uploadedAt?: Date;
+  uploadedBy?: Types.ObjectId;
+}

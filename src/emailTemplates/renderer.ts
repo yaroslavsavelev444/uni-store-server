@@ -1,9 +1,9 @@
-import { readdirSync, readFileSync } from "fs";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import Handlebars, { type TemplateDelegate } from "handlebars";
 import layouts from "handlebars-layouts";
 import juice from "juice";
-import path from "path";
-import { fileURLToPath } from "url";
 
 // Эмуляция __dirname для ES модулей
 const __filename = fileURLToPath(import.meta.url);

@@ -431,7 +431,7 @@ class CartService {
 
   async clearCart(
     userId: string | Types.ObjectId,
-  ): Promise<{ message: string; cartId: Types.ObjectId }> {
+  ): Promise<{ message: string; cartId: string }> {
     if (!userId) {
       throw ApiError.BadRequest("ID пользователя обязателен");
     }
@@ -446,7 +446,7 @@ class CartService {
 
     return {
       message: "Корзина очищена",
-      cartId: cart._id,
+      cartId: cart._id.toString(),
     };
   }
 

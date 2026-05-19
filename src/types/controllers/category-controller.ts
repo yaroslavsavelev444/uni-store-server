@@ -1,104 +1,90 @@
-// types/category-controller.ts
-import type { AuthRequest, OptionalAuthRequest } from "../auth.js";
+// types/controllers/category-controller.ts (дополнение — убедитесь, что эти типы определены)
+import type { Query } from "express-serve-static-core";
+import type { AuthRequest } from "../auth.js";
 import type { ICategory } from "../category.types.js";
 
-// Базовый формат ответа
-export interface CategoryResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  count?: number;
-  message?: string;
-}
-
-// Параметры маршрута
-export interface IdParam {
-  id: string;
-}
-
-export interface SlugParam {
-  slug: string;
-}
-
-// Query для getAllCategories
-export interface GetAllCategoriesQuery {
-  active?: string | boolean;
+// Query параметры для списка категорий
+export interface GetAllCategoriesQuery extends Query {
+  active?: string;
   search?: string;
   sortBy?: string;
-  sortOrder?: "asc" | "desc";
-  includeInactive?: string | boolean;
-  withProductCount?: string | boolean;
+  sortOrder?: string;
+  includeInactive?: string;
+  withProductCount?: string;
 }
 
-// Query для getCategoryList
-export interface GetCategoryListQuery {
-  includeInactive?: string | boolean;
+export interface CategoryListQueryParams extends Query {
+  includeInactive?: string;
 }
 
-// Query для getCategoryById и getCategoryBySlug
-export interface GetCategoryOptionsQuery {
-  includeInactive?: string | boolean;
-  withProductCount?: string | boolean;
+// Базовый ответ
+export interface CategoryResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  count?: number;
 }
 
-// Тело запроса для создания категории
-export interface CreateCategoryBody extends Partial<
-  Omit<ICategory, "_id" | "createdBy" | "updatedBy" | "createdAt" | "updatedAt">
-> {
-  image?: ICategory["image"];
-}
-
-// Тело запроса для обновления категории (аналогичное)
-export interface UpdateCategoryBody extends Partial<
-  Omit<ICategory, "_id" | "createdBy" | "updatedBy" | "createdAt" | "updatedAt">
-> {
-  image?: ICategory["image"] | null;
-}
-
-// Типизированные запросы
+// Типизированные запросы (пример)
 export type GetAllCategoriesReq = AuthRequest<
   {},
   CategoryResponse<ICategory[]>,
   {},
   GetAllCategoriesQuery
->;
+> & {
+  validatedQuery?: GetAllCategoriesQuery;
+};
+
 export type GetCategoryListReq = AuthRequest<
   {},
   CategoryResponse<ICategory[]>,
   {},
-  GetCategoryListQuery
->;
+  CategoryListQueryParams
+> & {
+  validatedQuery?: CategoryListQueryParams;
+};
+
 export type GetCategoryByIdReq = AuthRequest<
-  IdParam,
+  { id: string },
   CategoryResponse<ICategory>,
   {},
-  GetCategoryOptionsQuery
+  { includeInactive?: string }
 >;
+
 export type GetCategoryBySlugReq = AuthRequest<
-  SlugParam,
+  { slug: string },
   CategoryResponse<ICategory>,
   {},
-  GetCategoryOptionsQuery
+  { includeInactive?: string }
 >;
+
 export type CreateCategoryReq = AuthRequest<
   {},
   CategoryResponse<ICategory>,
-  CreateCategoryBody,
+  Partial<ICategory>,
   {}
->;
+> & {
+  validatedData?: Partial<ICategory>;
+};
+
 export type UpdateCategoryReq = AuthRequest<
-  IdParam,
+  { id: string },
   CategoryResponse<ICategory>,
-  UpdateCategoryBody,
+  Partial<ICategory>,
   {}
->;
+> & {
+  validatedData?: Partial<ICategory>;
+};
+
 export type DeleteCategoryReq = AuthRequest<
-  IdParam,
+  { id: string },
   CategoryResponse<{ message: string }>,
   {},
   {}
 >;
+
 export type GetProductCountReq = AuthRequest<
-  IdParam,
+  { id: string },
   CategoryResponse<{ count: number }>,
   {},
   {}

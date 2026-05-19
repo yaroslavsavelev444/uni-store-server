@@ -1,10 +1,13 @@
 import { notificationTypes } from "../constants/notificationTypes.js";
 
+// Выводим тип допустимых ключей
+type NotificationType = keyof typeof notificationTypes;
+
 function validateNotification(
-  type: string | number,
-  data: { [x: string]: undefined },
+  type: NotificationType,
+  data: Record<string, unknown>,
 ) {
-  const config = notificationTypes[type];
+  const config = notificationTypes[type]; // теперь ошибки нет
 
   if (!config) {
     return {
@@ -14,7 +17,7 @@ function validateNotification(
     };
   }
 
-  const missing = [];
+  const missing: string[] = [];
 
   for (const key of config.required) {
     if (data[key] === undefined) missing.push(key);

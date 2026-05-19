@@ -138,7 +138,7 @@ const contactSchema = new Schema<IContact, IContactModel, IContactMethods>(
     toJSON: {
       virtuals: true,
       transform: (_doc, ret) => {
-        delete ret._id;
+        delete (ret as any)._id;
         return ret;
       },
     },

@@ -15,23 +15,23 @@ router.get("/health", organizationContactController.healthCheck);
 router.get(
   "/admin",
   authMiddleware.requireRole("admin"),
-  organizationContactController.getAdminContacts,
+  organizationContactController.getAdminContacts as any,
 );
 router.put(
   "/admin",
   authMiddleware.requireRole("admin"),
   validator.validateCreateUpdate,
-  organizationContactController.updateContacts,
+  organizationContactController.updateContacts as any,
 );
 router.patch(
   "/admin/toggle-active",
-  authMiddleware.requireRole(["admin"]),
-  organizationContactController.toggleActive,
+  authMiddleware.requireRole("admin"),
+  organizationContactController.toggleActive as any,
 );
 router.get(
   "/admin/history",
   authMiddleware.requireRole("admin"),
-  organizationContactController.getChangeHistory,
+  organizationContactController.getChangeHistory as any,
 );
 
 export default router;

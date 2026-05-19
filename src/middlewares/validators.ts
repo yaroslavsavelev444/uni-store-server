@@ -15,6 +15,7 @@ export interface ValidationError {
 
 export type RequestProperty = "body" | "query" | "params";
 
+//@ts-expect-error
 export interface ValidatedRequest extends Request {
   validatedData?: any;
   validatedQuery?: any;

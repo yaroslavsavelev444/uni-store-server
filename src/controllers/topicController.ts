@@ -2,6 +2,7 @@
 import type { NextFunction, Response } from "express";
 import ApiError from "../exceptions/api-error.js";
 import auditLogger from "../logger/auditLogger.js";
+import logger from "../logger/logger.js";
 import TopicService from "../services/topicService.js";
 import type {
   CreateTopicReq,
@@ -10,7 +11,10 @@ import type {
   GetTopicBySlugReq,
   UpdateTopicReq,
 } from "../types/controllers/topic-controller.js";
-import type { IContentBlock } from "../types/topicCommon.types.js";
+import type {
+  IContentBlock,
+  ITopicCommon,
+} from "../types/topicCommon.types.js";
 
 class TopicController {
   private readonly topicService = new TopicService(); // Создаём экземпляр, а не используем класс
@@ -244,7 +248,21 @@ class TopicController {
         `Начало обновления темы ${id}`,
       );
 
-      const updated = await this.topicService.update(id, data);
+      const updatePayload: Partial<ITopicCommon> = {
+        title: data.title,
+        slug: data.slug,
+        description: data.description,
+        position: data.position,
+        imageUrl: data.imageUrl,
+      };
+
+      if (data.contentBlocks && Array.isArray(data.contentBlocks)) {
+        updatePayload.contentBlocks = data.contentBlocks as IContentBlock[];
+      } else if (data.contentBlocks) {
+        logger.warn(`[update] contentBlocks остался строкой для id ${id}`);
+      }
+
+      const updated = await this.topicService.update(id, updatePayload);
 
       const changes: Array<{ field: string; old: unknown; new: unknown }> = [];
       if (itemBefore) {

@@ -28,7 +28,7 @@ import type {
   UpdateStatusResponse,
   UserStatsResponse,
 } from "../types/controllers/feedback-controller.js";
-import type { IFeedback } from "../types/feedback.types.js";
+import type { FeedbackStatus, IFeedback } from "../types/feedback.types.js";
 import type { UserRole } from "../types/user.types.js";
 
 const sanitizeInput = (data: any): any => {
@@ -53,7 +53,7 @@ export const submitFeedback = async (
       throw ApiError.BadRequest("Максимум 5 вложений");
     }
 
-    const userRole = (req.user?.role || "user") as Exclude<UserRole, "bot">;
+    const userRole = req.user?.role as UserRole;
 
     const feedbackData = {
       title: sanitizeInput(req.body.title),
@@ -63,7 +63,7 @@ export const submitFeedback = async (
       userId: req.user!.id,
       userEmail: sanitizeInput(req.user!.email.toLowerCase()),
       userName: req.user!.name ? sanitizeInput(req.user!.name) : "",
-      userRole,
+      userRole: userRole,
       deviceInfo: {
         userAgent: req.headers["user-agent"] || "",
         os: (req as any).useragent?.os || "",
@@ -505,7 +505,23 @@ export const getAdminStats = async (
 ): Promise<void> => {
   try {
     const stats = await feedbackService.getAdminStats();
-    res.status(200).json(stats);
+
+    // Преобразуем byStatus из массива в Record<FeedbackStatus, number>
+    const byStatusRecord = stats.byStatus.reduce(
+      (acc, { status, count }) => {
+        acc[status as FeedbackStatus] = count;
+        return acc;
+      },
+      {} as Record<FeedbackStatus, number>,
+    );
+
+    // Формируем ответ в соответствии с AdminStatsResponse
+    const response: AdminStatsResponse = {
+      total: stats.total,
+      byStatus: byStatusRecord,
+    };
+
+    res.status(200).json(response);
   } catch (error) {
     logger.error(`[GET_ADMIN_STATS] ${(error as Error).message}`);
     next(error);

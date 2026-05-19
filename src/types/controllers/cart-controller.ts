@@ -7,7 +7,7 @@ import type {
 import type { AuthRequest } from "../auth.js"; // предполагаемый путь
 
 // Общий формат успешного ответа
-export interface SuccessResponse<cT> {
+export interface SuccessResponse<T> {
   success: true;
   data: T;
 }

@@ -258,7 +258,7 @@ const ProductSchema = new Schema<IProduct, IProductModel, IProductMethods>(
     toJSON: {
       virtuals: true,
       transform: (_doc, ret) => {
-        delete ret.__v;
+        delete (ret as any).__v;
         delete ret.updatedAt;
         if (ret.sku) generateAndAddUrl(ret);
         return ret;

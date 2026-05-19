@@ -1,10 +1,15 @@
 // types/contacts-controller.ts
+import type contactsService from "../../services/contactsService.js";
 import type {
   DefaultContactStructure,
   EmptyContactStructure,
 } from "../../services/contactsService.js";
 import type { AuthRequest, OptionalAuthRequest } from "../auth.js";
 import type { IContact } from "../contact.types.js";
+
+export type UpdateContactsData = NonNullable<
+  Awaited<ReturnType<typeof contactsService.updateContacts>>
+>;
 
 // Базовый формат ответа
 export interface ContactsResponse<T = unknown> {

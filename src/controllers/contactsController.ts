@@ -15,6 +15,7 @@ import type {
   GetContactsReq,
   HealthCheckReq,
   ToggleActiveReq,
+  UpdateContactsData,
   UpdateContactsReq,
 } from "../types/controllers/contacts-controller.js";
 
@@ -90,7 +91,8 @@ class ContactsController {
 
   updateContacts = async (
     req: UpdateContactsReq,
-    res: Response<ContactsResponse<IContact>>,
+    res: Response<ContactsResponse<UpdateContactsData>>,
+
     next: NextFunction,
   ): Promise<void> => {
     try {

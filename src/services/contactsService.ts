@@ -5,7 +5,6 @@ import logger from "../logger/logger.js";
 import { ContactModel } from "../models/index.models.js";
 import redisClient from "../redis/redis.client.js";
 import type {
-  ContactDocument,
   IContact,
   IEmail,
   IOtherContact,

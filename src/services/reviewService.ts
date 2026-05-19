@@ -1,7 +1,4 @@
 // services/reviews.service.ts
-/** biome-ignore-all lint/performance/noAccumulatingSpread: <explanation> */
-/** biome-ignore-all lint/suspicious/noDuplicateElseIf: <explanation> */
-
 import type { Types } from "mongoose";
 import ApiError from "../exceptions/api-error.js";
 import { ProductModel, ProductReviewModel } from "../models/index.models.js";
@@ -12,7 +9,7 @@ import type {
   ProductReviewDocument,
   ReviewStatus,
 } from "../types/productReview.types.js";
-import { PurchaseCheckService } from "./purchaseCheckService.js";
+import PurchaseCheckService from "./purchaseCheckService.js";
 import { RatingService } from "./ratingService.js";
 
 // Расширенный интерфейс Redis клиента с кастомными методами
@@ -376,44 +373,35 @@ export class ReviewsService {
     reviewId: string | Types.ObjectId,
     status: ReviewStatus,
   ): Promise<ProductReviewDocument> {
-    const review = await ProductReviewModel.findById(reviewId).populate<{
-      product: { _id: Types.ObjectId };
-    }>("product", "_id");
-
+    const review = await ProductReviewModel.findById(reviewId);
     if (!review) {
       throw ApiError.NotFoundError("Отзыв не найден");
     }
 
+    const productId = review.product;
     const oldStatus = review.status;
     review.status = status;
     await review.save();
 
     if (oldStatus !== status) {
-      if (status === "approved") {
+      // Add rating when changing to approved from non-approved
+      if (status === "approved" && oldStatus !== "approved") {
+        await this.ratingService.updateProductRating(productId, review.rating);
+      }
+      // Remove rating when changing from approved to non-approved
+      else if (oldStatus === "approved" && status !== "approved") {
         await this.ratingService.updateProductRating(
-          review.product._id,
-          review.rating,
-        );
-      } else if (oldStatus === "approved" && status === "rejected") {
-        await this.ratingService.updateProductRating(
-          review.product._id,
+          productId,
           null,
           review.rating,
           true,
         );
-      } else if (oldStatus === "rejected" && status === "approved") {
-        await this.ratingService.updateProductRating(
-          review.product._id,
-          review.rating,
-        );
       }
 
-      await this.invalidateCache(review.product._id, review.user);
+      await this.invalidateCache(productId, review.user);
 
       try {
-        await typedRedis.del(
-          `${this.PRODUCT_STATS_CACHE_PREFIX}${review.product._id}`,
-        );
+        await typedRedis.del(`${this.PRODUCT_STATS_CACHE_PREFIX}${productId}`);
       } catch (error) {
         console.error("Redis cache delete error:", error);
       }
@@ -499,10 +487,7 @@ export class ReviewsService {
       return reviewStatus;
     } catch (error) {
       console.error("Error checking multiple user reviews:", error);
-      return productIds.reduce(
-        (acc, id) => ({ ...acc, [String(id)]: false }),
-        {},
-      );
+      return Object.fromEntries(productIds.map((id) => [String(id), false]));
     }
   }
 

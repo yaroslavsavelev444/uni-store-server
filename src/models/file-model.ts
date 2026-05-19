@@ -1,6 +1,11 @@
 //@ts-nocheck
-import crypto from "crypto";
-import mongoose, { type HydratedDocument, type Model, Schema } from "mongoose";
+import crypto from "node:crypto";
+import mongoose, {
+  type HydratedDocument,
+  type Model,
+  model,
+  Schema,
+} from "mongoose";
 import FileManager from "../utils/fileManager.js";
 
 /**

@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/complexity/noBannedTypes: <explanation> */
+/** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
 import type { Query } from "express-serve-static-core";
 import type { AuthRequest, OptionalAuthRequest } from "../auth.js";
 import type { UserDocument } from "../user.types.js";

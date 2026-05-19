@@ -1,5 +1,5 @@
-// controllers/notifications.controller.ts
-import type { NextFunction } from "express";
+// controllers/notificationsController.ts
+import type { NextFunction, Response } from "express";
 import ApiError from "../exceptions/api-error.js";
 import logger from "../logger/logger.js";
 import {
@@ -32,10 +32,15 @@ class NotificationsController {
     }
 
     try {
+      const limit = parseInt(String(req.query.limit ?? "10"), 10);
+      const skip = parseInt(String(req.query.skip ?? "0"), 10);
+
       const notifications = await getNotificationsService(
-        { id: userData.id },
-        Number(req.query.limit) || 10,
-        Number(req.query.skip) || 0,
+        {
+          id: userData.id,
+        },
+        limit,
+        skip,
       );
       res.status(200).json(notifications);
     } catch (e) {
@@ -61,7 +66,6 @@ class NotificationsController {
 
     try {
       const result = await markNotificationAsReadService(ids);
-      logger.info("notifications", result);
       res.status(200).json(result);
     } catch (e) {
       next(e);

@@ -9,21 +9,21 @@ const router = Router();
 router.post(
   "/:id/view",
   authMiddleware.requireAuth,
-  bannerStatsController.markViewed,
+  bannerStatsController.markViewed as any,
 );
 
 // POST /:id/click – зафиксировать клик по баннеру
 router.post(
   "/:id/click",
   authMiddleware.requireAuth,
-  bannerStatsController.markClicked,
+  bannerStatsController.markClicked as any,
 );
 
 // POST /:id/dismiss – зафиксировать отклонение баннера
 router.post(
   "/:id/dismiss",
   authMiddleware.requireAuth,
-  bannerStatsController.markDismissed,
+  bannerStatsController.markDismissed as any,
 );
 
 export default router;

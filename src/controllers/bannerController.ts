@@ -2,7 +2,7 @@
 import type { NextFunction, Response } from "express";
 import ApiError from "../exceptions/api-error.js";
 import bannerService from "../services/bannerService.js";
-import type { BannerDocument } from "../types/banner.types.js";
+import type { BannerDocument, IBanner } from "../types/banner.types.js";
 import type {
   ChangeStatusReq,
   CommonResponse,
@@ -199,7 +199,7 @@ class BannerController {
    */
   getForUser = async (
     req: GetForUserReq,
-    res: Response<CommonResponse<BannerDocument[]>>,
+    res: Response<CommonResponse<IBanner[]>>,
     next: NextFunction,
   ): Promise<void> => {
     try {

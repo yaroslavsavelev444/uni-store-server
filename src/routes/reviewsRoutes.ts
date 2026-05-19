@@ -1,53 +1,51 @@
-// routes/reviews.routes.js
+// routes/reviews.routes.ts
 import { Router } from "express";
-
-const router = Router();
-
 import ReviewsController from "../controllers/reviewsController.js";
 import authMiddleware from "../middlewares/auth-middleware.js";
 
-const reviewsController = new ReviewsController();
+const router = Router();
 
+// Стрелочные методы контроллера уже привязаны к экземпляру
 router.get(
   "/products/:productId/reviews",
-  authMiddleware.optionalAuth("all", true),
-  reviewsController.getProductReviews.bind(reviewsController),
+  authMiddleware.optionalAuth,
+  ReviewsController.getProductReviews, // без bind
 );
 
 router.get(
   "/products/:productId/reviews/stats",
-  authMiddleware.optionalAuth("all", true),
-  reviewsController.getProductReviewsStats.bind(reviewsController),
+  authMiddleware.optionalAuth,
+  ReviewsController.getProductReviewsStats as any,
 );
 
 router.get(
   "/users/reviews",
-  authMiddleware("user"),
-  reviewsController.getUserReviews.bind(reviewsController),
+  authMiddleware.requireRole("user"),
+  ReviewsController.getUserReviews as any,
 );
 
 router.post(
   "/products/:productId/reviews",
   authMiddleware(["user", "admin"]),
-  reviewsController.createReview.bind(reviewsController),
+  ReviewsController.createReview as any,
 );
 
 router.patch(
   "/reviews/:reviewId/status",
   authMiddleware(["admin"]),
-  reviewsController.updateReviewStatus.bind(reviewsController),
+  ReviewsController.updateReviewStatus as any,
 );
 
 router.get(
   "/admin/reviews",
   authMiddleware(["admin"]),
-  reviewsController.getAllReviews.bind(reviewsController),
+  ReviewsController.getAllReviews as any,
 );
 
 router.get(
   "/reviews/:reviewId",
   authMiddleware(["user", "admin"]),
-  reviewsController.getReviewById.bind(reviewsController),
+  ReviewsController.getReviewById as any,
 );
 
 export default router;

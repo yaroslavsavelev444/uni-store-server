@@ -1,88 +1,133 @@
-const { MongoClient } = require("mongodb");
+import { MongoClient, MongoServerError } from "mongodb";
 
-const MONGO_PRIMARY = "mongodb://mongo1:27017";
+const MONGO_URI = "mongodb://mongo1:27017";
+const REPLICA_SET_NAME = "rs0";
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function waitForMongo(timeout = 120000) {
+type ReplMember = {
+  name: string;
+  stateStr: string;
+  [key: string]: unknown;
+};
+
+type ReplMemberConfig = {
+  _id: number;
+  host: string;
+  priority?: number;
+  arbiterOnly?: boolean;
+};
+
+const REPLICA_SET_MEMBERS: ReplMemberConfig[] = [
+  { _id: 0, host: "mongo1:27017", priority: 2 },
+  { _id: 1, host: "mongo2:27017", priority: 1 },
+  { _id: 2, host: "mongo3:27017", priority: 0, arbiterOnly: true },
+];
+
+async function waitForMongo(timeoutMs = 120_000): Promise<void> {
+  const client = new MongoClient(MONGO_URI);
   const start = Date.now();
-  while (Date.now() - start < timeout) {
-    try {
-      const client = new MongoClient(MONGO_PRIMARY);
-      await client.connect();
-      await client.db().admin().ping();
-      await client.close();
-      console.log("✅ Mongo is ready");
-      return true;
-    } catch (err) {
-      console.log("⏳ Waiting for MongoDB to be ready...");
-      await new Promise((r) => setTimeout(r, 3000));
+
+  try {
+    while (Date.now() - start < timeoutMs) {
+      try {
+        await client.connect();
+        await client.db().admin().ping();
+        console.log("✅ Mongo is ready");
+        return;
+      } catch {
+        console.warn("⏳ Waiting for MongoDB to be ready...");
+        await sleep(3000);
+      }
     }
+    throw new Error("MongoDB not ready within timeout");
+  } finally {
+    await client.close().catch(() => {});
   }
-  throw new Error("MongoDB not ready within timeout");
 }
 
-async function waitForPrimary(client, timeout = 60000) {
+async function waitForPrimary(
+  client: MongoClient,
+  timeoutMs = 60_000,
+): Promise<void> {
   const start = Date.now();
-  while (Date.now() - start < timeout) {
-    const status = await client.db("admin").command({ replSetGetStatus: 1 });
-    const primary = status.members.find((m) => m.stateStr === "PRIMARY");
+
+  while (Date.now() - start < timeoutMs) {
+    // Исправлено: убираем generic, используем as
+    const status = (await client
+      .db("admin")
+      .command({ replSetGetStatus: 1 })) as { members: ReplMember[] };
+    const primary = status.members.find(
+      (m: ReplMember) => m.stateStr === "PRIMARY",
+    );
+
     if (primary) {
       console.log(`✅ PRIMARY is up: ${primary.name}`);
       return;
     }
+
     console.log("⏳ Waiting for PRIMARY election...");
-    await new Promise((r) => setTimeout(r, 3000));
+    await sleep(3000);
   }
+
   throw new Error("Replica set did not elect a PRIMARY within timeout");
 }
 
-async function initReplicaSet() {
-  const client = new MongoClient(MONGO_PRIMARY);
+async function initReplicaSet(): Promise<void> {
+  const client = new MongoClient(MONGO_URI);
+
   try {
     await client.connect();
-    const admin = client.db("admin");
+    const adminDb = client.db("admin");
 
     try {
-      const status = await admin.command({ replSetGetStatus: 1 });
-      console.log("✅ Replica set already initialized:", status.set);
+      // Исправлено: убираем generic, используем as
+      await (adminDb.command({ replSetGetStatus: 1 }) as Promise<{
+        set: string;
+      }>);
+      console.log("✅ Replica set already initialized");
       return;
-    } catch (err) {
-      if (err.codeName === "NotYetInitialized") {
-        console.log("ℹ️ Replica set not initialized yet, proceeding...");
-      } else {
-        throw err; // пробрасываем фатальные ошибки
+    } catch (err: unknown) {
+      if (
+        !(
+          err instanceof MongoServerError &&
+          err.codeName === "NotYetInitialized"
+        )
+      ) {
+        throw err;
       }
+      console.log("ℹ️ Replica set not initialized, proceeding...");
     }
 
     console.log("🚀 Initializing replica set...");
-    await admin.command({
+
+    await adminDb.command({
       replSetInitiate: {
-        _id: "rs0",
-        members: [
-          { _id: 0, host: "mongo1:27017", priority: 2 },
-          { _id: 1, host: "mongo2:27017", priority: 1 },
-          { _id: 2, host: "mongo3:27017", priority: 0, arbiterOnly: true },
-        ],
+        _id: REPLICA_SET_NAME,
+        members: REPLICA_SET_MEMBERS,
       },
     });
 
-    // ждём, пока станет доступен PRIMARY
     await waitForPrimary(client);
     console.log("✅ Replica set initialized successfully");
-  } catch (err) {
-    console.error("❌ Replica set initialization failed:", err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("❌ Replica set initialization failed:", message);
     process.exit(1);
   } finally {
-    await client.close();
+    await client.close().catch(() => {});
   }
 }
 
-(async () => {
+async function bootstrap(): Promise<void> {
   try {
     console.log("⏳ Waiting for MongoDB containers...");
     await waitForMongo();
     await initReplicaSet();
-  } catch (err) {
-    console.error("❌ Initialization error:", err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("❌ Initialization error:", message);
     process.exit(1);
   }
-})();
+}
+
+bootstrap();

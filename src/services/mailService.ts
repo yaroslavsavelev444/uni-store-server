@@ -7,12 +7,11 @@ import ApiError from "../exceptions/api-error.js";
 import type {
   ConsentUpdatedData,
   EmailOrderData,
-  EmailOrderDataWithCancelation,
   EmailType,
   FeedbackAssignedData,
   FeedbackStatusChangedData,
   NewAttachmentData,
-  NewFeedbackData,
+  NewFeedbackEmailData,
   NewLoginData,
   NewOrderAdminData,
   NewOrderUserData,
@@ -58,7 +57,7 @@ export interface EmailDataMap {
   newAttachment: NewAttachmentData;
   newLogin: NewLoginData;
   consentUpdated: ConsentUpdatedData;
-  newFeedback: NewFeedbackData;
+  newFeedback: NewFeedbackEmailData;
   feedbackStatusChanged: FeedbackStatusChangedData;
   feedbackAssigned: FeedbackAssignedData;
   orderCancelledByUser: EmailOrderData;
@@ -351,10 +350,10 @@ function generateEmailContent<T extends EmailType>(
     }
 
     case "newFeedback": {
-      const d = data as NewFeedbackData;
+      const d = data as NewFeedbackEmailData;
       return {
         subject: "Новый фидбек",
-        text: `Новый фидбек.\n\nID: ${d.feedbackId}\nНазвание: ${d.title}\nТип: ${d.type}\nПользователь: ${d.userName} (${d.userEmail})\nПриоритет: ${d.priority}\nДата: ${formattedDate(d.createdAt)}\n\nОписание:\n${d.description}`,
+        text: `Новый фидбек.\n\nID: ${d.feedbackId}\nНазвание: ${d.title}\nТип: ${d.type}\nПользователь: ${d.userName} (${d.userEmail})\nПриоритет: ${d.priority}\nДата: ${formattedDate(d.createdAtRaw)}\n\nОписание:\n${d.description}`,
         html: renderTemplate("newFeedback", {
           feedbackId: d.feedbackId,
           title: d.title,
@@ -362,7 +361,7 @@ function generateEmailContent<T extends EmailType>(
           userName: d.userName,
           userEmail: d.userEmail,
           priority: d.priority,
-          createdAt: formattedDate(d.createdAt),
+          createdAt: formattedDate(d.createdAtRaw),
           description: d.description,
         }),
       };
@@ -371,15 +370,17 @@ function generateEmailContent<T extends EmailType>(
     case "feedbackStatusChanged": {
       const d = data as FeedbackStatusChangedData;
       return {
-        subject: "Обновлён статус фидбека",
-        text: `Статус фидбека "${d.title}" изменён.\n\nID: ${d.feedbackId}\nСтарый статус: ${d.oldStatus}\nНовый статус: ${d.newStatus}\nДата обновления: ${formattedDate(d.updatedAt)}`,
+        subject: `Обновлён статус обращения "${d.title}"`,
+        text: `Здравствуйте, ${d.userName}!\n\nСтатус вашего обращения "${d.title}" изменён.\n\nID: ${d.feedbackId}\nСтарый статус: ${d.oldStatus}\nНовый статус: ${d.newStatus}\nДата: ${d.updatedAtFormatted}\n\nПерейти к обращению: ${d.feedbackUrl}\n${d.comment ? `\nКомментарий администратора:\n${d.comment}\n` : ""}`,
         html: renderTemplate("feedbackStatusChanged", {
           feedbackId: d.feedbackId,
+          feedbackUrl: d.feedbackUrl,
           title: d.title,
           oldStatus: d.oldStatus,
           newStatus: d.newStatus,
+          comment: d.comment,
           userName: d.userName,
-          updatedAt: formattedDate(d.updatedAt),
+          updatedAt: d.updatedAtFormatted,
         }),
       };
     }
@@ -387,17 +388,19 @@ function generateEmailContent<T extends EmailType>(
     case "feedbackAssigned": {
       const d = data as FeedbackAssignedData;
       return {
-        subject: "Назначен новый фидбек",
-        text: `Вам назначен фидбек: "${d.title}"\n\nТип: ${d.type}\nПриоритет: ${d.priority}\nОписание: ${d.description}\nДата создания: ${formattedDate(d.createdAt)}\n\nПерейти к фидбеку: https://yourdomain.com/user/feedback/${d.feedbackId}`,
+        subject: `Вам назначен фидбек: "${d.title}"`,
+        text: `Здравствуйте, ${d.assignedToName}!\n\nВам назначен фидбек "${d.title}".\n\nТип: ${d.type}\nПриоритет: ${d.priority}\nОписание: ${d.description}\nДата создания: ${d.createdAtFormatted}\nНазначил: ${d.assignedByName}\n\nПерейти к фидбеку: ${d.feedbackUrl}`,
         html: renderTemplate("feedbackAssigned", {
           feedbackId: d.feedbackId,
+          feedbackUrl: d.feedbackUrl,
           title: d.title,
           type: d.type,
           priority: d.priority,
           description: d.description,
-          createdAt: formattedDate(d.createdAt),
-          userName: d.userName,
-          assignedBy: d.assignedBy,
+          createdAt: d.createdAtFormatted,
+          assignedToName: d.assignedToName,
+          assignedByName: d.assignedByName,
+          assignedByEmail: d.assignedByEmail,
         }),
       };
     }

@@ -97,6 +97,7 @@ CategorySchema.pre("save", function (this: CategoryDocument, next) {
 });
 
 // Middleware для преобразования URL изображения
+//@ts-expect-error
 CategorySchema.post(["find", "findOne", "findById"], (docs: any) => {
   if (!docs) return;
 

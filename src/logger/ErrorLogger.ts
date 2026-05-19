@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
+/** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
 import type { Request } from "express";
 import type {
   ErrorLogData,

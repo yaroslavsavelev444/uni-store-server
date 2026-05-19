@@ -53,7 +53,7 @@ class PickupPointController {
   ): Promise<void> => {
     try {
       const point = await PickupPointService.getMainPickupPoint();
-      res.status(200).json(point);
+      res.status(200).json(point || undefined);
     } catch (error) {
       next(error);
     }

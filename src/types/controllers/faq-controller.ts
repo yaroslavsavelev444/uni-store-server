@@ -13,7 +13,7 @@ export interface ApiResponse<T = unknown> {
 
 // Параметры маршрута
 export interface TopicIdParam {
-  id: string;
+  topicId: string;
 }
 
 export interface TopicAndQuestionParams {
@@ -23,13 +23,20 @@ export interface TopicAndQuestionParams {
 
 // Тело для создания/обновления темы
 export interface CreateTopicBody {
+  [key: string]: unknown;
   title: string;
   description?: string;
   order?: number;
   isActive?: boolean;
 }
 
-export type UpdateTopicBody = Partial<CreateTopicBody>;
+export type UpdateTopicBody = {
+  [key: string]: unknown;
+  title?: string;
+  description?: string;
+  order?: number;
+  isActive?: boolean;
+};
 
 // Тело для создания/обновления вопроса
 export interface CreateQuestionBody {

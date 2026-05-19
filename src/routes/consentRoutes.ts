@@ -15,10 +15,10 @@ router.get("/:slug", consentController.getBySlug);
 router.use(authMiddleware.requireRole("admin"));
 
 // Админские роуты
-router.post("/", consentController.create);
-router.put("/:slug", consentController.update);
-router.patch("/:slug/activate", consentController.activate);
-router.patch("/:slug/deactivate", consentController.deactivate);
-router.delete("/:slug", consentController.delete);
+router.post("/", consentController.create as any);
+router.put("/:slug", consentController.update as any);
+router.patch("/:slug/activate", consentController.activate as any);
+router.patch("/:slug/deactivate", consentController.deactivate as any);
+router.delete("/:slug", consentController.delete as any);
 
 export default router;

@@ -9,7 +9,7 @@ export interface IUserSanction {
   type: SanctionType;
   reason?: string;
   duration: number; // часы, 0 = бессрочно
-  expiresAt?: Date;
+  expiresAt: Date;
   isActive: boolean;
   metadata?: {
     ip?: string;
