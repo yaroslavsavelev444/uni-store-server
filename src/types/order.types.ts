@@ -1,4 +1,4 @@
-import type { Document, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
 // === Enum‑объекты (as const) ===
 export const OrderStatus = {
@@ -39,7 +39,6 @@ export type OrderSourceType = "web" | "mobile" | "api" | "admin";
 
 // === Вложенные поддокументы ===
 
-// Адрес доставки
 export interface IDeliveryAddress {
   street?: string;
   city?: string;
@@ -47,7 +46,6 @@ export interface IDeliveryAddress {
   country?: string;
 }
 
-// Доставка
 export interface IDelivery {
   method: DeliveryMethodType;
   address?: IDeliveryAddress;
@@ -58,7 +56,6 @@ export interface IDelivery {
   notes?: string;
 }
 
-// Получатель
 export interface IRecipient {
   fullName: string;
   phone: string;
@@ -66,7 +63,6 @@ export interface IRecipient {
   contactPerson?: string;
 }
 
-// Информация о компании
 export interface ICompanyInfo {
   companyId?: Types.ObjectId;
   name?: string;
@@ -76,7 +72,6 @@ export interface ICompanyInfo {
   contactPerson?: string;
 }
 
-// Товарная позиция
 export interface IOrderItem {
   product: Types.ObjectId;
   sku?: string;
@@ -93,7 +88,6 @@ export interface IOrderItem {
   };
 }
 
-// Цены и скидки
 export interface IPricing {
   subtotal: number;
   discount: number;
@@ -107,7 +101,6 @@ export interface IPricing {
   centralDiscountPercent: number;
 }
 
-// Платёжная информация
 export interface IPayment {
   method: PaymentMethodType;
   status: PaymentStatusType;
@@ -116,7 +109,6 @@ export interface IPayment {
   paymentDetails?: any;
 }
 
-// Запись истории статуса
 export interface IStatusHistoryEntry {
   status: OrderStatusType;
   changedAt: Date;
@@ -125,7 +117,6 @@ export interface IStatusHistoryEntry {
   metadata?: any;
 }
 
-// Применённая скидка
 export interface IAppliedDiscount {
   discountId?: Types.ObjectId;
   name?: string;
@@ -136,7 +127,6 @@ export interface IAppliedDiscount {
   appliedAt?: Date;
 }
 
-// Отмена заказа
 export interface ICancellation {
   reason?: string;
   cancelledBy?: Types.ObjectId;
@@ -145,7 +135,6 @@ export interface ICancellation {
   notes?: string;
 }
 
-// Прикреплённый файл
 export interface IAttachment {
   name?: string;
   path?: string;
@@ -155,15 +144,15 @@ export interface IAttachment {
   uploadedBy?: Types.ObjectId;
 }
 
-// Выбор компании (при создании)
 export interface ICompanySelection {
   type?: "existing" | "new";
   companyId?: string;
   taxNumber?: string;
 }
 
-// === Основной интерфейс документа ===
+// === Базовые поля, сохраняемые в БД (без виртуалов) ===
 export interface IOrder {
+  _id: Types.ObjectId;
   orderNumber: string;
   user: Types.ObjectId;
   delivery: IDelivery;
@@ -189,27 +178,13 @@ export interface IOrder {
   updatedAt?: Date;
 }
 
-// === Виртуальные поля ===
-export interface IOrderVirtuals {
-  company?: Types.ObjectId | any; // populate результат (Company)
-  pickupPointData?: Types.ObjectId | any;
-  transportCompanyData?: Types.ObjectId | any;
-}
-
-// === Методы экземпляра ===
+// === Методы экземпляра (пока пусто) ===
 export type IOrderMethods = {};
 
-// === Статические методы ===
-export interface OrderModelType extends Model<
-  IOrderDocument,
-  {},
-  IOrderMethods
-> {
-  // статические методы пока не определены, но можно добавить позже
+// === Статические методы модели ===
+export interface IOrderModel extends Model<IOrder, {}, IOrderMethods> {
+  // статические методы можно добавить позже
 }
 
-// === Итоговый тип документа ===
-export type IOrderDocument = Document<unknown, {}, IOrder> &
-  IOrder &
-  IOrderVirtuals &
-  IOrderMethods;
+// === Тип документа с методами ===
+export type OrderDocument = HydratedDocument<IOrder, IOrderMethods>;

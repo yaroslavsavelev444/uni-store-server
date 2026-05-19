@@ -1,14 +1,18 @@
 import type { HydratedDocument, Model, Types } from "mongoose";
 
+// === Базовые поля, сохраняемые в БД ===
 export interface IToken {
   user?: Types.ObjectId;
   refreshToken: string;
 }
 
-export type ITokenVirtuals = {};
-
+// === Методы экземпляра (если появятся) ===
 export type ITokenMethods = {};
 
-export interface TokenModelType extends Model<IToken, {}, ITokenMethods> {}
+// === Статические методы модели ===
+export interface ITokenModel extends Model<IToken, {}, ITokenMethods> {
+  // при необходимости добавить статические методы
+}
 
-export type HydratedToken = HydratedDocument<IToken>;
+// === Тип документа с методами ===
+export type TokenDocument = HydratedDocument<IToken, ITokenMethods>;

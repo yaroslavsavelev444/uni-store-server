@@ -1,21 +1,34 @@
-const { Schema, model } = require("mongoose");
+import { model, Schema } from "mongoose";
+import type {
+  ITransportCompany,
+  ITransportCompanyMethods,
+  ITransportCompanyModel,
+  TransportCompanyDocument,
+} from "../types/transportCompany.types.js";
 
-const TransportCompanySchema = new Schema(
+const TransportCompanySchema = new Schema<
+  ITransportCompany,
+  ITransportCompanyModel,
+  ITransportCompanyMethods
+>(
   {
     name: {
       type: String,
       required: true,
       unique: true,
-      trim: true
+      trim: true,
     },
     isActive: {
       type: Boolean,
-      default: true
-    }
+      default: true,
+    },
   },
   {
-    timestamps: true
-  }
+    timestamps: true,
+  },
 );
 
-module.exports = model("TransportCompany", TransportCompanySchema);
+export default model<ITransportCompany, ITransportCompanyModel>(
+  "TransportCompany",
+  TransportCompanySchema,
+);

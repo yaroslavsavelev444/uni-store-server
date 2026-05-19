@@ -1,0 +1,96 @@
+const express = require("express");
+const router = express.Router();
+const productController = require("../controllers/productsController.js");
+const authMiddleware = require("../middlewares/auth-middleware.js");
+const {
+  createProductSchema,
+  updateProductSchema,
+  productQuerySchema,
+} = require("../validators/product.validator.js");
+const {
+  validateObjectId,
+  validateQueryParams,
+} = require("../middlewares/validation.middleware.js");
+const Joi = require("joi");
+const { validateProduct } = require("../validators/product.validator.js"); // или где у вас лежит файл
+
+router.get(
+  "/:id/similar",
+  validateObjectId("id"),
+  validateQueryParams(
+    Joi.object({
+      limit: Joi.number().integer().min(1).max(20).default(4),
+      strategy: Joi.string()
+        .valid("category", "price", "mixed")
+        .default("mixed"),
+    }),
+  ),
+  productController.getSimilarProducts,
+);
+
+// Публичные эндпоинты
+router.get(
+  "/",
+  validateQueryParams(productQuerySchema),
+  authMiddleware.optionalAuth({
+    allowedRoles: ["user", "admin"],
+    checkBlock: true,
+  }),
+  productController.getAllProducts,
+);
+
+router.get("/statuses", productController.getProductStatuses);
+
+router.get("/:id", validateObjectId("id"), productController.getProductById);
+
+router.get(
+  "/sku/:sku",
+  authMiddleware.optionalAuth("all", true),
+  productController.getProductBySku,
+);
+
+router.get(
+  "/:id/related",
+  validateObjectId("id"),
+  productController.getRelatedProducts,
+);
+
+// Защищенные эндпоинты (только для администраторов)
+router.use(authMiddleware(["admin"])); // ИЗМЕНЕНО: middleware авторизации
+
+router.post(
+  "/",
+  validateProduct(createProductSchema),
+  productController.createProduct,
+);
+router.put(
+  "/:id",
+  authMiddleware(["admin"]),
+  validateObjectId("id"),
+  validateProduct(updateProductSchema), // Этот middleware теперь будет логировать всё
+  productController.updateProduct,
+);
+
+router.patch(
+  "/:id/status",
+  authMiddleware(["admin"]), // ДОБАВИТЬ
+  validateObjectId("id"),
+  // validateProduct(updateStatusSchema), // ДОБАВИТЬ: валидация данных
+  productController.updateProductStatus,
+);
+
+router.post(
+  "/:id/related",
+  authMiddleware(["admin"]), // ДОБАВИТЬ
+  validateObjectId("id"),
+  validateProduct(
+    Joi.object({
+      relatedProductId: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .required(),
+    }),
+  ), // ДОБАВИТЬ
+  productController.addRelatedProduct,
+);
+
+export default router;

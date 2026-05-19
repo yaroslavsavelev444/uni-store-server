@@ -1,16 +1,11 @@
 import { model, Schema, type Types } from "mongoose";
 import type {
-  DiscountModelType,
+  DiscountModel,
   ICartData,
-  IDiscount,
   IDiscountDocument,
 } from "../types/discount.types.js";
 
-const discountSchema = new Schema<
-  IDiscount,
-  DiscountModelType,
-  IDiscountMethods
->(
+const discountSchema = new Schema<IDiscountDocument>(
   {
     name: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
@@ -150,7 +145,10 @@ discountSchema.methods.isApplicableToProduct = function (
 };
 
 // Вспомогательный метод getQuantityWord
-discountSchema.methods.getQuantityWord = (quantity: number) => {
+discountSchema.methods.getQuantityWord = function (
+  this: IDiscountDocument,
+  quantity: number,
+) {
   const forms = ["штуку", "штуки", "штук"];
   const n = Math.abs(quantity) % 100;
   const n1 = n % 10;
@@ -161,15 +159,19 @@ discountSchema.methods.getQuantityWord = (quantity: number) => {
 };
 
 // Вспомогательный метод formatPrice
-discountSchema.methods.formatPrice = (amount: number) =>
-  new Intl.NumberFormat("ru-RU", {
+discountSchema.methods.formatPrice = function (
+  this: IDiscountDocument,
+  amount: number,
+) {
+  return new Intl.NumberFormat("ru-RU", {
     style: "currency",
     currency: "RUB",
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
+};
 
-export default model<IDiscountDocument, DiscountModelType>(
+export default model<IDiscountDocument, DiscountModel>(
   "Discount",
   discountSchema,
 );

@@ -33,19 +33,23 @@ const createComplaintSchema = Joi.object({
       "any.only": "Передана недопустимая категория",
     }),
   otherText: Joi.when("categories", {
-    is: Joi.array().items(Joi.string().valid(...allowedCategories)).has("other"),
+    is: Joi.array()
+      .items(Joi.string().valid(...allowedCategories))
+      .has("other"),
     then: Joi.string().trim().min(1).required().messages({
       "any.required": "Укажите вашу причину для категории 'Другое'",
       "string.empty": "Укажите вашу причину для категории 'Другое'",
     }),
     otherwise: Joi.string().trim().allow("", null),
   }),
-  files: Joi.array().items(
-    Joi.object({
-      tempName: Joi.string().required(),
-      url: Joi.string().required(),
-    })
-  ).optional(),
+  files: Joi.array()
+    .items(
+      Joi.object({
+        tempName: Joi.string().required(),
+        url: Joi.string().required(),
+      }),
+    )
+    .optional(),
 });
 
 const updateComplaintSchema = Joi.object({
@@ -55,12 +59,14 @@ const updateComplaintSchema = Joi.object({
     .min(1)
     .optional(),
   otherText: Joi.string().trim().allow("", null),
-  files: Joi.array().items(
-    Joi.object({
-      tempName: Joi.string().required(),
-      url: Joi.string().required(),
-    })
-  ).optional(),
+  files: Joi.array()
+    .items(
+      Joi.object({
+        tempName: Joi.string().required(),
+        url: Joi.string().required(),
+      }),
+    )
+    .optional(),
 });
 
 // === ADMIN ===
@@ -71,8 +77,8 @@ const changeComplaintStatusSchema = Joi.object({
   adminComment: Joi.string().allow("").optional(),
 });
 
-module.exports = {
+export {
+  changeComplaintStatusSchema,
   createComplaintSchema,
   updateComplaintSchema,
-  changeComplaintStatusSchema,
 };

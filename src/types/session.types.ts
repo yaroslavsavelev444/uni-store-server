@@ -1,5 +1,6 @@
 import type { HydratedDocument, Model, Types } from "mongoose";
 
+// === Базовые поля, сохраняемые в БД ===
 export interface ISession {
   user: Types.ObjectId;
   refreshToken: string;
@@ -9,14 +10,13 @@ export interface ISession {
   expiresAt?: Date;
 }
 
-export type ISessionVirtuals = {};
-
+// === Методы экземпляра (если появятся) ===
 export type ISessionMethods = {};
 
-export interface SessionModelType extends Model<
-  ISession,
-  {},
-  ISessionMethods
-> {}
+// === Статические методы модели ===
+export interface ISessionModel extends Model<ISession, {}, ISessionMethods> {
+  // при необходимости добавить статические методы
+}
 
-export type HydratedSession = HydratedDocument<ISession>;
+// === Тип документа с методами ===
+export type SessionDocument = HydratedDocument<ISession, ISessionMethods>;

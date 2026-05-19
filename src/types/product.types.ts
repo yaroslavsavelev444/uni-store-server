@@ -51,8 +51,9 @@ export interface IDimensions {
   height?: number;
 }
 
-// === Основной POJO интерфейс ===
+// === Базовые поля, сохраняемые в БД (без виртуалов) ===
 export interface IProduct {
+  _id: Types.ObjectId;
   sku: string;
   title: string;
   description: string;
@@ -87,33 +88,28 @@ export interface IProduct {
   purchasesCount: number;
   createdAt?: Date;
   updatedAt?: Date;
-
-  // Виртуальные поля (будут добавлены Mongoose)
-  finalPriceForIndividual?: number;
-  url?: string | null;
-  productUrl?: string;
 }
 
 // === Методы экземпляра ===
 export interface IProductMethods {
-  incrementViews(): Promise<HydratedProduct>;
-  incrementPurchases(quantity?: number): Promise<HydratedProduct>;
+  incrementViews(): Promise<ProductDocument>;
+  incrementPurchases(quantity?: number): Promise<ProductDocument>;
   getProductUrl(): string;
   toJSON(): any;
 }
 
-// === Статические методы ===
-export interface ProductModelType extends Model<IProduct, {}, IProductMethods> {
-  findAvailable(): Promise<HydratedProduct[]>;
-  findWithUrls(...args: any[]): Promise<HydratedProduct[]>;
-  findOneWithUrl(...args: any[]): Promise<HydratedProduct | null>;
-  findWithProcessedUrls(...args: any[]): Promise<HydratedProduct[]>;
-  findOneWithProcessedUrls(...args: any[]): Promise<HydratedProduct | null>;
+// === Статические методы модели ===
+export interface IProductModel extends Model<IProduct, {}, IProductMethods> {
+  findAvailable(): Promise<ProductDocument[]>;
+  findWithUrls(...args: any[]): Promise<ProductDocument[]>;
+  findOneWithUrl(...args: any[]): Promise<ProductDocument | null>;
+  findWithProcessedUrls(...args: any[]): Promise<ProductDocument[]>;
+  findOneWithProcessedUrls(...args: any[]): Promise<ProductDocument | null>;
   findByIdWithProcessedUrls(
     id: Types.ObjectId | string,
     ...args: any[]
-  ): Promise<HydratedProduct | null>;
+  ): Promise<ProductDocument | null>;
 }
 
-// === Тип документа (оживлённый) ===
-export type HydratedProduct = HydratedDocument<IProduct, IProductMethods>;
+// === Тип документа с методами ===
+export type ProductDocument = HydratedDocument<IProduct, IProductMethods>;

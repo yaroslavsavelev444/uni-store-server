@@ -1,16 +1,13 @@
 import mongoose, { model, Schema, type Types } from "mongoose";
 import type {
-  CategoryModelType,
+  CategoryDocument,
   ICategory,
-  ICategoryDocument,
+  ICategoryMethods,
+  ICategoryModel,
 } from "../types/category.types.js";
 import fileService from "../utils/fileManager.js";
 
-const CategorySchema = new Schema<
-  ICategory,
-  CategoryModelType,
-  ICategoryMethods
->(
+const CategorySchema = new Schema<ICategory, ICategoryModel, ICategoryMethods>(
   {
     name: {
       type: String,
@@ -74,7 +71,7 @@ const CategorySchema = new Schema<
   },
 );
 
-// Виртуальное поле productCount (подсчёт продуктов)
+// Виртуальное поле productCount – не дублируется в ICategory
 CategorySchema.virtual("productCount", {
   ref: "Product",
   localField: "_id",
@@ -88,7 +85,7 @@ CategorySchema.index({ isActive: 1, order: 1 });
 CategorySchema.index({ name: "text", description: "text" });
 
 // Middleware для генерации slug
-CategorySchema.pre("save", function (this: ICategoryDocument, next) {
+CategorySchema.pre("save", function (this: CategoryDocument, next) {
   if (!this.slug && this.name) {
     this.slug = this.name
       .toLowerCase()
@@ -99,11 +96,11 @@ CategorySchema.pre("save", function (this: ICategoryDocument, next) {
   next();
 });
 
-// Middleware для преобразования URL изображения (find, findOne, findById)
+// Middleware для преобразования URL изображения
 CategorySchema.post(["find", "findOne", "findById"], (docs: any) => {
   if (!docs) return;
 
-  const processDocument = (doc: ICategoryDocument | null) => {
+  const processDocument = (doc: CategoryDocument | null) => {
     if (doc?.image?.url && !doc.image.url.startsWith("http")) {
       doc.image.url = fileService.getFileUrl(doc.image.url);
     }
@@ -131,7 +128,7 @@ CategorySchema.post("aggregate", (docs: any[]) => {
 
 // Статический метод exists
 CategorySchema.statics.exists = async function (
-  this: CategoryModelType,
+  this: ICategoryModel,
   id: string | Types.ObjectId,
 ): Promise<boolean> {
   if (!mongoose.Types.ObjectId.isValid(id)) return false;
@@ -139,7 +136,4 @@ CategorySchema.statics.exists = async function (
   return count > 0;
 };
 
-export default model<ICategoryDocument, CategoryModelType>(
-  "Category",
-  CategorySchema,
-);
+export default model<ICategory, ICategoryModel>("Category", CategorySchema);

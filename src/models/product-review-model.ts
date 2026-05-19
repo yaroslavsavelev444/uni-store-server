@@ -2,12 +2,12 @@ import { model, Schema } from "mongoose";
 import type {
   IProductReview,
   IProductReviewMethods,
-  ProductReviewModelType,
+  IProductReviewModel,
 } from "../types/productReview.types.js";
 
 const ProductReviewSchema = new Schema<
   IProductReview,
-  ProductReviewModelType,
+  IProductReviewModel,
   IProductReviewMethods
 >(
   {
@@ -40,8 +40,10 @@ const ProductReviewSchema = new Schema<
   },
 );
 
+// Индексы
 ProductReviewSchema.index({ user: 1, product: 1 }, { unique: true });
 
+// Виртуальное поле author – не дублируется в IProductReview
 ProductReviewSchema.virtual("author", {
   ref: "User",
   localField: "user",
@@ -49,7 +51,7 @@ ProductReviewSchema.virtual("author", {
   justOne: true,
 });
 
-export default model<IProductReview, ProductReviewModelType>(
+export default model<IProductReview, IProductReviewModel>(
   "ProductReview",
   ProductReviewSchema,
 );

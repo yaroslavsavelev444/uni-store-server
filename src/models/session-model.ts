@@ -1,7 +1,12 @@
 import { model, Schema, Types } from "mongoose";
-import type { ISession, SessionModelType } from "../types/session.types.js";
+import type {
+  ISession,
+  ISessionMethods,
+  ISessionModel,
+  SessionDocument,
+} from "../types/session.types.js";
 
-const SessionSchema = new Schema<ISession, SessionModelType>(
+const SessionSchema = new Schema<ISession, ISessionModel, ISessionMethods>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     refreshToken: { type: String, required: true },
@@ -13,4 +18,4 @@ const SessionSchema = new Schema<ISession, SessionModelType>(
   // без timestamps, т.к. createdAt определён явно
 );
 
-export default model<ISession, SessionModelType>("Session", SessionSchema);
+export default model<ISession, ISessionModel>("Session", SessionSchema);

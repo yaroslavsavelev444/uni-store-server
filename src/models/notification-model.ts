@@ -1,14 +1,13 @@
 import { model, Schema } from "mongoose";
 import type {
   INotification,
-  INotificationDocument,
   INotificationMethods,
-  NotificationModelType,
+  INotificationModel,
 } from "../types/notification.types.js";
 
 const notificationSchema = new Schema<
   INotification,
-  NotificationModelType,
+  INotificationModel,
   INotificationMethods
 >(
   {
@@ -41,9 +40,10 @@ const notificationSchema = new Schema<
   // без timestamps (поле createdAt уже есть, updatedAt не требуется)
 );
 
+// Индексы
 notificationSchema.index({ userId: 1, type: 1, isRead: 1 });
 
-export default model<INotificationDocument, NotificationModelType>(
+export default model<INotification, INotificationModel>(
   "Notification",
   notificationSchema,
 );

@@ -1,4 +1,4 @@
-import type { Document, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
 export interface ICategoryImage {
   url?: string;
@@ -7,7 +7,9 @@ export interface ICategoryImage {
   mimetype?: string;
 }
 
+// === Базовые поля, сохраняемые в БД ===
 export interface ICategory {
+  _id?: Types.ObjectId;
   name: string;
   slug: string;
   subtitle?: string;
@@ -24,21 +26,13 @@ export interface ICategory {
   updatedAt?: Date;
 }
 
-export interface ICategoryVirtuals {
-  productCount: number;
-}
-
+// === Методы экземпляра (если появятся) ===
 export type ICategoryMethods = {};
 
-export interface CategoryModelType extends Model<
-  ICategoryDocument,
-  {},
-  ICategoryMethods
-> {
+// === Статические методы модели ===
+export interface ICategoryModel extends Model<ICategory, {}, ICategoryMethods> {
   exists(id: string | Types.ObjectId): Promise<boolean>;
 }
 
-export type ICategoryDocument = Document<unknown, {}, ICategory> &
-  ICategory &
-  ICategoryVirtuals &
-  ICategoryMethods;
+// === Тип документа с методами ===
+export type CategoryDocument = HydratedDocument<ICategory, ICategoryMethods>;

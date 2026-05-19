@@ -1,26 +1,33 @@
-import { model, Schema, Types } from "mongoose";
+import { model, Schema, type Types } from "mongoose";
 import {
-  type HydratedRefund,
   type IRefund,
+  type IRefundItem,
   type IRefundMethods,
-  type RefundModelType,
+  type IRefundModel,
+  type RefundDocument,
   RefundReason,
   RefundStatus,
+  type RefundStatusType,
 } from "../types/refund.types.js";
 
 const refundStatusValues = Object.values(RefundStatus);
 const refundReasonValues = Object.values(RefundReason);
 
-const RefundSchema = new Schema<IRefund, RefundModelType, IRefundMethods>(
+const RefundSchema = new Schema<IRefund, IRefundModel, IRefundMethods>(
   {
     orderId: {
-      type: Types.ObjectId,
+      type: Schema.Types.ObjectId, // ✅ исправлено
       ref: "Order",
       required: true,
       index: true,
     },
     orderNumber: { type: String, required: true, trim: true, index: true },
-    userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
+    userId: {
+      type: Schema.Types.ObjectId, // ✅ исправлено
+      ref: "User",
+      required: true,
+      index: true,
+    },
     userEmail: {
       type: String,
       required: true,
@@ -30,12 +37,15 @@ const RefundSchema = new Schema<IRefund, RefundModelType, IRefundMethods>(
     },
     items: [
       {
-        productId: { type: Types.ObjectId, ref: "Product", required: true },
+        productId: {
+          type: Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        }, // ✅
         reason: { type: String, enum: refundReasonValues, required: true },
         reasonDetails: { type: String, maxlength: 500 },
         isDefective: { type: Boolean, default: false },
         defectDescription: { type: String, maxlength: 500 },
-        // Поля для pre‑save (опционально)
         pricePerUnit: Number,
         quantity: Number,
       },
@@ -85,23 +95,18 @@ const RefundSchema = new Schema<IRefund, RefundModelType, IRefundMethods>(
     adminNotes: [
       {
         note: { type: String, required: true, maxlength: 1000 },
-        adminId: { type: Types.ObjectId, ref: "User", required: true },
+        adminId: { type: Schema.Types.ObjectId, ref: "User", required: true }, // ✅
         adminName: { type: String, required: true },
         createdAt: { type: Date, default: Date.now },
       },
     ],
     rejectionReason: { type: String, maxlength: 500 },
     resolutionNotes: { type: String, maxlength: 1000 },
-    refundMethod: {
-      type: String,
-      enum: ["original_payment", "bank_transfer", "credit", "other"],
-      default: "original_payment",
-    },
     refundTransactionId: { type: String, trim: true },
     refundedAt: Date,
-    createdBy: { type: Types.ObjectId, ref: "User" },
-    updatedBy: { type: Types.ObjectId, ref: "User" },
-    assignedTo: { type: Types.ObjectId, ref: "User" },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" }, // ✅
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" }, // ✅
+    assignedTo: { type: Schema.Types.ObjectId, ref: "User" }, // ✅
     priority: { type: Number, enum: [1, 2, 3, 4, 5], default: 3 },
     responseTime: { type: Number, min: 0 },
     customerSatisfaction: { type: Number, min: 1, max: 5 },
@@ -115,7 +120,8 @@ const RefundSchema = new Schema<IRefund, RefundModelType, IRefundMethods>(
       virtuals: true,
       transform: (_doc, ret) => {
         delete ret.__v;
-        delete ret.updatedAt;
+        // ✅ безопасное удаление опционального поля
+        delete (ret as Record<string, unknown>).updatedAt;
         return ret;
       },
     },
@@ -124,19 +130,19 @@ const RefundSchema = new Schema<IRefund, RefundModelType, IRefundMethods>(
 );
 
 // === Виртуальные поля ===
-RefundSchema.virtual("isOverdue").get(function (this: IRefund) {
+RefundSchema.virtual("isOverdue").get(function (this: RefundDocument) {
   if (!this.dueDate) return false;
   return (
     new Date() > this.dueDate && ["pending", "processing"].includes(this.status)
   );
 });
 
-RefundSchema.virtual("daysOpen").get(function (this: IRefund) {
+RefundSchema.virtual("daysOpen").get(function (this: RefundDocument) {
   const createdAt = this.createdAt || new Date();
   return Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
 });
 
-RefundSchema.virtual("formattedStatus").get(function (this: IRefund) {
+RefundSchema.virtual("formattedStatus").get(function (this: RefundDocument) {
   const statusMap: Record<string, string> = {
     [RefundStatus.PENDING]: "Ожидает рассмотрения",
     [RefundStatus.PROCESSING]: "В обработке",
@@ -148,7 +154,7 @@ RefundSchema.virtual("formattedStatus").get(function (this: IRefund) {
   return statusMap[this.status] || this.status;
 });
 
-RefundSchema.virtual("formattedReason").get(function (this: IRefund) {
+RefundSchema.virtual("formattedReason").get(function (this: RefundDocument) {
   const reasonMap: Record<string, string> = {
     [RefundReason.DEFECTIVE]: "Бракованный товар",
     [RefundReason.WRONG_ITEM]: "Не тот товар",
@@ -171,19 +177,21 @@ RefundSchema.index({ dueDate: 1, status: 1 });
 RefundSchema.index({ assignedTo: 1, status: 1 });
 
 // === Pre‑save hook ===
-RefundSchema.pre("save", function (this: IRefund, next) {
+RefundSchema.pre("save", function (this: RefundDocument, next) {
+  // Устанавливаем dueDate, если его нет и статус активный
   if (!this.dueDate && ["pending", "processing"].includes(this.status)) {
     const dueDate = new Date(this.createdAt || Date.now());
     dueDate.setDate(dueDate.getDate() + 14);
     this.dueDate = dueDate;
   }
 
-  // Пересчёт totalAmount, если в items есть pricePerUnit и quantity
+  // Вычисляем totalAmount, если изменились items
   if (this.isModified("items") && this.items.length > 0) {
     let total = 0;
     for (const item of this.items) {
-      const price = (item as any).pricePerUnit || 0;
-      const qty = (item as any).quantity || 0;
+      const typedItem = item as IRefundItem; // ✅ тип вместо any
+      const price = typedItem.pricePerUnit || 0;
+      const qty = typedItem.quantity || 0;
       total += price * qty;
     }
     if (total > 0) this.totalAmount = total;
@@ -194,20 +202,20 @@ RefundSchema.pre("save", function (this: IRefund, next) {
 
 // === Статические методы ===
 RefundSchema.statics.findByOrder = function (
-  this: RefundModelType,
+  this: IRefundModel,
   orderId: Types.ObjectId,
 ) {
   return this.find({ orderId }).sort({ createdAt: -1 });
 };
 
 RefundSchema.statics.findByUser = function (
-  this: RefundModelType,
+  this: IRefundModel,
   userId: Types.ObjectId,
 ) {
   return this.find({ userId }).sort({ createdAt: -1 });
 };
 
-RefundSchema.statics.getStats = async function (this: RefundModelType) {
+RefundSchema.statics.getStats = async function (this: IRefundModel) {
   const stats = await this.aggregate([
     {
       $group: {
@@ -230,27 +238,29 @@ RefundSchema.statics.getStats = async function (this: RefundModelType) {
 
 // === Методы экземпляра ===
 RefundSchema.methods.addAdminNote = async function (
-  this: HydratedRefund,
+  this: RefundDocument,
   note: string,
   adminId: Types.ObjectId,
   adminName: string,
-) {
+): Promise<RefundDocument> {
   this.adminNotes = this.adminNotes || [];
   this.adminNotes.push({ note, adminId, adminName, createdAt: new Date() });
-  return this.save();
+  const saved = await this.save();
+  return saved as RefundDocument; // ✅ явное приведение
 };
 
 RefundSchema.methods.updateStatus = async function (
-  this: HydratedRefund,
-  newStatus: (typeof RefundStatus)[keyof typeof RefundStatus],
+  this: RefundDocument,
+  newStatus: RefundStatusType,
   adminId: Types.ObjectId,
   notes = "",
-) {
+): Promise<RefundDocument> {
   const oldStatus = this.status;
   this.status = newStatus;
   this.updatedBy = adminId;
   if (notes) {
     await this.addAdminNote(
+      // ✅ добавлен await
       `Статус изменен с "${oldStatus}" на "${newStatus}". ${notes}`,
       adminId,
       "Система",
@@ -259,22 +269,25 @@ RefundSchema.methods.updateStatus = async function (
   if (["completed", "closed", "rejected"].includes(newStatus)) {
     this.refundedAt = new Date();
   }
-  return this.save();
+  const saved = await this.save();
+  return saved as RefundDocument;
 };
 
 RefundSchema.methods.assignToAdmin = async function (
-  this: HydratedRefund,
+  this: RefundDocument,
   adminId: Types.ObjectId,
   adminName: string,
-) {
+): Promise<RefundDocument> {
   this.assignedTo = adminId;
   await this.addAdminNote(
     `Заявка назначена администратору: ${adminName}`,
     adminId,
     "Система",
   );
-  return this.save();
+  const saved = await this.save();
+  return saved as RefundDocument;
 };
 
-export default model<IRefund, RefundModelType>("Refund", RefundSchema);
+export const RefundModel = model<IRefund, IRefundModel>("Refund", RefundSchema);
+export default RefundModel;
 export { RefundReason, RefundStatus };

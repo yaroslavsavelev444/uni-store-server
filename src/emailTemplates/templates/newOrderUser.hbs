@@ -1,52 +1,120 @@
 {{#extend "baseLayout" title="Заказ создан"}}
   {{#content "body"}}
-<tr>
-  <td style="padding: 24px; font-size: 14px; color: #1E1E1E; line-height: 1.5;">
-    <h2 style="margin: 0 0 16px; font-size: 18px; font-weight: 600;">Заказ создан</h2>
-    <p style="margin: 0 0 16px;">Заказ №{{orderNumber}} успешно создан.</p>
-  </td>
-</tr>
+    <tr>
+      <td style="padding: 28px; font-family: Arial, sans-serif; background-color: #1A1D24; border-radius: 8px;">
+        <h2 style="color: #ffffff; margin-bottom: 16px;">✅ Заказ №{{orderNumber}} успешно создан</h2>
+        <p style="color: #e6e6e6; margin-bottom: 24px;">
+          Здравствуйте, {{customer.name}}!<br>
+          Ваш заказ от {{createdDate}} принят в обработку.
+        </p>
 
-<!-- Основные данные -->
-<tr>
-  <td style="padding: 0 24px 24px 24px;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e5e5e5; border-radius: 6px;">
-      <tr>
-        <td style="padding: 12px; font-size: 13px; color: #666;">Заказчик</td>
-        <td style="padding: 12px; font-size: 13px; text-align: right;">{{customer.name}}</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px; font-size: 13px; color: #666;">Email</td>
-        <td style="padding: 12px; font-size: 13px; text-align: right;">{{customer.email}}</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px; font-size: 13px; color: #666;">Телефон</td>
-        <td style="padding: 12px; font-size: 13px; text-align: right;">
-          {{#if customer.phone}}{{customer.phone}}{{else}}Не указан{{/if}}
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
+        <!-- Товары -->
+        <h3 style="color: #FF4500; margin: 20px 0 12px;">Состав заказа</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;">
+          <thead>
+            <tr style="background:#2c2f36; color:#ccc;">
+              <th style="padding:10px 8px; text-align:left;">Товар</th>
+              <th style="padding:10px 8px; text-align:center;">Кол-во</th>
+              <th style="padding:10px 8px; text-align:right;">Цена</th>
+              <th style="padding:10px 8px; text-align:right;">Скидка</th>
+              <th style="padding:10px 8px; text-align:right;">Сумма</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each order.items}}
+              <tr style="border-bottom:1px solid #3a3f48;">
+                <td style="padding:10px 8px; color:#e6e6e6;">{{this.name}}</td>
+                <td style="padding:10px 8px; text-align:center;">{{this.quantity}}</td>
+                <td style="padding:10px 8px; text-align:right;">{{this.unitPrice}} {{../order.pricing.currency}}</td>
+                <td style="padding:10px 8px; text-align:right;">{{this.discount}} {{../order.pricing.currency}}</td>
+                <td style="padding:10px 8px; text-align:right;">{{this.totalPrice}} {{../order.pricing.currency}}</td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
 
-<!-- Стоимость -->
-<tr>
-  <td style="padding: 0 24px 24px 24px;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e5e5e5; border-radius: 6px;">
-      <tr>
-        <td style="padding: 12px; font-size: 13px; color: #666;">Сумма</td>
-        <td style="padding: 12px; font-size: 14px; font-weight: 600; text-align: right;">
-          {{order.pricing.total}} {{order.pricing.currency}}
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
+        <!-- Стоимость -->
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 24px; background:#2c2f36; border-radius:6px;">
+          <tr>
+            <td style="padding:12px; color:#9aa0a6;">Сумма без скидки</td>
+            <td style="padding:12px; text-align:right;">{{order.pricing.subtotal}} {{order.pricing.currency}}</td>
+          </tr>
+          {{#if order.pricing.discount}}
+          <tr>
+            <td style="padding:12px; color:#9aa0a6;">Скидка</td>
+            <td style="padding:12px; text-align:right; color:#FF4500;">-{{order.pricing.discount}} {{order.pricing.currency}}</td>
+          </tr>
+          {{/if}}
+          {{#if order.pricing.shippingCost}}
+          <tr>
+            <td style="padding:12px; color:#9aa0a6;">Доставка</td>
+            <td style="padding:12px; text-align:right;">{{order.pricing.shippingCost}} {{order.pricing.currency}}</td>
+          </tr>
+          {{/if}}
+          <tr style="border-top:1px solid #3a3f48;">
+            <td style="padding:12px; font-weight:bold; color:#fff;">Итого</td>
+            <td style="padding:12px; text-align:right; font-weight:bold; color:#FF4500;">{{order.pricing.total}} {{order.pricing.currency}}</td>
+          </tr>
+        </table>
 
-<tr>
-  <td style="padding: 0 24px 24px 24px; font-size: 13px; color: #666;">
-    Детали заказа доступны в личном кабинете.
-  </td>
-</tr>
-{{/content}}
+        <!-- Применённые скидки -->
+        {{#if order.appliedDiscounts.length}}
+        <h3 style="color: #FF4500; margin: 20px 0 12px;">Применённые скидки</h3>
+        <ul style="color:#e6e6e6; margin-bottom:24px;">
+          {{#each order.appliedDiscounts}}
+            <li>{{this.name}} 
+              ({{#if this.discountPercent}}-{{this.discountPercent}}%{{else}}{{this.discountAmount}} {{../order.pricing.currency}}{{/if}})
+            </li>
+          {{/each}}
+        </ul>
+        {{/if}}
+
+        <!-- Получатель и доставка -->
+        <h3 style="color: #FF4500; margin: 20px 0 12px;">Данные получателя</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom:24px;">
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6; width:140px;">ФИО</td>
+            <td style="padding:6px 0;">{{order.recipient.fullName}}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6;">Телефон</td>
+            <td style="padding:6px 0;">{{order.recipient.phone}}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6;">Email</td>
+            <td style="padding:6px 0;">{{order.recipient.email}}</td>
+          </tr>
+        </table>
+
+        <h3 style="color: #FF4500; margin: 20px 0 12px;">Доставка</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom:24px;">
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6; width:140px;">Способ</td>
+            <td style="padding:6px 0;">{{order.delivery.method}}</td>
+          </tr>
+          {{#if order.delivery.address}}
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6;">Адрес</td>
+            <td style="padding:6px 0;">{{order.delivery.address.street}}, {{order.delivery.address.city}}</td>
+          </tr>
+          {{/if}}
+          {{#if order.delivery.notes}}
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6;">Примечание</td>
+            <td style="padding:6px 0;">{{order.delivery.notes}}</td>
+          </tr>
+          {{/if}}
+        </table>
+
+        <a href="https://yourdomain.com/orders/{{order.id}}"
+           style="display:inline-block; padding:12px 20px; background:#FF4500; color:#fff; text-decoration:none; border-radius:6px; font-size:14px;">
+          Перейти к заказу
+        </a>
+
+        <p style="margin-top: 28px; font-size: 12px; color: #777;">
+          Если у вас возникли вопросы, ответьте на это письмо или свяжитесь с поддержкой.
+        </p>
+      </td>
+    </tr>
+  {{/content}}
 {{/extend}}

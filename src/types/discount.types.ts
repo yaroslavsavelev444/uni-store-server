@@ -7,6 +7,7 @@ export interface ICartData {
   totalQuantity: number;
 }
 
+// Базовые поля, сохраняемые в БД
 export interface IDiscount {
   name: string;
   description?: string;
@@ -32,11 +33,12 @@ export interface IDiscount {
   updatedAt?: Date;
 }
 
-export interface IDiscountVirtuals {
+// Полный документ с виртуалами и методами
+export interface IDiscountDocument extends Document, IDiscount {
+  // Виртуальные поля
   isCurrentlyActive: boolean;
-}
 
-export interface IDiscountMethods {
+  // Методы экземпляра
   calculateDiscount(cartData: ICartData): {
     applicable: boolean;
     discountAmount: number;
@@ -54,15 +56,7 @@ export interface IDiscountMethods {
   formatPrice(amount: number): string;
 }
 
-export interface DiscountModelType extends Model<
-  IDiscountDocument,
-  {},
-  IDiscountMethods
-> {
-  // статические методы (если будут)
+// Статические методы модели (если будут)
+export interface DiscountModel extends Model<IDiscountDocument> {
+  // например, findActive(): Promise<IDiscountDocument[]>;
 }
-
-export type IDiscountDocument = Document<unknown, {}, IDiscount> &
-  IDiscount &
-  IDiscountVirtuals &
-  IDiscountMethods;

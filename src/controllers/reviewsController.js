@@ -153,4 +153,4 @@ class ReviewsController {
   }
 }
 
-module.exports = ReviewsController;
+export default new ReviewsController();

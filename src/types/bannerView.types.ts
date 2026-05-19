@@ -1,41 +1,32 @@
-import type { Document, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
-// === Интерфейс документа ===
+// === Базовые поля, сохраняемые в БД ===
 export interface IBannerView {
-  bannerId: Types.ObjectId; // ссылка на Banner
-  userId: Types.ObjectId; // ссылка на User
-
+  bannerId: Types.ObjectId;
+  userId: Types.ObjectId;
   viewedAt: Date | null;
   clicked: boolean;
   clickedAt: Date | null;
   dismissed: boolean;
   dismissedAt: Date | null;
-
   userAgent?: string;
   ipAddress?: string;
   referrer?: string;
   screenResolution?: string;
-
   viewCount: number;
   lastViewedAt?: Date;
-
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-// === Виртуальные поля ===
-export interface IBannerViewVirtuals {
-  ctr: number; // Computed CTR (0 или 1)
-}
-
 // === Методы экземпляра ===
 export interface IBannerViewMethods {
-  incrementView(): Promise<IBannerViewDocument>;
+  incrementView(): Promise<BannerViewDocument>;
 }
 
-// === Статические методы ===
-export interface BannerViewModelType extends Model<
-  IBannerViewDocument,
+// === Статические методы модели ===
+export interface IBannerViewModel extends Model<
+  IBannerView,
   {},
   IBannerViewMethods
 > {
@@ -43,11 +34,11 @@ export interface BannerViewModelType extends Model<
     bannerId: string | Types.ObjectId,
     startDate?: Date,
     endDate?: Date,
-  ): Promise<any[]>; // уточнить тип результата агрегации
+  ): Promise<any[]>; // можно типизировать точнее, если требуется
 }
 
-// === Итоговый тип документа (включает виртуалы и методы) ===
-export type IBannerViewDocument = Document<unknown, {}, IBannerView> &
-  IBannerView &
-  IBannerViewVirtuals &
-  IBannerViewMethods;
+// === Тип документа с методами ===
+export type BannerViewDocument = HydratedDocument<
+  IBannerView,
+  IBannerViewMethods
+>;

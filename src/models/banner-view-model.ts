@@ -1,13 +1,14 @@
 import { model, Schema, Types } from "mongoose";
 import type {
-  BannerViewModelType,
+  BannerViewDocument,
   IBannerView,
-  IBannerViewDocument,
+  IBannerViewMethods,
+  IBannerViewModel,
 } from "../types/bannerView.types.js";
 
 const bannerViewSchema = new Schema<
   IBannerView,
-  BannerViewModelType,
+  IBannerViewModel,
   IBannerViewMethods
 >(
   {
@@ -23,44 +24,17 @@ const bannerViewSchema = new Schema<
       required: true,
       index: true,
     },
-
-    viewedAt: {
-      type: Date,
-      default: null,
-      index: true,
-    },
-    clicked: {
-      type: Boolean,
-      default: false,
-      index: true,
-    },
-    clickedAt: {
-      type: Date,
-      default: null,
-    },
-    dismissed: {
-      type: Boolean,
-      default: false,
-      index: true,
-    },
-    dismissedAt: {
-      type: Date,
-      default: null,
-    },
-
+    viewedAt: { type: Date, default: null, index: true },
+    clicked: { type: Boolean, default: false, index: true },
+    clickedAt: { type: Date, default: null },
+    dismissed: { type: Boolean, default: false, index: true },
+    dismissedAt: { type: Date, default: null },
     userAgent: { type: String },
     ipAddress: { type: String },
     referrer: { type: String },
     screenResolution: { type: String },
-
-    viewCount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    lastViewedAt: {
-      type: Date,
-    },
+    viewCount: { type: Number, default: 0, min: 0 },
+    lastViewedAt: { type: Date },
   },
   {
     timestamps: true,
@@ -68,30 +42,25 @@ const bannerViewSchema = new Schema<
   },
 );
 
-// Составной уникальный индекс
+// Индексы
 bannerViewSchema.index(
   { userId: 1, bannerId: 1 },
-  {
-    unique: true,
-    background: true,
-  },
+  { unique: true, background: true },
 );
-
-// Индексы для аналитики
 bannerViewSchema.index({ viewedAt: 1 });
 bannerViewSchema.index({ clickedAt: 1 });
 bannerViewSchema.index({ createdAt: 1 });
 bannerViewSchema.index({ bannerId: 1, viewedAt: 1 });
 bannerViewSchema.index({ bannerId: 1, clicked: 1 });
 
-// Виртуальное поле ctr
-bannerViewSchema.virtual("ctr").get(function (this: IBannerViewDocument) {
+// Виртуальное поле ctr (геттер) — не дублируется в IBannerView
+bannerViewSchema.virtual("ctr").get(function (this: BannerViewDocument) {
   return this.viewedAt && this.clicked ? 1 : 0;
 });
 
-// Метод incrementView
+// Метод экземпляра incrementView
 bannerViewSchema.methods.incrementView = async function (
-  this: IBannerViewDocument,
+  this: BannerViewDocument,
 ) {
   this.viewCount += 1;
   this.lastViewedAt = new Date();
@@ -100,12 +69,15 @@ bannerViewSchema.methods.incrementView = async function (
 
 // Статический метод getStats
 bannerViewSchema.statics.getStats = async function (
-  this: BannerViewModelType,
+  this: IBannerViewModel,
   bannerId: string | Types.ObjectId,
   startDate?: Date,
   endDate?: Date,
 ) {
-  const matchStage: any = { bannerId: new Types.ObjectId(bannerId) };
+  const matchStage: {
+    bannerId: Types.ObjectId;
+    viewedAt?: { $gte?: Date; $lte?: Date };
+  } = { bannerId: new Types.ObjectId(bannerId) };
 
   if (startDate || endDate) {
     matchStage.viewedAt = {};
@@ -154,8 +126,7 @@ bannerViewSchema.statics.getStats = async function (
   ]);
 };
 
-// Экспорт модели с правильными типами
-export default model<IBannerViewDocument, BannerViewModelType>(
+export default model<IBannerView, IBannerViewModel>(
   "BannerView",
   bannerViewSchema,
 );

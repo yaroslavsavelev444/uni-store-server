@@ -18,6 +18,10 @@
     "types": ["node"],
     "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["**/*.ts"],
+  "include": [
+    "**/*.ts",
+    "src/utils/generators.ts",
+    "src/types/express/index.ts"
+  ],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }

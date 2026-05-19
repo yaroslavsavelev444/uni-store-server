@@ -1,14 +1,15 @@
 import crypto from "node:crypto";
 import { model, Schema } from "mongoose";
 import type {
-  ConsentModelType,
+  ConsentDocument,
   IConsent,
-  IConsentDocument,
+  IConsentMethods,
+  IConsentModel,
   IVersionHistory,
 } from "../types/consent.types.js";
 import { sanitizeHtml } from "../utils/sanitizer.js";
 
-// Схема истории версий
+// Схема истории версий (вложенная)
 const VersionHistorySchema = new Schema<IVersionHistory>(
   {
     version: {
@@ -34,8 +35,8 @@ const VersionHistorySchema = new Schema<IVersionHistory>(
   { _id: true },
 );
 
-// Основная схема Consent
-const ConsentSchema = new Schema<IConsent, ConsentModelType, IConsentMethods>(
+// Основная схема Consent – три дженерика
+const ConsentSchema = new Schema<IConsent, IConsentModel, IConsentMethods>(
   {
     title: { type: String, required: true },
     slug: {
@@ -63,7 +64,7 @@ const ConsentSchema = new Schema<IConsent, ConsentModelType, IConsentMethods>(
     history: [VersionHistorySchema],
     lastUpdatedBy: { type: Schema.Types.ObjectId, ref: "User" },
     lastUpdatedAt: { type: Date, default: Date.now },
-    // служебные поля (не сохраняются)
+    // служебные поля (не сохраняются, используются в хуках)
     _originalContent: { type: String, select: false },
     _originalDocumentUrl: { type: String, select: false },
     _originalLastUpdatedBy: { type: Schema.Types.ObjectId, select: false },
@@ -74,7 +75,7 @@ const ConsentSchema = new Schema<IConsent, ConsentModelType, IConsentMethods>(
 );
 
 // Pre-validate: санитизация HTML
-ConsentSchema.pre("validate", function (this: IConsentDocument, next) {
+ConsentSchema.pre("validate", function (this: ConsentDocument, next) {
   const fieldsToSanitize = ["title", "description", "content"];
 
   fieldsToSanitize.forEach((field) => {
@@ -98,7 +99,7 @@ ConsentSchema.pre("validate", function (this: IConsentDocument, next) {
 });
 
 // Pre-save: сохранение истории и обновление версии
-ConsentSchema.pre("save", function (this: IConsentDocument, next) {
+ConsentSchema.pre("save", function (this: ConsentDocument, next) {
   if (
     !this.isNew &&
     (this.isModified("content") || this.isModified("documentUrl"))
@@ -129,12 +130,10 @@ ConsentSchema.pre("save", function (this: IConsentDocument, next) {
   next();
 });
 
-// Виртуальное поле isPublished
-ConsentSchema.virtual("isPublished").get(function (this: IConsentDocument) {
+// Виртуальное поле isPublished – не дублируется в IConsent
+ConsentSchema.virtual("isPublished").get(function (this: ConsentDocument) {
   return this.isActive;
 });
 
-export default model<IConsentDocument, ConsentModelType>(
-  "Consent",
-  ConsentSchema,
-);
+// Экспорт модели
+export default model<IConsent, IConsentModel>("Consent", ConsentSchema);

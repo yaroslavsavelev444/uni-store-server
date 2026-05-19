@@ -1,5 +1,6 @@
-import type { Document, Model } from "mongoose";
+import type { HydratedDocument, Model } from "mongoose";
 
+// === Базовые поля, сохраняемые в БД ===
 export interface IKeyEncrypt {
   version: number; // уникальная версия ключа
   dekEncrypted: string; // base64 (iv + ciphertext + authTag) — зашифрованный DEK
@@ -9,19 +10,20 @@ export interface IKeyEncrypt {
   updatedAt?: Date;
 }
 
-export type IKeyEncryptVirtuals = {};
-
+// === Методы экземпляра (если появятся) ===
 export type IKeyEncryptMethods = {};
 
-export interface KeyEncryptModelType extends Model<
-  IKeyEncryptDocument,
+// === Статические методы модели ===
+export interface IKeyEncryptModel extends Model<
+  IKeyEncrypt,
   {},
   IKeyEncryptMethods
 > {
-  // статические методы (если понадобятся)
+  // при необходимости добавить статические методы
 }
 
-export type IKeyEncryptDocument = Document<unknown, {}, IKeyEncrypt> &
-  IKeyEncrypt &
-  IKeyEncryptVirtuals &
-  IKeyEncryptMethods;
+// === Тип документа с методами ===
+export type KeyEncryptDocument = HydratedDocument<
+  IKeyEncrypt,
+  IKeyEncryptMethods
+>;

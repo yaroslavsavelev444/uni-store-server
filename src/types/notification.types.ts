@@ -1,4 +1,4 @@
-import type { Document, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
 export type NotificationType =
   | "system"
@@ -10,6 +10,7 @@ export type NotificationType =
 
 export type PushStatus = "pending" | "sent" | "failed";
 
+// === Базовые поля, сохраняемые в БД ===
 export interface INotification {
   userId: Types.ObjectId;
   type: NotificationType;
@@ -23,17 +24,20 @@ export interface INotification {
   createdAt?: Date;
 }
 
-export type INotificationVirtuals = {};
-
+// === Методы экземпляра (если появятся) ===
 export type INotificationMethods = {};
 
-export interface NotificationModelType extends Model<
-  INotificationDocument,
+// === Статические методы модели ===
+export interface INotificationModel extends Model<
+  INotification,
   {},
   INotificationMethods
-> {}
+> {
+  // при необходимости добавить статические методы
+}
 
-export type INotificationDocument = Document<unknown, {}, INotification> &
-  INotification &
-  INotificationVirtuals &
-  INotificationMethods;
+// === Тип документа с методами ===
+export type NotificationDocument = HydratedDocument<
+  INotification,
+  INotificationMethods
+>;

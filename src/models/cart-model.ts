@@ -1,9 +1,10 @@
 import { model, Schema, type Types } from "mongoose";
 import type {
-  CartModelType,
+  CartDocument,
   ICart,
-  ICartDocument,
   ICartItem,
+  ICartMethods,
+  ICartModel,
 } from "../types/cart.types.js";
 
 // Схема для вложенного документа CartItem
@@ -32,8 +33,8 @@ const CartItemSchema = new Schema<ICartItem>(
   { _id: true },
 );
 
-// Основная схема Cart
-const CartSchema = new Schema<ICart, CartModelType, ICartMethods>(
+// Основная схема Cart – три дженерика
+const CartSchema = new Schema<ICart, ICartModel, ICartMethods>(
   {
     user: {
       type: Schema.Types.ObjectId,
@@ -50,10 +51,10 @@ const CartSchema = new Schema<ICart, CartModelType, ICartMethods>(
   },
   {
     timestamps: true,
+    versionKey: false,
     toJSON: {
       virtuals: true,
       transform: (_doc, ret) => {
-        delete ret.__v;
         return ret;
       },
     },
@@ -61,12 +62,9 @@ const CartSchema = new Schema<ICart, CartModelType, ICartMethods>(
   },
 );
 
-// Виртуальное поле totalItems
-CartSchema.virtual("totalItems").get(function (this: ICartDocument) {
-  return this.items.reduce(
-    (sum: number, item: ICartItem) => sum + item.quantity,
-    0,
-  );
+// Виртуальное поле totalItems – не дублируется в ICart
+CartSchema.virtual("totalItems").get(function (this: CartDocument) {
+  return this.items.reduce((sum, item) => sum + item.quantity, 0);
 });
 
 // Индексы
@@ -74,16 +72,16 @@ CartSchema.index({ "items.product": 1 });
 CartSchema.index({ updatedAt: -1 });
 
 // Middleware для обновления updatedAt
-CartSchema.pre("save", function (this: ICartDocument, next) {
+CartSchema.pre("save", function (this: CartDocument, next) {
   this.updatedAt = new Date();
   next();
 });
 
 // Статический метод findByUser
 CartSchema.statics.findByUser = async function (
-  this: CartModelType,
+  this: ICartModel,
   userId: string | Types.ObjectId,
-): Promise<ICartDocument | null> {
+): Promise<CartDocument | null> {
   return this.findOne({ user: userId }).populate({
     path: "items.product",
     select:
@@ -92,7 +90,8 @@ CartSchema.statics.findByUser = async function (
       status: { $in: ["available", "preorder"] },
       isVisible: true,
     },
-  }) as Promise<ICartDocument | null>;
+  }) as Promise<CartDocument | null>;
 };
 
-export default model<ICartDocument, CartModelType>("Cart", CartSchema);
+// Экспорт модели
+export default model<ICart, ICartModel>("Cart", CartSchema);

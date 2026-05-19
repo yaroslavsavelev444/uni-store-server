@@ -2,9 +2,9 @@ import { model, Schema, Types } from "mongoose";
 import {
   DeliveryMethod,
   type IOrder,
-  type IOrderDocument,
   type IOrderMethods,
-  type OrderModelType,
+  type IOrderModel,
+  type OrderDocument,
   OrderStatus,
   PaymentMethod,
 } from "../types/order.types.js";
@@ -14,7 +14,7 @@ const orderStatusValues = Object.values(OrderStatus);
 const deliveryMethodValues = Object.values(DeliveryMethod);
 const paymentMethodValues = Object.values(PaymentMethod);
 
-const OrderSchema = new Schema<IOrder, OrderModelType, IOrderMethods>(
+const OrderSchema = new Schema<IOrder, IOrderModel, IOrderMethods>(
   {
     orderNumber: {
       type: String,
@@ -82,11 +82,7 @@ const OrderSchema = new Schema<IOrder, OrderModelType, IOrderMethods>(
         discount: { type: Number, default: 0, min: 0 },
         totalPrice: { type: Number, required: true, min: 0 },
         weight: Number,
-        dimensions: {
-          length: Number,
-          width: Number,
-          height: Number,
-        },
+        dimensions: { length: Number, width: Number, height: Number },
       },
     ],
 
@@ -194,10 +190,10 @@ const OrderSchema = new Schema<IOrder, OrderModelType, IOrderMethods>(
 );
 
 // Pre-save: генерация номера заказа
-OrderSchema.pre("save", async function (this: IOrderDocument, next) {
+OrderSchema.pre("save", async function (this: OrderDocument, next) {
   if (this.isNew) {
     const year = new Date().getFullYear();
-    const Model = this.constructor as OrderModelType;
+    const Model = this.constructor as IOrderModel;
     const count = await Model.countDocuments({
       createdAt: { $gte: new Date(`${year}-01-01`) },
     });
@@ -206,7 +202,7 @@ OrderSchema.pre("save", async function (this: IOrderDocument, next) {
   next();
 });
 
-// Виртуальные поля
+// Виртуальные поля – не дублируются в IOrder
 OrderSchema.virtual("company", {
   ref: "Company",
   localField: "companyInfo.companyId",
@@ -235,8 +231,9 @@ OrderSchema.index({ "payment.status": 1 });
 OrderSchema.index({ "delivery.method": 1 });
 OrderSchema.index({ "payment.method": 1 });
 
-// Экспорт модели и enum-объектов
-const OrderModel = model<IOrderDocument, OrderModelType>("Order", OrderSchema);
+// Экспорт модели
+const OrderModel = model<IOrder, IOrderModel>("Order", OrderSchema);
 
+// Сохраняем именованные экспорты для enum и модели
 export { DeliveryMethod, OrderModel, OrderStatus, PaymentMethod };
 export default OrderModel;

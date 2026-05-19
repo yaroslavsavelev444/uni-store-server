@@ -36,6 +36,7 @@ export interface IDeviceInfo {
 }
 
 export interface IFeedback {
+  _id: Types.ObjectId;
   title: string;
   description: string;
   type: FeedbackType;

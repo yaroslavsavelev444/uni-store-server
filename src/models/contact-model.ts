@@ -1,13 +1,15 @@
 import { model, Schema } from "mongoose";
 import { EMAIL_REGEX, PHONE_REGEX, URL_REGEX } from "../constants/regex.js";
 import type {
-  ContactModelType,
+  ContactDocument,
   IContact,
-  IContactDocument,
+  IContactMethods,
+  IContactModel,
   IEmail,
+  IPhone,
 } from "../types/contact.types.js";
 
-const contactSchema = new Schema<IContact, ContactModelType, IContactMethods>(
+const contactSchema = new Schema<IContact, IContactModel, IContactMethods>(
   {
     companyName: {
       type: String,
@@ -145,7 +147,7 @@ const contactSchema = new Schema<IContact, ContactModelType, IContactMethods>(
 );
 
 // Pre-save: удаление дубликатов и сортировка
-contactSchema.pre("save", function (this: IContactDocument, next) {
+contactSchema.pre("save", function (this: ContactDocument, next) {
   // Убираем дубликаты телефонов (по значению без форматирования)
   if (this.phones && this.phones.length > 0) {
     const phoneMap = new Map<string, boolean>();
@@ -175,10 +177,11 @@ contactSchema.pre("save", function (this: IContactDocument, next) {
   // Сортируем массивы по sortOrder
   (["phones", "emails", "socialLinks", "otherContacts"] as const).forEach(
     (field) => {
-      if (this[field] && this[field].length > 0) {
-        this[field] = this[field].sort(
+      const arr = this[field];
+      if (arr && arr.length > 0) {
+        this[field] = arr.sort(
           (a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0),
-        );
+        ) as any;
       }
     },
   );
@@ -186,7 +189,4 @@ contactSchema.pre("save", function (this: IContactDocument, next) {
   next();
 });
 
-export default model<IContactDocument, ContactModelType>(
-  "Contact",
-  contactSchema,
-);
+export default model<IContact, IContactModel>("Contact", contactSchema);

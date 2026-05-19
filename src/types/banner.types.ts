@@ -1,6 +1,6 @@
-import type { Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
-// === Enums (более безопасны, чем строки в схеме) ===
+// === Enums ===
 export const BannerAction = {
   None: "none",
   Link: "link",
@@ -16,8 +16,9 @@ export const BannerStatus = {
 export type BannerActionType = (typeof BannerAction)[keyof typeof BannerAction];
 export type BannerStatusType = (typeof BannerStatus)[keyof typeof BannerStatus];
 
-// === Интерфейс документа ===
+// === Базовые поля, сохраняемые в БД ===
 export interface IBanner {
+  _id: Types.ObjectId;
   title: string;
   subtitle?: string;
   description?: string;
@@ -33,14 +34,19 @@ export interface IBanner {
   };
   status: BannerStatusType;
   isSystem: boolean;
-  createdBy: Types.ObjectId; // ссылка на User
-  updatedBy: Types.ObjectId; // ссылка на User
-  createdAt?: Date; // от timestamps
-  updatedAt?: Date; // от timestamps
+  createdBy: Types.ObjectId;
+  updatedBy: Types.ObjectId;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-// (Опционально) методы документа — если появятся, добавить сюда
-// export interface IBannerMethods { ... }
+// === Методы экземпляра (если появятся) ===
+export type IBannerMethods = {};
 
-// Итоговый тип документа с методами (пока пусто)
-export type BannerDocument = IBanner; // в будущем: & Document<...> & IBannerMethods
+// === Статические методы модели ===
+export interface IBannerModel extends Model<IBanner, {}, IBannerMethods> {
+  // например: findActive(): Promise<BannerDocument[]>;
+}
+
+// === Тип документа с методами ===
+export type BannerDocument = HydratedDocument<IBanner, IBannerMethods>;

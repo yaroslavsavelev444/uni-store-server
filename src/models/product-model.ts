@@ -1,9 +1,9 @@
 import { model, Schema, Types } from "mongoose";
 import {
-  HydratedProduct,
   type IProduct,
   type IProductMethods,
-  type ProductModelType,
+  type IProductModel,
+  type ProductDocument,
   ProductStatus,
 } from "../types/product.types.js";
 import fileService from "../utils/fileManager.js";
@@ -87,8 +87,8 @@ const processProductDocument = (doc: any) => {
   return doc;
 };
 
-// ========== СХЕМА ==========
-const ProductSchema = new Schema<IProduct, ProductModelType, IProductMethods>(
+// ========== СХЕМА (три дженерика) ==========
+const ProductSchema = new Schema<IProduct, IProductModel, IProductMethods>(
   {
     sku: {
       type: String,
@@ -274,8 +274,10 @@ const ProductSchema = new Schema<IProduct, ProductModelType, IProductMethods>(
   },
 );
 
-// ========== ВИРТУАЛЬНЫЕ ПОЛЯ ==========
-ProductSchema.virtual("finalPriceForIndividual").get(function (this: IProduct) {
+// ========== ВИРТУАЛЬНЫЕ ПОЛЯ (не дублируются в IProduct) ==========
+ProductSchema.virtual("finalPriceForIndividual").get(function (
+  this: ProductDocument,
+) {
   if (!this.discount?.isActive) return this.priceForIndividual;
   const now = new Date();
   if (this.discount.validFrom && now < this.discount.validFrom)
@@ -292,7 +294,7 @@ ProductSchema.virtual("finalPriceForIndividual").get(function (this: IProduct) {
   return Math.round(finalPrice * 100) / 100;
 });
 
-ProductSchema.virtual("url").get(function (this: IProduct) {
+ProductSchema.virtual("url").get(function (this: ProductDocument) {
   if (
     this.category &&
     typeof this.category === "object" &&
@@ -343,7 +345,7 @@ ProductSchema.pre("aggregate", function (this: any, next) {
   next();
 });
 
-ProductSchema.pre("save", function (this: IProduct, next) {
+ProductSchema.pre("save", function (this: ProductDocument, next) {
   if (this.isModified("isVisible") && this.isVisible && !this.publishedAt) {
     this.publishedAt = new Date();
   }
@@ -363,38 +365,38 @@ ProductSchema.post("aggregate", (docs: any) => {
 });
 
 // ========== МЕТОДЫ ЭКЗЕМПЛЯРА ==========
-ProductSchema.methods.incrementViews = async function (this: any) {
+ProductSchema.methods.incrementViews = async function (this: ProductDocument) {
   this.viewsCount += 1;
   return this.save();
 };
 
 ProductSchema.methods.incrementPurchases = async function (
-  this: any,
+  this: ProductDocument,
   quantity = 1,
 ) {
   this.purchasesCount += quantity;
   return this.save();
 };
 
-ProductSchema.methods.getProductUrl = function (this: any): string {
+ProductSchema.methods.getProductUrl = function (this: ProductDocument): string {
   if (
     this.category &&
     typeof this.category === "object" &&
-    this.category.slug
+    (this.category as any).slug
   ) {
     const BASE_URL = "https://npo-polet.ru";
-    return `${BASE_URL}/categories/${this.category.slug}/products/${this.sku}`;
+    return `${BASE_URL}/categories/${(this.category as any).slug}/products/${this.sku}`;
   }
   return `/categories/[category]/products/${this.sku}`;
 };
 
-ProductSchema.methods.toJSON = function () {
+ProductSchema.methods.toJSON = function (this: ProductDocument) {
   const obj = this.toObject ? this.toObject() : this;
   return processProductDocument(obj);
 };
 
 // ========== СТАТИЧЕСКИЕ МЕТОДЫ ==========
-ProductSchema.statics.findAvailable = function (this: ProductModelType) {
+ProductSchema.statics.findAvailable = function (this: IProductModel) {
   return this.find({
     status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
     isVisible: true,
@@ -402,7 +404,7 @@ ProductSchema.statics.findAvailable = function (this: ProductModelType) {
 };
 
 ProductSchema.statics.findWithUrls = function (
-  this: ProductModelType,
+  this: IProductModel,
   ...args: any[]
 ) {
   return this.find(...args)
@@ -415,7 +417,7 @@ ProductSchema.statics.findWithUrls = function (
 };
 
 ProductSchema.statics.findOneWithUrl = function (
-  this: ProductModelType,
+  this: IProductModel,
   ...args: any[]
 ) {
   return this.findOne(...args)
@@ -428,7 +430,7 @@ ProductSchema.statics.findOneWithUrl = function (
 };
 
 ProductSchema.statics.findWithProcessedUrls = async function (
-  this: ProductModelType,
+  this: IProductModel,
   ...args: any[]
 ) {
   const docs = await this.find(...args);
@@ -438,7 +440,7 @@ ProductSchema.statics.findWithProcessedUrls = async function (
 };
 
 ProductSchema.statics.findOneWithProcessedUrls = async function (
-  this: ProductModelType,
+  this: IProductModel,
   ...args: any[]
 ) {
   const doc = await this.findOne(...args);
@@ -446,7 +448,7 @@ ProductSchema.statics.findOneWithProcessedUrls = async function (
 };
 
 ProductSchema.statics.findByIdWithProcessedUrls = async function (
-  this: ProductModelType,
+  this: IProductModel,
   id: Types.ObjectId | string,
   ...args: any[]
 ) {
@@ -455,5 +457,5 @@ ProductSchema.statics.findByIdWithProcessedUrls = async function (
 };
 
 // ========== ЭКСПОРТ ==========
-export default model<IProduct, ProductModelType>("Product", ProductSchema);
+export default model<IProduct, IProductModel>("Product", ProductSchema);
 export { ProductStatus };

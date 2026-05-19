@@ -1,16 +1,11 @@
 import { model, Schema } from "mongoose";
 import type {
   IKeyEncrypt,
-  IKeyEncryptDocument,
   IKeyEncryptMethods,
-  KeyEncryptModelType,
+  IKeyEncryptModel,
 } from "../types/keyEncrypt.types.js";
 
-const keySchema = new Schema<
-  IKeyEncrypt,
-  KeyEncryptModelType,
-  IKeyEncryptMethods
->(
+const keySchema = new Schema<IKeyEncrypt, IKeyEncryptModel, IKeyEncryptMethods>(
   {
     version: { type: Number, required: true, unique: true },
     dekEncrypted: { type: String, required: true },
@@ -21,10 +16,9 @@ const keySchema = new Schema<
   { timestamps: true },
 );
 
+// Индексы
 keySchema.index({ version: 1 });
 keySchema.index({ active: 1 });
 
-export default model<IKeyEncryptDocument, KeyEncryptModelType>(
-  "KeyEncrypt",
-  keySchema,
-);
+// Экспорт модели
+export default model<IKeyEncrypt, IKeyEncryptModel>("KeyEncrypt", keySchema);

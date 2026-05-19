@@ -1,6 +1,6 @@
+// types/refund.types.ts
 import type { HydratedDocument, Model, Types } from "mongoose";
 
-// === Enum'ы ===
 export const RefundStatus = {
   PENDING: "pending",
   PROCESSING: "processing",
@@ -22,28 +22,21 @@ export const RefundReason = {
 
 export type RefundStatusType = (typeof RefundStatus)[keyof typeof RefundStatus];
 export type RefundReasonType = (typeof RefundReason)[keyof typeof RefundReason];
-export type RefundMethod =
-  | "original_payment"
-  | "bank_transfer"
-  | "credit"
-  | "other";
-export type MediaType = "image" | "video" | "document";
 
-// === Вложенные поддокументы ===
+// Вложенные структуры
 export interface IRefundItem {
   productId: Types.ObjectId;
   reason: RefundReasonType;
   reasonDetails?: string;
   isDefective?: boolean;
   defectDescription?: string;
-  // В pre‑save используются поля pricePerUnit и quantity – добавим опционально
   pricePerUnit?: number;
   quantity?: number;
 }
 
 export interface IRefundMedia {
   url: string;
-  type?: MediaType;
+  type: "image" | "video" | "document";
   originalName?: string;
   size?: number;
   uploadedAt?: Date;
@@ -56,77 +49,68 @@ export interface IAdminNote {
   createdAt?: Date;
 }
 
-// === Основной POJO интерфейс ===
+// Базовые поля, сохраняемые в БД
 export interface IRefund {
+  _id: Types.ObjectId;
   orderId: Types.ObjectId;
   orderNumber: string;
   userId: Types.ObjectId;
   userEmail: string;
   items: IRefundItem[];
   totalAmount: number;
-  refundAmount?: number;
+  refundAmount: number;
   currency: string;
   status: RefundStatusType;
   reason: RefundReasonType;
   description: string;
-  media?: IRefundMedia[];
+  media: IRefundMedia[];
   shippingMethod?: string;
   trackingNumber?: string;
   estimatedDeliveryDate?: Date;
-  adminNotes?: IAdminNote[];
+  adminNotes: IAdminNote[];
   rejectionReason?: string;
   resolutionNotes?: string;
-  refundMethod?: RefundMethod;
   refundTransactionId?: string;
   refundedAt?: Date;
   createdBy?: Types.ObjectId;
   updatedBy?: Types.ObjectId;
   assignedTo?: Types.ObjectId;
-  priority?: 1 | 2 | 3 | 4 | 5;
-  responseTime?: number; // hours
+  priority: 1 | 2 | 3 | 4 | 5;
+  responseTime?: number;
   customerSatisfaction?: 1 | 2 | 3 | 4 | 5;
-  tags?: string[];
+  tags: string[];
   estimatedCompletionDate?: Date;
   dueDate?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-// === Виртуальные поля ===
-export interface IRefundVirtuals {
-  isOverdue: boolean;
-  daysOpen: number;
-  formattedStatus: string;
-  formattedReason: string;
-}
-
-// === Методы экземпляра ===
+// Методы экземпляра
 export interface IRefundMethods {
   addAdminNote(
     note: string,
     adminId: Types.ObjectId,
     adminName: string,
-  ): Promise<HydratedRefund>;
+  ): Promise<RefundDocument>;
   updateStatus(
     newStatus: RefundStatusType,
     adminId: Types.ObjectId,
     notes?: string,
-  ): Promise<HydratedRefund>;
+  ): Promise<RefundDocument>;
   assignToAdmin(
     adminId: Types.ObjectId,
     adminName: string,
-  ): Promise<HydratedRefund>;
+  ): Promise<RefundDocument>;
 }
 
-// === Статические методы ===
-export interface RefundModelType extends Model<IRefund, {}, IRefundMethods> {
-  findByOrder(orderId: Types.ObjectId): Promise<HydratedRefund[]>;
-  findByUser(userId: Types.ObjectId): Promise<HydratedRefund[]>;
+// Статические методы модели
+export interface IRefundModel extends Model<IRefund, {}, IRefundMethods> {
+  findByOrder(orderId: Types.ObjectId): Promise<RefundDocument[]>;
+  findByUser(userId: Types.ObjectId): Promise<RefundDocument[]>;
   getStats(): Promise<
     Array<{ status: string; count: number; totalAmount: number }>
   >;
 }
 
-// === Тип документа ===
-export type HydratedRefund = HydratedDocument<IRefund, IRefundMethods> &
-  IRefundVirtuals;
+// Тип документа
+export type RefundDocument = HydratedDocument<IRefund, IRefundMethods>;

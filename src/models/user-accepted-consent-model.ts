@@ -1,7 +1,16 @@
-// models/user-accepted-consent-model.js
-const { Schema, model } = require("mongoose");
+import { model, Schema, Types } from "mongoose";
+import type {
+  IUserAcceptedConsent,
+  IUserAcceptedConsentMethods,
+  IUserAcceptedConsentModel,
+  UserAcceptedConsentDocument,
+} from "../types/userAcceptedConsent.types.js";
 
-const UserAcceptedConsentSchema = new Schema(
+const UserAcceptedConsentSchema = new Schema<
+  IUserAcceptedConsent,
+  IUserAcceptedConsentModel,
+  IUserAcceptedConsentMethods
+>(
   {
     userId: {
       type: Schema.Types.ObjectId,
@@ -32,16 +41,16 @@ const UserAcceptedConsentSchema = new Schema(
       required: true,
     },
   },
-  { timestamps: false }
+  { timestamps: false },
 );
 
 // Один пользователь не может дважды принять одну и ту же версию
 UserAcceptedConsentSchema.index(
   { userId: 1, consentSlug: 1, consentVersion: 1 },
-  { unique: true }
+  { unique: true },
 );
 
-module.exports = model(
+export default model<IUserAcceptedConsent, IUserAcceptedConsentModel>(
   "UserAcceptedConsent",
-  UserAcceptedConsentSchema
+  UserAcceptedConsentSchema,
 );

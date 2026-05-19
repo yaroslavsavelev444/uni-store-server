@@ -1,13 +1,13 @@
-import { model, Schema, Types } from "mongoose";
+import { model, Schema } from "mongoose";
 import {
   BannerAction,
-  BannerActionType,
   BannerStatus,
-  BannerStatusType,
   type IBanner,
+  type IBannerMethods,
+  type IBannerModel,
 } from "../types/banner.types.js";
 
-const bannerSchema = new Schema<IBanner>(
+const bannerSchema = new Schema<IBanner, IBannerModel, IBannerMethods>(
   {
     title: { type: String, required: true },
     subtitle: { type: String },
@@ -42,5 +42,4 @@ const bannerSchema = new Schema<IBanner>(
   { timestamps: true },
 );
 
-// Экспорт модели с правильным типом
-export default model<IBanner>("Banner", bannerSchema);
+export default model<IBanner, IBannerModel>("Banner", bannerSchema);

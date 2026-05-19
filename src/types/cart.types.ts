@@ -1,19 +1,13 @@
-import type { Document, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
-// === CartItem (вложенный документ) ===
+// === CartItem (вложенный) ===
 export interface ICartItem {
   product: Types.ObjectId;
   quantity: number;
   addedAt: Date;
 }
 
-export type ICartItemMethods = {};
-
-export type CartItemDocument = Document<unknown, {}, ICartItem> &
-  ICartItem &
-  ICartItemMethods;
-
-// === Основной документ Cart ===
+// === Базовые поля, сохраняемые в БД ===
 export interface ICart {
   user: Types.ObjectId;
   items: ICartItem[];
@@ -21,17 +15,13 @@ export interface ICart {
   createdAt?: Date;
 }
 
-export interface ICartVirtuals {
-  totalItems: number;
-}
-
+// === Методы экземпляра (если появятся) ===
 export type ICartMethods = {};
 
-export interface CartModelType extends Model<ICartDocument, {}, ICartMethods> {
-  findByUser(userId: string | Types.ObjectId): Promise<ICartDocument | null>;
+// === Статические методы модели ===
+export interface ICartModel extends Model<ICart, {}, ICartMethods> {
+  findByUser(userId: string | Types.ObjectId): Promise<CartDocument | null>;
 }
 
-export type ICartDocument = Document<unknown, {}, ICart> &
-  ICart &
-  ICartVirtuals &
-  ICartMethods;
+// === Тип документа с методами ===
+export type CartDocument = HydratedDocument<ICart, ICartMethods>;

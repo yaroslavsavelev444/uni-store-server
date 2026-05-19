@@ -1,8 +1,7 @@
 import { model, Schema } from "mongoose";
 import xss from "xss";
 import type {
-  ContentBlockModelType,
-  IContentBlock,
+  ContentBlockModel,
   IContentBlockDocument,
 } from "../types/contentBlock.types.js";
 import fileService from "../utils/fileManager.js";
@@ -61,11 +60,7 @@ const processContentBlockDocument = (doc: IContentBlockDocument | any): any => {
   return doc;
 };
 
-const contentBlockSchema = new Schema<
-  IContentBlock,
-  ContentBlockModelType,
-  IContentBlockMethods
->(
+const contentBlockSchema = new Schema<IContentBlockDocument>(
   {
     title: {
       type: String,
@@ -206,13 +201,13 @@ contentBlockSchema.methods.toSafeObject = function (
 };
 
 // Статический метод findActive
-contentBlockSchema.statics.findActive = function (this: ContentBlockModelType) {
+contentBlockSchema.statics.findActive = function (this: ContentBlockModel) {
   return this.find({ isActive: true }).sort({ position: 1, createdAt: -1 });
 };
 
 // Статический метод findActiveWithProcessedUrls
 contentBlockSchema.statics.findActiveWithProcessedUrls = async function (
-  this: ContentBlockModelType,
+  this: ContentBlockModel,
 ) {
   const docs = await this.find({ isActive: true }).sort({
     position: 1,
@@ -222,7 +217,7 @@ contentBlockSchema.statics.findActiveWithProcessedUrls = async function (
   return processContentBlockDocument(docs);
 };
 
-export default model<IContentBlockDocument, ContentBlockModelType>(
+export default model<IContentBlockDocument, ContentBlockModel>(
   "ContentBlock",
   contentBlockSchema,
 );

@@ -1,4 +1,4 @@
-import type { Document, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
 // === Phone subdocument ===
 export interface IPhone {
@@ -35,7 +35,7 @@ export interface IOtherContact {
   sortOrder: number;
 }
 
-// === Основной документ Contact ===
+// === Базовые поля, сохраняемые в БД ===
 export interface IContact {
   companyName: string;
   legalAddress?: string;
@@ -52,19 +52,13 @@ export interface IContact {
   updatedAt?: Date;
 }
 
-export type IContactVirtuals = {};
-
+// === Методы экземпляра (если появятся) ===
 export type IContactMethods = {};
 
-export interface ContactModelType extends Model<
-  IContactDocument,
-  {},
-  IContactMethods
-> {
-  // статические методы (если будут)
+// === Статические методы модели ===
+export interface IContactModel extends Model<IContact, {}, IContactMethods> {
+  // при необходимости добавить статические методы
 }
 
-export type IContactDocument = Document<unknown, {}, IContact> &
-  IContact &
-  IContactVirtuals &
-  IContactMethods;
+// === Тип документа с методами ===
+export type ContactDocument = HydratedDocument<IContact, IContactMethods>;

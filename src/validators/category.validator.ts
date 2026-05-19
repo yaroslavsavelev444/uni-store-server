@@ -1,79 +1,119 @@
-import joi from "joi";
+import type { NextFunction, Request, Response } from "express";
+import Joi from "joi";
 
-const { array, boolean, number, object, string } = joi;
-// Упрощенная схема для изображения
-const imageSchema = object({
+// ========== Типы данных ==========
+export interface ImageData {
+  url: string;
+  alt?: string;
+  size?: number;
+  mimetype?: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+}
+
+export interface CreateCategoryBody {
+  name: string;
+  slug?: string;
+  subtitle?: string;
+  description?: string;
+  image?: ImageData | string | null;
+  order?: number;
+  isActive?: boolean;
+  metaTitle?: string;
+  metaDescription?: string;
+  keywords?: string[];
+}
+
+export interface UpdateCategoryBody {
+  name?: string;
+  slug?: string;
+  subtitle?: string;
+  description?: string;
+  image?: ImageData | string | null;
+  order?: number;
+  isActive?: boolean;
+  metaTitle?: string;
+  metaDescription?: string;
+  keywords?: string[];
+}
+
+export interface CategoryQueryParams {
+  active?: boolean;
+  search?: string;
+  sortBy?: "name" | "order" | "createdAt" | "productCount";
+  sortOrder?: "asc" | "desc";
+  includeInactive?: boolean;
+  withProductCount?: boolean;
+}
+
+export interface CategoryListQueryParams {
+  includeInactive?: boolean;
+}
+
+// Расширяем Request для добавления validatedData и validatedQuery
+declare global {
+  namespace Express {
+    interface Request {
+      validatedData?: CreateCategoryBody | UpdateCategoryBody;
+      validatedQuery?: CategoryQueryParams | CategoryListQueryParams;
+    }
+  }
+}
+
+// ========== Joi Схемы ==========
+const { object, string, number, boolean, array, alternatives } = Joi;
+
+const imageSchema = object<ImageData>({
   url: string().required(),
-  alt: string().max(255).optional(),
-  size: number().integer().positive().optional(),
-  mimetype: string()
-    .valid("image/jpeg", "image/png", "image/webp", "image/gif")
-    .optional(),
-}).optional();
+  alt: string().max(255),
+  size: number().integer().positive(),
+  mimetype: string().valid(
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+  ),
+});
 
-// Схема для создания категории
-const createCategorySchema = object({
+export const createCategorySchema = object<CreateCategoryBody>({
   name: string().required().min(2).max(100).trim().messages({
     "string.empty": "Название категории обязательно",
     "string.min": "Название категории должно содержать минимум 2 символа",
     "string.max": "Название категории не должно превышать 100 символов",
   }),
-
-  slug: string()
-    .optional()
-    .trim()
-    .lowercase()
-    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .message("Slug может содержать только латинские буквы, цифры и дефисы"),
-
-  subtitle: string().optional().max(200).trim(),
-
-  description: string().optional().max(2000).trim(),
-
-  // Упрощаем - изображение полностью опциональное
-  image: alternatives().try(imageSchema, string(), valid(null, "")).optional(),
-
-  order: number().integer().min(0).default(0),
-
-  isActive: boolean().default(true),
-
-  metaTitle: string().max(255).optional(),
-
-  metaDescription: string().max(500).optional(),
-
-  keywords: array().items(string().max(50)).optional(),
-});
-
-// Схема для обновления категории
-const updateCategorySchema = object({
-  name: string().min(2).max(100).trim().optional(),
-
   slug: string()
     .trim()
     .lowercase()
     .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .message("Slug может содержать только латинские буквы, цифры и дефисы")
     .optional(),
-
   subtitle: string().max(200).trim().optional(),
-
   description: string().max(2000).trim().optional(),
-
-  // Аналогично для обновления
-  image: alternatives().try(imageSchema, string(), valid(null, "")).optional(),
-
-  order: number().integer().min(0).optional(),
-
-  isActive: boolean().optional(),
-
+  image: alternatives([imageSchema, string().allow(null, "")]).optional(),
+  order: number().integer().min(0).default(0),
+  isActive: boolean().default(true),
   metaTitle: string().max(255).optional(),
-
   metaDescription: string().max(500).optional(),
+  keywords: array().items(string().max(50)).optional(),
+});
 
+export const updateCategorySchema = object<UpdateCategoryBody>({
+  name: string().min(2).max(100).trim().optional(),
+  slug: string()
+    .trim()
+    .lowercase()
+    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .message("Slug может содержать только латинские буквы, цифры и дефисы")
+    .optional(),
+  subtitle: string().max(200).trim().optional(),
+  description: string().max(2000).trim().optional(),
+  image: alternatives([imageSchema, string().allow(null, "")]).optional(),
+  order: number().integer().min(0).optional(),
+  isActive: boolean().optional(),
+  metaTitle: string().max(255).optional(),
+  metaDescription: string().max(500).optional(),
   keywords: array().items(string().max(50)).optional(),
 }).min(1);
-// Схема для запроса списка категорий
-const categoryQuerySchema = object({
+
+export const categoryQuerySchema = object<CategoryQueryParams>({
   active: boolean(),
   search: string(),
   sortBy: string().valid("name", "order", "createdAt", "productCount"),
@@ -82,58 +122,57 @@ const categoryQuerySchema = object({
   withProductCount: boolean().default(true),
 });
 
-// Схема для list запроса (вместо tree)
-const categoryListQuerySchema = object({
+export const categoryListQuerySchema = object<CategoryListQueryParams>({
   includeInactive: boolean().default(false),
 });
 
-// Middleware валидации
-const validateCategory = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.body, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-
-  if (error) {
-    return res.status(400).json({
-      success: false,
-      errors: error.details.map((err) => ({
-        field: err.path.join("."),
-        message: err.message,
-      })),
+// ========== Middleware-валидаторы ==========
+export const validateCategory = (
+  schema: Joi.ObjectSchema<CreateCategoryBody | UpdateCategoryBody>,
+) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const { error, value } = schema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
     });
-  }
 
-  req.validatedData = value;
-  next();
+    if (error) {
+      res.status(400).json({
+        success: false,
+        errors: error.details.map((err) => ({
+          field: err.path.join("."),
+          message: err.message,
+        })),
+      });
+      return;
+    }
+
+    req.validatedData = value;
+    next();
+  };
 };
 
-// Middleware валидации query параметров
-const validateCategoryQuery = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.query, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-
-  if (error) {
-    return res.status(400).json({
-      success: false,
-      errors: error.details.map((err) => ({
-        field: err.path.join("."),
-        message: err.message,
-      })),
+export const validateCategoryQuery = (
+  schema: Joi.ObjectSchema<CategoryQueryParams | CategoryListQueryParams>,
+) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const { error, value } = schema.validate(req.query, {
+      abortEarly: false,
+      stripUnknown: true,
     });
-  }
 
-  req.validatedQuery = value;
-  next();
-};
+    if (error) {
+      res.status(400).json({
+        success: false,
+        errors: error.details.map((err) => ({
+          field: err.path.join("."),
+          message: err.message,
+        })),
+      });
+      return;
+    }
 
-export {
-  categoryListQuerySchema,
-  categoryQuerySchema,
-  createCategorySchema,
-  updateCategorySchema,
-  validateCategory,
-  validateCategoryQuery,
+    req.validatedQuery = value;
+    next();
+  };
 };

@@ -1,6 +1,13 @@
-const { Schema, model } = require("mongoose");
+import { model, Schema } from "mongoose";
+import type {
+  IContentBlock,
+  ITopicCommon,
+  ITopicCommonMethods,
+  ITopicCommonModel,
+} from "../types/topicCommon.types.js";
 
-const ContentBlockSchema = new Schema(
+// Схема для вложенного документа ContentBlock (без _id)
+const ContentBlockSchema = new Schema<IContentBlock>(
   {
     type: {
       type: String,
@@ -12,24 +19,30 @@ const ContentBlockSchema = new Schema(
       required: true,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
-const TopicCommonSchema = new Schema(
+// Основная схема TopicCommon
+const TopicCommonSchema = new Schema<
+  ITopicCommon,
+  ITopicCommonModel,
+  ITopicCommonMethods
+>(
   {
     title: { type: String, required: true },
     slug: { type: String, required: true, unique: true, index: true },
     description: { type: String, default: "" },
     position: { type: Number, default: 0 },
-
-    // Поля, которые раньше были в статье
     imageUrl: { type: String, default: "" },
     readingTime: { type: Number, default: 0 },
     contentBlocks: { type: [ContentBlockSchema], default: [] },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-module.exports = model("TopicCommon", TopicCommonSchema);
+export default model<ITopicCommon, ITopicCommonModel>(
+  "TopicCommon",
+  TopicCommonSchema,
+);

@@ -1,8 +1,8 @@
-import type { Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
 export type ReviewStatus = "pending" | "approved" | "rejected";
 
-// POJO (простой JavaScript-объект)
+// === Базовые поля, сохраняемые в БД ===
 export interface IProductReview {
   user: Types.ObjectId;
   product: Types.ObjectId;
@@ -19,21 +19,20 @@ export interface IProductReview {
   updatedAt?: Date;
 }
 
-// Методы экземпляра (если они есть)
+// === Методы экземпляра (если появятся) ===
 export type IProductReviewMethods = {};
 
-// Тип модели (со статическими методами, если есть)
-export interface ProductReviewModelType extends Model<
+// === Статические методы модели ===
+export interface IProductReviewModel extends Model<
   IProductReview,
   {},
   IProductReviewMethods
 > {
-  // статические методы: например, findApproved(): Promise<HydratedProductReview[]>;
+  // например: findApproved(): Promise<ProductReviewDocument[]>;
 }
 
-// Тип "оживлённого" документа (используйте при необходимости в функциях)
-// Обычно можно обойтись без него, но для ясности приведу:
-export type HydratedProductReview = import("mongoose").HydratedDocument<
+// === Тип документа с методами ===
+export type ProductReviewDocument = HydratedDocument<
   IProductReview,
   IProductReviewMethods
 >;

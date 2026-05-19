@@ -1,8 +1,8 @@
-import type { Document, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
 // === Вложенная схема VersionHistory ===
 export interface IVersionHistory {
-  version: string; // semver
+  version: string;
   content: string;
   documentUrl?: string;
   author?: Types.ObjectId;
@@ -10,14 +10,9 @@ export interface IVersionHistory {
   createdAt?: Date;
 }
 
-export type IVersionHistoryMethods = {};
-
-export type VersionHistoryDocument = Document<unknown, {}, IVersionHistory> &
-  IVersionHistory &
-  IVersionHistoryMethods;
-
-// === Основной документ Consent ===
+// === Базовые поля, сохраняемые в БД ===
 export interface IConsent {
+  _id: Types.ObjectId;
   title: string;
   slug: string;
   description?: string;
@@ -33,7 +28,7 @@ export interface IConsent {
   createdAt?: Date;
   updatedAt?: Date;
 
-  // служебные поля для хуков (не сохраняются в БД)
+  // служебные поля (не сохраняются, используются в хуках)
   _originalContent?: string;
   _originalDocumentUrl?: string;
   _originalLastUpdatedBy?: Types.ObjectId;
@@ -41,21 +36,13 @@ export interface IConsent {
   checksum?: string;
 }
 
-export interface IConsentVirtuals {
-  isPublished: boolean;
-}
-
+// === Методы экземпляра (если появятся) ===
 export type IConsentMethods = {};
 
-export interface ConsentModelType extends Model<
-  IConsentDocument,
-  {},
-  IConsentMethods
-> {
-  // статические методы (если будут)
+// === Статические методы модели ===
+export interface IConsentModel extends Model<IConsent, {}, IConsentMethods> {
+  // например: findBySlug(slug: string): Promise<ConsentDocument | null>;
 }
 
-export type IConsentDocument = Document<unknown, {}, IConsent> &
-  IConsent &
-  IConsentVirtuals &
-  IConsentMethods;
+// === Тип документа с методами ===
+export type ConsentDocument = HydratedDocument<IConsent, IConsentMethods>;

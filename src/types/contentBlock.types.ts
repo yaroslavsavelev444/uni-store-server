@@ -6,6 +6,7 @@ export interface IButton {
   style?: "primary" | "secondary" | "outline" | null;
 }
 
+// Базовые поля, сохраняемые в БД
 export interface IContentBlock {
   title: string;
   subtitle: string;
@@ -22,25 +23,18 @@ export interface IContentBlock {
   updatedAt?: Date;
 }
 
-export interface IContentBlockVirtuals {
+// Полный документ с виртуалами и методами
+export interface IContentBlockDocument extends Document, IContentBlock {
+  // Виртуальные поля
   hasButton: boolean;
-}
 
-export interface IContentBlockMethods {
+  // Методы экземпляра
   toSafeObject(): any;
   toJSON(): any;
 }
 
-export interface ContentBlockModelType extends Model<
-  IContentBlockDocument,
-  {},
-  IContentBlockMethods
-> {
+// Статические методы модели
+export interface ContentBlockModel extends Model<IContentBlockDocument> {
   findActive(): Promise<IContentBlockDocument[]>;
   findActiveWithProcessedUrls(): Promise<IContentBlockDocument[]>;
 }
-
-export type IContentBlockDocument = Document<unknown, {}, IContentBlock> &
-  IContentBlock &
-  IContentBlockVirtuals &
-  IContentBlockMethods;

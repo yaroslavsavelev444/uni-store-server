@@ -1,7 +1,8 @@
-import type { Document, Model } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
 // === Question subdocument ===
 export interface IFaqQuestion {
+  _id: Types.ObjectId;
   question: string;
   answer: string;
   order: number;
@@ -10,14 +11,9 @@ export interface IFaqQuestion {
   updatedAt?: Date;
 }
 
-export type IFaqQuestionMethods = {};
-
-export type FaqQuestionDocument = Document<unknown, {}, IFaqQuestion> &
-  IFaqQuestion &
-  IFaqQuestionMethods;
-
-// === Topic document ===
+// === Topic ===
 export interface IFaqTopic {
+  _id: Types.ObjectId;
   title: string;
   description?: string;
   questions: IFaqQuestion[];
@@ -27,19 +23,25 @@ export interface IFaqTopic {
   updatedAt?: Date;
 }
 
-export type IFaqTopicVirtuals = {};
-
+// === Методы экземпляра (если будут) ===
 export type IFaqTopicMethods = {};
 
-export interface FaqTopicModelType extends Model<
-  IFaqTopicDocument,
-  {},
-  IFaqTopicMethods
-> {
-  // статические методы (если будут)
+// === Статические методы модели ===
+export interface IFaqTopicModel extends Model<IFaqTopic, {}, IFaqTopicMethods> {
+  // findBySlug(slug: string): Promise<HydratedDocument<IFaqTopic, IFaqTopicMethods> | null>;
 }
 
-export type IFaqTopicDocument = Document<unknown, {}, IFaqTopic> &
-  IFaqTopic &
-  IFaqTopicVirtuals &
-  IFaqTopicMethods;
+// === Тип документа с методами ===
+export type FaqTopicDocument = HydratedDocument<IFaqTopic, IFaqTopicMethods>;
+
+// Для Question, если нужна отдельная модель
+export type IFaqQuestionMethods = {};
+export interface IFaqQuestionModel extends Model<
+  IFaqQuestion,
+  {},
+  IFaqQuestionMethods
+> {}
+export type FaqQuestionDocument = HydratedDocument<
+  IFaqQuestion,
+  IFaqQuestionMethods
+>;

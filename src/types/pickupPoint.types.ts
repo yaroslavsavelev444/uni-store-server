@@ -1,5 +1,6 @@
-import type { Document, Model } from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
+// === Вложенные поддокументы ===
 export interface IAddress {
   street: string;
   city: string;
@@ -17,6 +18,7 @@ export interface IContact {
   email?: string;
 }
 
+// === Базовые поля, сохраняемые в БД ===
 export interface IPickupPoint {
   name: string;
   address: IAddress;
@@ -24,6 +26,7 @@ export interface IPickupPoint {
   workingHours: string;
   contact?: IContact;
   description?: string;
+  updatedBy: Types.ObjectId;
   isActive: boolean;
   isMain: boolean;
   orderIndex: number;
@@ -31,17 +34,20 @@ export interface IPickupPoint {
   updatedAt?: Date;
 }
 
-export type IPickupPointVirtuals = {};
-
+// === Методы экземпляра (если появятся) ===
 export type IPickupPointMethods = {};
 
-export interface PickupPointModelType extends Model<
-  IPickupPointDocument,
+// === Статические методы модели ===
+export interface IPickupPointModel extends Model<
+  IPickupPoint,
   {},
   IPickupPointMethods
-> {}
+> {
+  // при необходимости добавить статические методы
+}
 
-export type IPickupPointDocument = Document<unknown, {}, IPickupPoint> &
-  IPickupPoint &
-  IPickupPointVirtuals &
-  IPickupPointMethods;
+// === Тип документа с методами ===
+export type PickupPointDocument = HydratedDocument<
+  IPickupPoint,
+  IPickupPointMethods
+>;

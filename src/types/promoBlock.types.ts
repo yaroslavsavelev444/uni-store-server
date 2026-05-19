@@ -1,6 +1,6 @@
 import type { HydratedDocument, Model } from "mongoose";
 
-// Интерфейс POJO (простой объект, без методов и виртуалов)
+// === Базовые поля, сохраняемые в БД ===
 export interface IPromoBlock {
   title: string;
   subtitle?: string;
@@ -12,19 +12,19 @@ export interface IPromoBlock {
   updatedAt?: Date;
 }
 
-// Если у модели есть методы экземпляра – опишите их здесь
+// === Методы экземпляра (если появятся) ===
 export type IPromoBlockMethods = {};
 
-// Тип модели со статическими методами (если будут)
-export interface PromoBlockModelType extends Model<
+// === Статические методы модели ===
+export interface IPromoBlockModel extends Model<
   IPromoBlock,
   {},
   IPromoBlockMethods
 > {
-  // статические методы: например, findActive(): Promise<PromoBlockDocument[]>;
+  // например: findActive(): Promise<PromoBlockDocument[]>;
 }
 
-// Тип документа с методами (используем встроенный HydratedDocument)
+// === Тип документа с методами ===
 export type PromoBlockDocument = HydratedDocument<
   IPromoBlock,
   IPromoBlockMethods

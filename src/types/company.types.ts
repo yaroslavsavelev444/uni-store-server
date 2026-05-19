@@ -1,92 +1,27 @@
-import { model, Schema } from "mongoose";
-import type {
-  CompanyModelType,
-  ICompany,
-  ICompanyDocument,
-} from "../types/company.types.js";
+import type { HydratedDocument, Model, Types } from "mongoose";
 
-const companySchema = new Schema<ICompany, CompanyModelType, ICompanyMethods>(
-  {
-    user: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
-    companyName: {
-      type: String,
-      required: true,
-      trim: true,
-      index: true,
-    },
-    legalAddress: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    companyAddress: {
-      type: String,
-      trim: true,
-    },
-    taxNumber: {
-      type: String,
-      required: true,
-      trim: true,
-      index: true,
-    },
-    contactPerson: {
-      type: String,
-      trim: true,
-    },
-    phone: {
-      type: String,
-      trim: true,
-    },
-    email: {
-      type: String,
-      trim: true,
-      lowercase: true,
-    },
-  },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-  },
-);
+// === Базовые поля, сохраняемые в БД ===
+export interface ICompany {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  companyName: string;
+  legalAddress: string;
+  companyAddress?: string;
+  taxNumber: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
-// Уникальный индекс по taxNumber + user
-companySchema.index({ taxNumber: 1, user: 1 }, { unique: true });
+// === Методы экземпляра (если появятся) ===
+export type ICompanyMethods = {};
 
-// Текстовый индекс для поиска
-companySchema.index({ companyName: "text", taxNumber: "text" });
+// === Статические методы модели ===
+export interface ICompanyModel extends Model<ICompany, {}, ICompanyMethods> {
+  // например: findByTaxNumber(taxNumber: string): Promise<CompanyDocument | null>;
+}
 
-// Middleware для очистки taxNumber от пробелов
-companySchema.pre("save", function (this: ICompanyDocument, next) {
-  if (this.taxNumber) {
-    this.taxNumber = this.taxNumber.replace(/\s/g, "");
-  }
-  next();
-});
-
-// Виртуальное поле ordersCount
-companySchema.virtual("ordersCount", {
-  ref: "Order",
-  localField: "_id",
-  foreignField: "companyInfo.companyId",
-  count: true,
-});
-
-// Виртуальное поле lastOrder
-companySchema.virtual("lastOrder", {
-  ref: "Order",
-  localField: "_id",
-  foreignField: "companyInfo.companyId",
-  justOne: true,
-  options: { sort: { createdAt: -1 } },
-});
-
-export default model<ICompanyDocument, CompanyModelType>(
-  "Company",
-  companySchema,
-);
+// === Тип документа с методами ===
+export type CompanyDocument = HydratedDocument<ICompany, ICompanyMethods>;
