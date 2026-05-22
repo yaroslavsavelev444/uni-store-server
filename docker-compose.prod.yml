@@ -16,7 +16,7 @@ services:
       mongo1:
         condition: service_healthy
       admin-init:
-        condition: service_completed_successfully
+        condition: service_completed_successfully 
     env_file:
       - .env
     networks:
@@ -175,3 +175,5 @@ volumes:
   mongo3_data:
   uploads_data:
   logs_data:
+
+   # Исправный готовый файл
