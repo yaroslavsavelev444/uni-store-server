@@ -47,9 +47,13 @@ const instructionLinkSchema = Joi.object({
 });
 
 const instructionSchema = Joi.alternatives()
-  .try(instructionFileSchema, instructionLinkSchema)
+  .try(
+    instructionFileSchema,
+    instructionLinkSchema,
+    Joi.object().length(0), // пустой объект
+    Joi.valid(null, {}),
+  )
   .optional()
-  .allow(null)
   .default(null);
 
 const productStatusValues = Object.values(ProductStatus) as ProductStatusType[];
@@ -315,6 +319,14 @@ export function validateProductWithLogging<T = unknown>(
 export const validateProduct = (schema: Joi.ObjectSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const data = { ...req.body, ...req.query, ...req.params };
+    // === ЗАЩИТА ОТ ПУСТОГО instruction ===
+    if (
+      data.instruction &&
+      typeof data.instruction === "object" &&
+      Object.keys(data.instruction).length === 0
+    ) {
+      delete data.instruction; // считаем, что поле не меняется
+    }
 
     const { error, value } = validateProductWithLogging(
       schema,
