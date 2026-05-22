@@ -1,36 +1,20 @@
-# ---------- BUILD STAGE ----------
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Нативные сборки
-RUN apk add --no-cache python3 make g++ libc6-compat
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-# ---------- PRODUCTION STAGE ----------
+# Используем официальный Node.js образ (алпайн для легкости)
 FROM node:20-alpine
 
+# Устанавливаем рабочую директорию в контейнере
 WORKDIR /app
 
-RUN apk add --no-cache curl
-
+# Копируем package.json и package-lock.json для установки зависимостей
 COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
-# Копируем собранный код
-COPY --from=builder /app/dist ./dist
+# Устанавливаем только production-зависимости
+RUN npm install --only=production
 
-# Если есть статические шаблоны/email и т.д.
-COPY --from=builder /app/src/emailTemplates ./dist/src/emailTemplates  
+# Копируем весь код сервера
+COPY . .
 
+# Открываем порт, который используется сервером
 EXPOSE 3003
 
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=15s \
-  CMD curl -f http://localhost:3003/health || exit 1
-
-CMD ["node", "dist/index.js"]
+# Запуск сервера
+CMD ["npm", "start"]

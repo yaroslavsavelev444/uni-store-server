@@ -1,28 +1,37 @@
 {{#extend "baseLayout" title="Заказ готов к выдаче"}}
   {{#content "body"}}
+
     <tr>
-      <td
-        style="padding: 24px; font-size: 14px; color: #1E1E1E; line-height: 1.5;"
-      >
-        <h2 style="margin: 0 0 16px; font-size: 18px; font-weight: 600;">
+      <td style="
+        padding: 24px;
+        font-size: 14px;
+        color: #1E1E1E;
+        line-height: 1.5;
+      ">
+
+        <h2 style="
+          margin: 0 0 16px;
+          font-size: 18px;
+          font-weight: 600;
+        ">
           Заказ готов к выдаче
         </h2>
+
         <p style="margin: 0 0 16px;">
-          Заказ №{{order.orderNumber}}
-          готов к выдаче.
+          Заказ №{{orderNumber}} готов к выдаче.
         </p>
+
       </td>
     </tr>
 
     <!-- Пункт выдачи -->
     <tr>
       <td style="padding: 0 24px 24px 24px;">
-        <table
-          width="100%"
-          cellpadding="0"
-          cellspacing="0"
+
+        <table width="100%" cellpadding="0" cellspacing="0"
           style="border: 1px solid #e5e5e5; border-radius: 6px;"
         >
+
           <tr>
             <td style="padding: 12px; font-size: 13px; color: #666;">
               Пункт выдачи
@@ -31,6 +40,7 @@
               {{pickupPoint.name}}
             </td>
           </tr>
+
           <tr>
             <td style="padding: 12px; font-size: 13px; color: #666;">
               Адрес
@@ -39,6 +49,7 @@
               {{pickupPoint.address}}
             </td>
           </tr>
+
           <tr>
             <td style="padding: 12px; font-size: 13px; color: #666;">
               Часы работы
@@ -47,14 +58,21 @@
               {{pickupPoint.hours}}
             </td>
           </tr>
+
         </table>
+
       </td>
     </tr>
 
     <tr>
-      <td style="padding: 16px 24px 24px 24px; font-size: 13px; color: #666;">
+      <td style="
+        padding: 16px 24px 24px 24px;
+        font-size: 13px;
+        color: #666;
+      ">
         Получение заказа возможно в часы работы пункта выдачи.
       </td>
     </tr>
+
   {{/content}}
 {{/extend}}

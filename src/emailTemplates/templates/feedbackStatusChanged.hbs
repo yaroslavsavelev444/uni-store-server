@@ -1,85 +1,72 @@
 {{#extend "baseLayout" title="Обновление статуса фидбека"}}
   {{#content "body"}}
-    <table width="100%" cellpadding="0" cellspacing="0" border="0">
-      <tr>
-        <td
-          style="padding: 28px; font-family: Arial, sans-serif; background-color: #1A1D24; border-radius: 10px; color: #ffffff;"
-        >
+    <tr>
+      <td style="
+        padding: 28px;
+        font-family: Arial, sans-serif;
+        background-color: #1A1D24;
+        border-radius: 10px;
+        color: #ffffff;
+      ">
 
-          <h2
-            style="font-size: 20px; margin: 0 0 14px 0; color: #FF4500; font-weight: 600;"
-          >
-            Статус обращения обновлён
-          </h2>
+        <h2 style="
+          font-size: 20px;
+          margin: 0 0 14px 0;
+          color: #FF4500;
+          font-weight: 600;
+        ">
+          Статус фидбека обновлён
+        </h2>
 
-          <p
-            style="font-size: 14px; margin: 0 0 18px 0; color: #d1d5db; line-height: 1.5;"
-          >
-            {{userName}}, статус вашего обращения был изменён.
-          </p>
+        <p style="
+          font-size: 14px;
+          margin: 0 0 18px 0;
+          color: #d1d5db;
+          line-height: 1.5;
+        ">
+          {{userName}}, статус вашего обращения был изменён.
+        </p>
 
-          <table
-            style="width: 100%; font-size: 14px; color: #e5e7eb; border-collapse: collapse; margin-bottom: 18px;"
-          >
-            <tr>
-              <td style="padding: 6px 0; width: 40%; color: #9ca3af;">ID
-                обращения</td>
-              <td style="padding: 6px 0;">
-                <a
-                  href="{{feedbackUrl}}"
-                  style="color: #FF4500; text-decoration: none;"
-                >{{feedbackId}}</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #9ca3af;">Название</td>
-              <td style="padding: 6px 0;">{{title}}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #9ca3af;">Старый статус</td>
-              <td style="padding: 6px 0;">{{oldStatus}}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #9ca3af;">Новый статус</td>
-              <td
-                style="padding: 6px 0; color: #FF4500; font-weight: 600;"
-              >{{newStatus}}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #9ca3af;">Дата обновления</td>
-              <td style="padding: 6px 0;">{{updatedAt}}</td>
-            </tr>
-          </table>
+        <table style="
+          width: 100%;
+          font-size: 14px;
+          color: #e5e7eb;
+          border-collapse: collapse;
+          margin-bottom: 18px;
+        ">
+          <tr>
+            <td style="padding: 6px 0; width: 40%; color: #9ca3af;">ID</td>
+            <td style="padding: 6px 0;">{{feedbackId}}</td>
+          </tr>
 
-          {{#if comment}}
-            <div
-              style="background-color: #111318; padding: 16px; border-radius: 8px; margin-bottom: 18px;"
-            >
-              <div
-                style="font-size: 12px; color: #9ca3af; margin-bottom: 8px;"
-              >Комментарий администратора</div>
-              <div
-                style="font-size: 14px; color: #e5e7eb; line-height: 1.6;"
-              >{{comment}}</div>
-            </div>
-          {{/if}}
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Старый статус</td>
+            <td style="padding: 6px 0;">{{oldStatus}}</td>
+          </tr>
 
-          <div style="margin: 20px 0; text-align: center;">
-            <a
-              href="{{feedbackUrl}}"
-              style="display: inline-block; background-color: #FF4500; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;"
-            >Перейти к обращению</a>
-          </div>
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Новый статус</td>
+            <td style="padding: 6px 0; color: #FF4500; font-weight: 600;">
+              {{newStatus}}
+            </td>
+          </tr>
 
-          <div
-            style="font-size: 12px; color: #9ca3af; border-top: 1px solid #2a2f3a; padding-top: 14px;"
-          >
-            Уведомление отправлено автоматически. Ответ на это письмо не
-            требуется.
-          </div>
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Дата обновления</td>
+            <td style="padding: 6px 0;">{{updatedAt}}</td>
+          </tr>
+        </table>
 
-        </td>
-      </tr>
-    </table>
+        <div style="
+          font-size: 12px;
+          color: #9ca3af;
+          border-top: 1px solid #2a2f3a;
+          padding-top: 14px;
+        ">
+          Уведомление отправлено автоматически. Ответ на это письмо не требуется.
+        </div>
+
+      </td>
+    </tr>
   {{/content}}
 {{/extend}}

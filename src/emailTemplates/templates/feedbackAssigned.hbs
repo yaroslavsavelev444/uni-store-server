@@ -1,72 +1,49 @@
 {{#extend "baseLayout" title="Назначен фидбек"}}
   {{#content "body"}}
-    <table width="100%" cellpadding="0" cellspacing="0" border="0">
-      <tr>
-        <td style="padding: 28px; font-family: Arial, sans-serif; background-color: #1A1D24; border-radius: 10px; color: #ffffff;">
-          
-          <h2 style="font-size: 20px; margin: 0 0 14px 0; color: #FF4500; font-weight: 600;">
-            Вам назначен фидбек
-          </h2>
+    <tr>
+      <td style="padding: 28px; font-family: Arial, sans-serif; background-color: #1A1D24; border-radius: 8px;">
 
-          <p style="font-size: 14px; margin: 0 0 18px 0; color: #d1d5db; line-height: 1.5;">
-            Здравствуйте, <strong>{{assignedToName}}</strong>!<br>
-            Администратор <strong>{{assignedByName}}</strong>{{#if assignedByEmail}} ({{assignedByEmail}}){{/if}} назначил вам фидбек для обработки.
-          </p>
+        <h2 style="color: #FF4500; font-size: 20px; margin-bottom: 16px;">
+          Назначен новый фидбек
+        </h2>
 
-          <table style="width: 100%; font-size: 14px; color: #e5e7eb; border-collapse: collapse; margin-bottom: 24px;">
-            <tr>
-              <td style="padding: 6px 0; width: 40%; color: #9ca3af;">ID обращения</td>
-              <td style="padding: 6px 0;">
-                <a href="{{feedbackUrl}}" style="color: #FF4500; text-decoration: none;">{{feedbackId}}</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #9ca3af;">Название</td>
-              <td style="padding: 6px 0;">{{title}}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #9ca3af;">Тип</td>
-              <td style="padding: 6px 0;">{{type}}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #9ca3af;">Приоритет</td>
-              <td style="padding: 6px 0;">
-                <span style="
-                  display: inline-block;
-                  padding: 2px 8px;
-                  border-radius: 12px;
-                  font-size: 12px;
-                  font-weight: bold;
-                  background-color: 
-                    {{#eq priority "critical"}}#7a1f1f{{/eq}}
-                    {{#eq priority "high"}}#b75a1f{{/eq}}
-                    {{#eq priority "medium"}}#2b6e3c{{/eq}}
-                    {{#eq priority "low"}}#2c5f7a{{/eq}}
-                  color: #fff;
-                ">{{priority}}</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #9ca3af;">Дата создания</td>
-              <td style="padding: 6px 0;">{{createdAt}}</td>
-            </tr>
-          </table>
+        <p style="color: #e6e6e6; font-size: 14px; margin-bottom: 20px;">
+          {{userName}}, вам назначен фидбек для обработки.
+        </p>
 
-          <div style="background-color: #111318; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-            <div style="font-size: 12px; color: #9ca3af; margin-bottom: 8px;">Описание</div>
-            <div style="font-size: 14px; color: #e5e7eb; line-height: 1.6; white-space: pre-wrap;">{{description}}</div>
-          </div>
+        <table style="width: 100%; font-size: 14px; color: #d1d1d1; margin-bottom: 24px; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 6px 0; width: 180px; color: #9aa0a6;">Название</td>
+            <td style="padding: 6px 0;">{{title}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #9aa0a6;">Тип</td>
+            <td style="padding: 6px 0;">{{type}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #9aa0a6;">Приоритет</td>
+            <td style="padding: 6px 0;">{{priority}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #9aa0a6;">Описание</td>
+            <td style="padding: 6px 0;">{{description}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #9aa0a6;">Дата создания</td>
+            <td style="padding: 6px 0;">{{createdAt}}</td>
+          </tr>
+        </table>
 
-          <div style="margin: 20px 0; text-align: center;">
-            <a href="{{feedbackUrl}}" style="display: inline-block; background-color: #FF4500; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">Перейти к фидбеку</a>
-          </div>
+        <a href="https://yourdomain.com/user/feedback/{{feedbackId}}"
+           style="display:inline-block; padding:10px 14px; background:#FF4500; color:#fff; text-decoration:none; border-radius:6px; font-size:13px;">
+          Открыть фидбек
+        </a>
 
-          <div style="font-size: 12px; color: #9ca3af; border-top: 1px solid #2a2f3a; padding-top: 14px;">
-            Это системное уведомление. Ответ на него не требуется.
-          </div>
+        <p style="margin-top: 24px; font-size: 12px; color: #777;">
+          Это системное уведомление. Отвечать на него не требуется.
+        </p>
 
-        </td>
-      </tr>
-    </table>
+      </td>
+    </tr>
   {{/content}}
 {{/extend}}
