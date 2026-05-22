@@ -144,7 +144,7 @@ services:
         condition: service_healthy
     networks:
       - backend
-    command: sh -c "node dist/src/scripts/init-replica.js"
+    command: sh -c "node dist/init-replica.js"
     healthcheck:
       disable: true
     restart: "no"  
