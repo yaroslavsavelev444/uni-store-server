@@ -45,6 +45,36 @@ async function waitForMongo(timeoutMs = 120_000): Promise<void> {
   }
 }
 
+async function waitForAllMembers(
+  members: ReplMemberConfig[],
+  timeoutMs = 120_000,
+): Promise<void> {
+  const start = Date.now();
+  const memberHosts = members.map((m) => m.host);
+
+  while (Date.now() - start < timeoutMs) {
+    let allReady = true;
+    for (const host of memberHosts) {
+      const client = new MongoClient(`mongodb://${host}`);
+      try {
+        await client.connect();
+        await client.db().admin().ping();
+        await client.close();
+      } catch {
+        console.warn(`⏳ Member ${host} not ready yet`);
+        allReady = false;
+        break;
+      }
+    }
+    if (allReady) {
+      console.log("✅ All replica set members are ready");
+      return;
+    }
+    await sleep(3000);
+  }
+  throw new Error("Not all members ready within timeout");
+}
+
 async function waitForPrimary(
   client: MongoClient,
   timeoutMs = 60_000,
@@ -52,7 +82,6 @@ async function waitForPrimary(
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
-    // Исправлено: убираем generic, используем as
     const status = (await client
       .db("admin")
       .command({ replSetGetStatus: 1 })) as { members: ReplMember[] };
@@ -80,10 +109,7 @@ async function initReplicaSet(): Promise<void> {
     const adminDb = client.db("admin");
 
     try {
-      // Исправлено: убираем generic, используем as
-      await (adminDb.command({ replSetGetStatus: 1 }) as Promise<{
-        set: string;
-      }>);
+      await adminDb.command({ replSetGetStatus: 1 });
       console.log("✅ Replica set already initialized");
       return;
     } catch (err: unknown) {
@@ -97,6 +123,9 @@ async function initReplicaSet(): Promise<void> {
       }
       console.log("ℹ️ Replica set not initialized, proceeding...");
     }
+
+    console.log("⏳ Waiting for all members to be reachable...");
+    // await waitForAllMembers(REPLICA_SET_MEMBERS);
 
     console.log("🚀 Initializing replica set...");
 
