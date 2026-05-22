@@ -86,8 +86,8 @@ export const createProductSchema = Joi.object({
 
   showOnMainPage: Joi.boolean().default(false),
 
-  images: Joi.array().items(imageSchema).max(20).optional().default([]),
-
+  images: Joi.array().items(Joi.string()).max(20).optional().default([]),
+  removedImageIds: Joi.array().items(Joi.string()).optional().default([]),
   instruction: instructionSchema,
 
   specifications: Joi.array()
@@ -302,50 +302,7 @@ export function validateProductWithLogging<T = any>(
 // Middleware для валидации с логированием
 export const validateProduct = (schema: Joi.ObjectSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    console.log(`[VALIDATOR MIDDLEWARE] Запрос ${req.method} ${req.path}`);
-    console.log(
-      `[VALIDATOR MIDDLEWARE] Content-Type: ${req.headers["content-type"]}`,
-    );
-    console.log(`[VALIDATOR MIDDLEWARE] Headers:`, {
-      "content-type": req.headers["content-type"],
-      "content-length": req.headers["content-length"],
-    });
-
     const data = { ...req.body, ...req.query, ...req.params };
-
-    console.log(`[VALIDATOR MIDDLEWARE] Тип запроса: ${req.method}`);
-    console.log(`[VALIDATOR MIDDLEWARE] Источник данных:`, {
-      body: Object.keys(req.body || {}),
-      query: Object.keys(req.query || {}),
-      params: Object.keys(req.params || {}),
-    });
-
-    if ((req.body as any)?.images) {
-      console.log(`[VALIDATOR MIDDLEWARE] Изображения в запросе:`, {
-        count: (req.body as any).images.length,
-        firstImage: (req.body as any).images[0]
-          ? {
-              url: (req.body as any).images[0].url
-                ? `${(req.body as any).images[0].url.substring(0, 100)}...`
-                : "нет URL",
-              alt: (req.body as any).images[0].alt || "нет alt",
-              _shouldDelete: (req.body as any).images[0]._shouldDelete || false,
-            }
-          : "нет изображений",
-        allImages: (req.body as any).images.map((img: any, idx: number) => ({
-          index: idx,
-          url: img.url ? `${img.url.substring(0, 50)}...` : "нет URL",
-          shouldDelete: img._shouldDelete || false,
-        })),
-      });
-    }
-
-    if ((req.body as any)?.specifications) {
-      console.log(`[VALIDATOR MIDDLEWARE] Спецификации в запросе:`, {
-        count: (req.body as any).specifications.length,
-        firstSpec: (req.body as any).specifications[0] || "нет",
-      });
-    }
 
     const { error, value } = validateProductWithLogging(
       schema,
@@ -355,12 +312,6 @@ export const validateProduct = (schema: Joi.ObjectSchema) => {
 
     if (error) {
       const errorMessages = error.details.map((detail) => detail.message);
-      console.error(`[VALIDATOR MIDDLEWARE] Возвращаем ошибку клиенту:`, {
-        status: 400,
-        errors: errorMessages,
-        path: req.path,
-        method: req.method,
-      });
       res.status(400).json({
         success: false,
         message: "Ошибка валидации данных",
@@ -375,9 +326,6 @@ export const validateProduct = (schema: Joi.ObjectSchema) => {
     }
 
     req.validatedData = value;
-    console.log(
-      `[VALIDATOR MIDDLEWARE] Данные успешно валидированы, переходим к следующему middleware`,
-    );
     next();
   };
 };

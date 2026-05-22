@@ -154,12 +154,9 @@ const OrderSchema = new Schema<IOrder, IOrderModel, IOrderMethods>(
 
     attachments: [
       {
-        name: String,
-        path: String,
-        size: Number,
-        mimeType: String,
-        uploadedAt: { type: Date, default: Date.now },
-        uploadedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        type: String,
+        ref: "File",
+        default: [],
       },
     ],
 

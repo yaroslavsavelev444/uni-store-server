@@ -1,5 +1,10 @@
 import type { HydratedDocument, Model, Types } from "mongoose";
 
+export enum UserSecurityStatus {
+  Pending = "pending",
+  Verified = "verified",
+}
+
 // === Базовые поля, сохраняемые в БД ===
 export interface IUserSecurity {
   userId: Types.ObjectId;
@@ -9,7 +14,7 @@ export interface IUserSecurity {
   resetTokenExpiration?: Date | null;
   resetTokenHash?: string | null;
   resetTokenAttempts?: number;
-  resetTokenStatus: string;
+  resetTokenStatus: UserSecurityStatus;
   createdAt?: Date;
   updatedAt?: Date;
 }

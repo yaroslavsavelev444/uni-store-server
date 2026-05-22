@@ -1,3 +1,4 @@
+import type { W } from "mongodb";
 import { Connection } from "mongoose";
 
 export interface CollectionInfo {
@@ -8,6 +9,10 @@ export interface CollectionInfo {
 export interface MongoConnectionOptions {
   serverSelectionTimeoutMS: number;
   socketTimeoutMS: number;
+  connectTimeoutMS: number;
+  heartbeatFrequencyMS: number;
+  retryWrites: true;
+  w: W;
 }
 
 export interface MongoError extends Error {

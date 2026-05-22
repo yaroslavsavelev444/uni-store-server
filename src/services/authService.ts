@@ -12,7 +12,10 @@ import {
 import taskQueues from "../queues/taskQueues.js";
 import redisClient from "../redis/redis.client.js";
 import type { IUser, UserDocument } from "../types/user.types.js";
-import type { IUserSecurity } from "../types/userSecurity.types.js";
+import {
+  type IUserSecurity,
+  UserSecurityStatus,
+} from "../types/userSecurity.types.js";
 import type { IUserSession } from "../types/userSession.types.js";
 import { registerSchema } from "../validators/user.validator.js";
 import faService from "./2faService.js";
@@ -117,7 +120,7 @@ export const logout = async (
 
     session.revoked = true;
     await session.save();
-    return { logout: true, success: true };
+    return { logout: true };
   } catch (error) {
     logger.error(`[LOGOUT] ${(error as Error).message}`);
     if (error instanceof ApiError) throw error;
@@ -296,7 +299,12 @@ export const refreshService = async (
     }
 
     const userDto = new UserDTO(user.toObject());
-    const tokens = generateToken({ ...userDto });
+    //гарантируем id - string
+    const readyUserDto = {
+      ...userDto,
+      id: String(userDto.id),
+    };
+    const tokens = generateToken({ ...readyUserDto });
 
     if (!tokens.refreshToken) {
       throw ApiError.InternalServerError(
@@ -499,7 +507,7 @@ export const checkService = async (
 
   const userDto = new UserDTO(user);
   const { accessToken: newAccess } = generateToken(
-    { ...userDto },
+    { ...userDto, id: String(userDto.id) },
     { onlyAccess: true },
   );
   return {
@@ -536,7 +544,10 @@ export const completePasswordReset = async (
       { userId },
       {
         $unset: { resetTokenHash: "", resetTokenExpiration: "" },
-        $set: { resetTokenStatus: "completed", updatedAt: new Date() },
+        $set: {
+          resetTokenStatus: UserSecurityStatus.Verified,
+          updatedAt: new Date(),
+        },
       },
     ),
   ]);
@@ -566,7 +577,10 @@ export const verifyPasswordResetCode = async (
   }
 
   const { user } = await verify2FACodeOnly(userData._id.toString(), code);
-  const signedToken = await generatePasswordResetToken(user.id, "pending");
+  const signedToken = await generatePasswordResetToken(
+    user.id.toString(),
+    UserSecurityStatus.Pending,
+  );
   await sendPushNotification({
     userId: user.id.toString(),
     title: "Зафиксирована попытка восстановления пароля",

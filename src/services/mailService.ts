@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import type { SendMailOptions, Transporter } from "nodemailer";
 import { createTransport } from "nodemailer";
-import { escapeHtml } from "xss";
 import renderTemplate from "../emailTemplates/renderer.js";
 import ApiError from "../exceptions/api-error.js";
 import type {
@@ -60,7 +59,7 @@ export interface EmailDataMap {
   newFeedback: NewFeedbackEmailData;
   feedbackStatusChanged: FeedbackStatusChangedData;
   feedbackAssigned: FeedbackAssignedData;
-  orderCancelledByUser: EmailOrderData;
+  orderCancelledByUser: OrderCancelledByUserData;
   resetPasswordCompleted: ResetPasswordCompletedData;
 }
 
@@ -293,13 +292,17 @@ function generateEmailContent<T extends EmailType>(
       };
     }
 
+    // src/services/mail.service.ts
     case "orderReadyForPickup": {
       const d = data as OrderReadyForPickupData;
+      const { order, pickupPoint } = d;
+
       return {
-        subject: `Заказ №${d.orderNumber} готов к выдаче`,
-        text: `Заказ №${d.orderNumber} готов к выдаче.\n\nПункт выдачи: ${d.pickupPoint.name}\nАдрес: ${d.pickupPoint.address}\nЧасы работы: ${d.pickupPoint.hours}\n\n${COMPANY_NAME}`,
+        subject: `Заказ №${order.orderNumber} готов к выдаче`,
+        text: `Заказ №${order.orderNumber} готов к выдаче.\n\nПункт выдачи: ${pickupPoint.name}\nАдрес: ${pickupPoint.address}\nЧасы работы: ${pickupPoint.hours}\n\n${COMPANY_NAME}`,
         html: renderTemplate("orderReadyForPickup", {
-          ...d,
+          order,
+          pickupPoint,
           companyName: COMPANY_NAME,
         }),
       };
@@ -421,10 +424,17 @@ function generateEmailContent<T extends EmailType>(
         )
         .join("\n");
 
-      const cancelledByText =
-        cancellation.cancelledBy === "user"
-          ? "пользователь"
-          : cancellation.cancelledBy || "пользователь";
+      // Определяем текст инициатора по роли
+      let cancelledByText = "неизвестно";
+      if (cancellation.cancelledByRole === "user") {
+        cancelledByText = "пользователь";
+      } else if (cancellation.cancelledByRole === "admin") {
+        cancelledByText = "администратор";
+      } else if (cancellation.cancelledByRole === "system") {
+        cancelledByText = "система";
+      } else {
+        cancelledByText = cancellation.cancelledBy || "пользователь";
+      }
 
       return {
         subject: `Заказ №${order.orderNumber} отменен`,
@@ -446,7 +456,11 @@ ${itemsList}
           orderId: order.id,
           items: order.items,
           pricing: order.pricing,
-          cancellation: cancellation,
+          cancellation: {
+            reason: cancellation.reason,
+            cancelledByText, // передаём готовый текст
+            cancelledAt: cancellation.cancelledAt,
+          },
         }),
       };
     }

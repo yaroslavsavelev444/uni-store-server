@@ -6,8 +6,7 @@ import wishlistController from "../controllers/wishlistController.js";
 import authMiddleware from "../middlewares/auth-middleware.js";
 import wishlistValidators from "../validators/wishlist.validator.js";
 
-// Все роуты требуют авторизации
-router.use(authMiddleware.requireAuth);
+router.use(authMiddleware.requireAuth());
 
 // Основные операции с избранным
 router.get("/", wishlistController.getWishlist as any); // Получить все товары из избранного

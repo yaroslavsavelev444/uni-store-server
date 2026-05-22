@@ -1,15 +1,13 @@
-// types/content-block-controller.ts
+import type { Request } from "express";
 import type { AuthRequest } from "../auth.js";
 import type { IContentBlockDocument } from "../contentBlock.types.js";
 
-// Единый формат ответа
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
 }
 
-// Параметры маршрута
 export interface IdParam {
   id: string;
 }
@@ -18,12 +16,10 @@ export interface TagParam {
   tag: string;
 }
 
-// Query для getAll
 export interface GetAllQuery {
-  includeInactive?: string; // 'true' | 'false'
+  includeInactive?: string;
 }
 
-// Тело запроса для создания блока
 export interface CreateBlockBody {
   title: string;
   subtitle?: string;
@@ -36,35 +32,49 @@ export interface CreateBlockBody {
   metadata?: Record<string, unknown>;
 }
 
-// Тело запроса для обновления блока (все поля частичные)
 export interface UpdateBlockBody extends Partial<CreateBlockBody> {
   tempImagePath?: string | null;
 }
 
-// Тело для toggleActive
 export interface ToggleActiveBody {
   isActive: boolean;
 }
 
-// Типизированные запросы (все требуют авторизации)
-export type GetAllReq = AuthRequest<
+// Публичные методы (без авторизации) – обычный Request
+export type GetAllReq = Request<
   {},
   ApiResponse<IContentBlockDocument[]>,
   {},
   GetAllQuery
 >;
-export type GetByIdReq = AuthRequest<
+export type GetByIdReq = Request<
   IdParam,
   ApiResponse<IContentBlockDocument>,
   {},
   {}
 >;
-export type GetByTagReq = AuthRequest<
+export type GetByTagReq = Request<
   TagParam,
   ApiResponse<IContentBlockDocument[]>,
   {},
   {}
 >;
+export type GetStatsReq = Request<
+  {},
+  ApiResponse<{
+    total: number;
+    active: number;
+    inactive: number;
+    withImages: number;
+    withButtons: number;
+    withoutImages: number;
+    withoutButtons: number;
+  }>,
+  {},
+  {}
+>;
+
+// Административные методы (требуют user)
 export type CreateReq = AuthRequest<
   {},
   ApiResponse<IContentBlockDocument>,
@@ -82,19 +92,5 @@ export type ToggleActiveReq = AuthRequest<
   IdParam,
   ApiResponse<IContentBlockDocument>,
   ToggleActiveBody,
-  {}
->;
-export type GetStatsReq = AuthRequest<
-  {},
-  ApiResponse<{
-    total: number;
-    active: number;
-    inactive: number;
-    withImages: number;
-    withButtons: number;
-    withoutImages: number;
-    withoutButtons: number;
-  }>,
-  {},
   {}
 >;

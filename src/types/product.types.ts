@@ -1,17 +1,15 @@
-import type { HydratedDocument, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, PopulatedDoc, Types } from "mongoose";
+import type { FileDocument, IFile } from "./file.types.js";
 
-// Статусы товара
 export const ProductStatus = {
   AVAILABLE: "available",
   UNAVAILABLE: "unavailable",
   PREORDER: "preorder",
   ARCHIVED: "archived",
 } as const;
-
 export type ProductStatusType =
   (typeof ProductStatus)[keyof typeof ProductStatus];
 
-// === Вложенные структуры ===
 export interface IDiscount {
   isActive?: boolean;
   percentage?: number;
@@ -21,25 +19,16 @@ export interface IDiscount {
   minQuantity?: number;
 }
 
-export interface IProductImage {
-  url: string;
-  alt?: string;
-  order?: number;
-}
-
+// Новая структура инструкции — без лишних полей
 export interface IInstruction {
-  type?: "file" | "link";
-  url?: string;
-  originalName?: string;
-  size?: number;
-  title?: string;
-  alt?: string;
-  mimetype?: string;
+  type: "file" | "link";
+  file?: Types.ObjectId | FileDocument | null;
+  link?: string;
 }
 
 export interface ISpecification {
   name: string;
-  value: any; // Schema.Types.Mixed
+  value: any;
   unit?: string;
   group?: string;
   isVisible?: boolean;
@@ -51,7 +40,6 @@ export interface IDimensions {
   height?: number;
 }
 
-// === Базовые поля, сохраняемые в БД (без виртуалов) ===
 export interface IProduct {
   _id: Types.ObjectId;
   sku: string;
@@ -65,9 +53,9 @@ export interface IProduct {
   category: Types.ObjectId;
   isVisible: boolean;
   showOnMainPage: boolean;
-  mainImage?: string;
-  images?: IProductImage[];
-  instruction?: IInstruction;
+  // mainImage удалён
+  images?: string[] | PopulatedDoc<IFile>[] | null; // теперь может быть populate
+  instruction?: string | PopulatedDoc<IFile> | null; // теперь может быть populate
   specifications?: ISpecification[];
   customAttributes?: Record<string, any>;
   relatedProducts?: Types.ObjectId[];
@@ -90,7 +78,6 @@ export interface IProduct {
   updatedAt?: Date;
 }
 
-// === Методы экземпляра ===
 export interface IProductMethods {
   incrementViews(): Promise<ProductDocument>;
   incrementPurchases(quantity?: number): Promise<ProductDocument>;
@@ -98,10 +85,8 @@ export interface IProductMethods {
   toJSON(): any;
 }
 
-// === Статические методы модели ===
 export interface IProductModel extends Model<IProduct, {}, IProductMethods> {
   findAvailable(): Promise<ProductDocument[]>;
-  findWithUrls(...args: any[]): Promise<ProductDocument[]>;
   findOneWithUrl(...args: any[]): Promise<ProductDocument | null>;
   findWithProcessedUrls(...args: any[]): Promise<ProductDocument[]>;
   findOneWithProcessedUrls(...args: any[]): Promise<ProductDocument | null>;
@@ -111,5 +96,4 @@ export interface IProductModel extends Model<IProduct, {}, IProductMethods> {
   ): Promise<ProductDocument | null>;
 }
 
-// === Тип документа с методами ===
 export type ProductDocument = HydratedDocument<IProduct, IProductMethods>;

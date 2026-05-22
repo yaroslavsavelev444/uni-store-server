@@ -1,4 +1,12 @@
-import { model, Schema, Types } from "mongoose";
+/** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
+import {
+  type FilterQuery,
+  model,
+  type ProjectionType,
+  type QueryOptions,
+  Schema,
+  Types,
+} from "mongoose";
 import {
   type IProduct,
   type IProductMethods,
@@ -10,84 +18,25 @@ import fileService from "../utils/fileManager.js";
 
 const ProductStatusValues = Object.values(ProductStatus);
 
-// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
-const shouldProcessUrl = (url: unknown): url is string => {
-  if (typeof url !== "string") return false;
-  if (
-    url.startsWith("http://") ||
-    url.startsWith("https://") ||
-    url.startsWith("data:")
-  )
-    return false;
-  return url.startsWith("/uploads/");
-};
-
-const generateAndAddUrl = (productObj: any) => {
-  if (!productObj.sku) return;
-  let categorySlug = "";
-  if (productObj.category) {
-    if (typeof productObj.category === "object" && productObj.category.slug) {
-      categorySlug = productObj.category.slug;
-    }
-  }
-  if (categorySlug) {
-    const BASE_URL = "https://npo-polet.ru";
-    productObj.url = `${BASE_URL}/categories/${categorySlug}/products/${productObj.sku}`;
-    productObj.productUrl = `/categories/${categorySlug}/products/${productObj.sku}`;
-  } else {
-    productObj.url = null;
-  }
-};
-
 const processProductDocument = (doc: any) => {
   if (!doc || typeof doc !== "object") return doc;
-
-  if (doc.mainImage && shouldProcessUrl(doc.mainImage)) {
-    doc.mainImage = fileService.getFileUrl(doc.mainImage);
-  }
-  if (doc.images && Array.isArray(doc.images)) {
-    doc.images = doc.images.map((image: any) => {
-      if (image?.url && shouldProcessUrl(image.url)) {
-        return { ...image, url: fileService.getFileUrl(image.url) };
-      }
-      return image;
-    });
-  }
-  if (doc.instruction?.url && shouldProcessUrl(doc.instruction.url)) {
+  // Обработка instruction для ссылки
+  else if (
+    doc.instruction &&
+    doc.instruction.type === "link" &&
+    doc.instruction.link
+  ) {
     doc.instruction = {
-      ...doc.instruction,
-      url: fileService.getFileUrl(doc.instruction.url),
+      type: "link",
+      url: doc.instruction.link,
+      link: doc.instruction.link,
     };
   }
-  if (doc.specifications && Array.isArray(doc.specifications)) {
-    doc.specifications = doc.specifications.map((spec: any) => {
-      if (
-        spec.value &&
-        typeof spec.value === "string" &&
-        shouldProcessUrl(spec.value)
-      ) {
-        return { ...spec, value: fileService.getFileUrl(spec.value) };
-      }
-      return spec;
-    });
-  }
-  if (doc.sku) {
-    if (
-      !doc.url &&
-      doc.category &&
-      typeof doc.category === "object" &&
-      doc.category.slug
-    ) {
-      const BASE_URL = "https://npo-polet.ru";
-      doc.url = `${BASE_URL}/categories/${doc.category.slug}/products/${doc.sku}`;
-    } else if (!doc.url && doc.category && doc.sku) {
-      doc.url = null;
-    }
-  }
+
   return doc;
 };
 
-// ========== СХЕМА (три дженерика) ==========
+// ========== СХЕМА ==========
 const ProductSchema = new Schema<IProduct, IProductModel, IProductMethods>(
   {
     sku: {
@@ -119,7 +68,7 @@ const ProductSchema = new Schema<IProduct, IProductModel, IProductMethods>(
       type: Number,
       required: [true, "Цена для физ. лиц обязательна"],
       min: [0, "Цена не может быть отрицательной"],
-      max: [100000000, "Цена не может превышать 1 000 000 00"],
+      max: [100000000, "Цена не может превышать 100 000 000"],
     },
     discount: {
       isActive: { type: Boolean, default: false },
@@ -160,68 +109,33 @@ const ProductSchema = new Schema<IProduct, IProductModel, IProductMethods>(
     },
     isVisible: { type: Boolean, default: true, index: true },
     showOnMainPage: { type: Boolean, default: false, index: true },
-    mainImage: {
-      type: String,
-      validate: {
-        validator: (v: string) =>
-          !v || /^(\/uploads\/products\/images\/|https?:\/\/)/.test(v),
-        message: "Некорректный формат основного изображения",
-      },
+
+    // images – массив ссылок на File
+    images: {
+      type: [String],
+      ref: "File",
+      default: [],
     },
-    images: [
-      {
-        url: {
-          type: String,
-          required: true,
-          validate: {
-            validator: (v: string) =>
-              /^(\/uploads\/products\/images\/|https?:\/\/)/.test(v),
-            message: "Некорректный формат изображения",
-          },
-        },
-        alt: { type: String, maxlength: 255 },
-        order: { type: Number, default: 0, min: 0 },
-      },
-    ],
+    // instruction – упрощённая структура
     instruction: {
       type: {
         type: String,
         enum: ["file", "link"],
       },
-      url: {
+      file: {
+        type: Schema.Types.ObjectId,
+        ref: "File",
+        default: null,
+      },
+      link: {
         type: String,
         validate: {
-          validator: function (this: IProduct, v: string) {
-            if (!this.instruction?.type) return true;
-            if (this.instruction.type === "file") {
-              return /^(\/uploads\/products\/instructions\/|https?:\/\/)/.test(
-                v,
-              );
-            } else if (this.instruction.type === "link") {
-              try {
-                new URL(v);
-                return true;
-              } catch {
-                return false;
-              }
-            }
-            return true;
-          },
-          message: function (this: IProduct) {
-            const instructionType = this.instruction?.type;
-            if (instructionType === "file")
-              return "Некорректный формат файла инструкции";
-            if (instructionType === "link") return "Некорректный формат ссылки";
-            return "Некорректный формат инструкции";
-          },
+          validator: (v: string) => !v || /^https?:\/\//.test(v),
+          message: "Неверный формат ссылки",
         },
       },
-      originalName: { type: String, maxlength: 255 },
-      size: { type: Number, min: 0, max: 50 * 1024 * 1024 },
-      title: { type: String, maxlength: 255 },
-      alt: { type: String, maxlength: 255 },
-      mimetype: { type: String },
     },
+
     specifications: [
       {
         name: { type: String, required: true, maxlength: 100 },
@@ -260,21 +174,13 @@ const ProductSchema = new Schema<IProduct, IProductModel, IProductMethods>(
       transform: (_doc, ret) => {
         delete (ret as any).__v;
         delete ret.updatedAt;
-        if (ret.sku) generateAndAddUrl(ret);
-        return ret;
-      },
-    },
-    toObject: {
-      virtuals: true,
-      transform: (_doc, ret) => {
-        if (ret.sku) generateAndAddUrl(ret);
         return ret;
       },
     },
   },
 );
 
-// ========== ВИРТУАЛЬНЫЕ ПОЛЯ (не дублируются в IProduct) ==========
+// ========== ВИРТУАЛЬНЫЕ ПОЛЯ ==========
 ProductSchema.virtual("finalPriceForIndividual").get(function (
   this: ProductDocument,
 ) {
@@ -294,21 +200,9 @@ ProductSchema.virtual("finalPriceForIndividual").get(function (
   return Math.round(finalPrice * 100) / 100;
 });
 
-ProductSchema.virtual("url").get(function (this: ProductDocument) {
-  if (
-    this.category &&
-    typeof this.category === "object" &&
-    (this.category as any).slug &&
-    this.sku
-  ) {
-    const BASE_URL = "https://npo-polet.ru";
-    return `${BASE_URL}/categories/${(this.category as any).slug}/products/${this.sku}`;
-  }
-  return null;
-});
-
-// ========== PRE‑ХУКИ ==========
+// ========== PRE‑ХУКИ (автоматический populate) ==========
 ProductSchema.pre(/^find/, function (this: any, next) {
+  // Populate category
   const hasCategoryPopulate =
     this._mongooseOptions.populate &&
     (Array.isArray(this._mongooseOptions.populate)
@@ -321,15 +215,49 @@ ProductSchema.pre(/^find/, function (this: any, next) {
       options: { lean: true, strictPopulate: false },
     });
   }
+
+  // Populate images
+  const hasImagesPopulate =
+    this._mongooseOptions.populate &&
+    (Array.isArray(this._mongooseOptions.populate)
+      ? this._mongooseOptions.populate.some((p: any) => p.path === "images")
+      : this._mongooseOptions.populate.path === "images");
+  if (!hasImagesPopulate) {
+    this.populate({
+      path: "images",
+      select: "url originalName mimetype size",
+      options: { lean: true, strictPopulate: false },
+    });
+  }
+
+  // Populate instruction.file (только если instruction существует)
+  const hasInstructionFilePopulate =
+    this._mongooseOptions.populate &&
+    (Array.isArray(this._mongooseOptions.populate)
+      ? this._mongooseOptions.populate.some(
+          (p: any) => p.path === "instruction.file",
+        )
+      : this._mongooseOptions.populate.path === "instruction.file");
+  if (!hasInstructionFilePopulate) {
+    this.populate({
+      path: "instruction.file",
+      select: "url originalName mimetype size",
+      options: { lean: true, strictPopulate: false },
+    });
+  }
+
   next();
 });
 
 ProductSchema.pre("aggregate", function (this: any, next) {
-  const hasCategoryLookup = this.pipeline().some(
+  const pipeline = this.pipeline();
+
+  // Category lookup
+  const hasCategoryLookup = pipeline.some(
     (stage: any) => stage.$lookup && stage.$lookup.as === "category",
   );
   if (!hasCategoryLookup) {
-    this.pipeline().unshift(
+    pipeline.unshift(
       {
         $lookup: {
           from: "categories",
@@ -342,6 +270,48 @@ ProductSchema.pre("aggregate", function (this: any, next) {
       { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
     );
   }
+
+  // Images lookup
+  const hasImagesLookup = pipeline.some(
+    (stage: any) => stage.$lookup && stage.$lookup.as === "images",
+  );
+  if (!hasImagesLookup) {
+    pipeline.unshift({
+      $lookup: {
+        from: "files",
+        localField: "images",
+        foreignField: "_id",
+        as: "images",
+        pipeline: [
+          { $project: { url: 1, originalName: 1, mimetype: 1, size: 1 } },
+        ],
+      },
+    });
+  }
+
+  // Instruction.file lookup
+  const hasInstructionFileLookup = pipeline.some(
+    (stage: any) => stage.$lookup && stage.$lookup.as === "instruction.file",
+  );
+  if (!hasInstructionFileLookup) {
+    const lookupStage = {
+      $lookup: {
+        from: "files",
+        localField: "instruction.file",
+        foreignField: "_id",
+        as: "instruction.file",
+        pipeline: [
+          { $project: { url: 1, originalName: 1, mimetype: 1, size: 1 } },
+        ],
+      },
+    };
+    const unwindStage = {
+      $unwind: { path: "$instruction.file", preserveNullAndEmptyArrays: true },
+    };
+    pipeline.unshift(unwindStage);
+    pipeline.unshift(lookupStage);
+  }
+
   next();
 });
 
@@ -352,7 +322,8 @@ ProductSchema.pre("save", function (this: ProductDocument, next) {
   next();
 });
 
-// ========== POST‑ХУКИ ==========
+// ========== POST‑ХУКИ (обработка URL) ==========
+//@ts-expect-error
 ProductSchema.post(["find", "findOne", "findById"], (docs: any) => {
   if (!docs) return docs;
   if (Array.isArray(docs)) return docs.map(processProductDocument);
@@ -378,82 +349,17 @@ ProductSchema.methods.incrementPurchases = async function (
   return this.save();
 };
 
-ProductSchema.methods.getProductUrl = function (this: ProductDocument): string {
-  if (
-    this.category &&
-    typeof this.category === "object" &&
-    (this.category as any).slug
-  ) {
-    const BASE_URL = "https://npo-polet.ru";
-    return `${BASE_URL}/categories/${(this.category as any).slug}/products/${this.sku}`;
-  }
-  return `/categories/[category]/products/${this.sku}`;
-};
-
 ProductSchema.methods.toJSON = function (this: ProductDocument) {
-  const obj = this.toObject ? this.toObject() : this;
+  const obj = this.toObject();
   return processProductDocument(obj);
 };
 
 // ========== СТАТИЧЕСКИЕ МЕТОДЫ ==========
-ProductSchema.statics.findAvailable = function (this: IProductModel) {
+ProductSchema.statics.findAvailable = function () {
   return this.find({
     status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
     isVisible: true,
   });
-};
-
-ProductSchema.statics.findWithUrls = function (
-  this: IProductModel,
-  ...args: any[]
-) {
-  return this.find(...args)
-    .populate({
-      path: "category",
-      select: "slug name _id",
-      options: { lean: true, strictPopulate: false },
-    })
-    .lean({ virtuals: true });
-};
-
-ProductSchema.statics.findOneWithUrl = function (
-  this: IProductModel,
-  ...args: any[]
-) {
-  return this.findOne(...args)
-    .populate({
-      path: "category",
-      select: "slug name _id",
-      options: { lean: true, strictPopulate: false },
-    })
-    .lean({ virtuals: true });
-};
-
-ProductSchema.statics.findWithProcessedUrls = async function (
-  this: IProductModel,
-  ...args: any[]
-) {
-  const docs = await this.find(...args);
-  return Array.isArray(docs)
-    ? docs.map(processProductDocument)
-    : processProductDocument(docs);
-};
-
-ProductSchema.statics.findOneWithProcessedUrls = async function (
-  this: IProductModel,
-  ...args: any[]
-) {
-  const doc = await this.findOne(...args);
-  return processProductDocument(doc);
-};
-
-ProductSchema.statics.findByIdWithProcessedUrls = async function (
-  this: IProductModel,
-  id: Types.ObjectId | string,
-  ...args: any[]
-) {
-  const doc = await this.findById(id, ...args);
-  return processProductDocument(doc);
 };
 
 // ========== ЭКСПОРТ ==========

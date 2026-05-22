@@ -6,7 +6,7 @@ import cartController from "../controllers/cartController.js";
 import authMiddleware from "../middlewares/auth-middleware.js";
 import { validateCartItem } from "../validators/cart.validator.js";
 
-router.use(authMiddleware.requireAuth);
+router.use(authMiddleware.requireAuth());
 
 router.get("/", cartController.getCart as any);
 router.put("/items", validateCartItem, cartController.addOrUpdateItem as any);

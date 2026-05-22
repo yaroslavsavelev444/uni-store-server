@@ -35,7 +35,7 @@ router.post(
   authController.register as any,
 );
 router.post("/login", ipLimiter, emailLimiter, authController.login);
-router.post("/logout", authMiddleware.requireAuth, authController.logout);
+router.post("/logout", authMiddleware.requireAuth(), authController.logout);
 router.get(
   "/refresh",
   authMiddleware.refreshMiddleware(),
@@ -46,7 +46,7 @@ router.post("/check", authController.check);
 // UPDATES
 router.post(
   "/updateUser",
-  authMiddleware.requireAuth,
+  authMiddleware.requireAuth(),
   authController.updateUser,
 );
 
@@ -79,16 +79,20 @@ router.post(
 );
 
 // SESSIONS
-router.get("/sessions", authMiddleware.requireAuth, authController.getSessions);
+router.get(
+  "/sessions",
+  authMiddleware.requireAuth(),
+  authController.getSessions,
+);
 router.patch(
   "/revokeSession",
-  authMiddleware.requireAuth,
+  authMiddleware.requireAuth(),
   authController.revokeSession,
 );
 
 router.post(
   "/changePassword",
-  authMiddleware.requireAuth,
+  authMiddleware.requireAuth(),
   authController.changePassword,
 );
 
@@ -126,13 +130,13 @@ router.post(
 
 router.post(
   "/user/online",
-  authMiddleware.requireAuth,
+  authMiddleware.requireAuth(),
   authController.updateOnlineStatus,
 );
 
 router.post(
   "/user/online",
-  authMiddleware.requireAuth,
+  authMiddleware.requireAuth(),
   authController.updateOnlineStatus,
 );
 

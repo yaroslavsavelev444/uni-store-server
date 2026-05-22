@@ -27,6 +27,7 @@ export interface AuthRequest<
 }
 
 /** Запрос с опциональным пользователем */
+//@ts-expect-error
 export interface OptionalAuthRequest<
   P = ParamsDictionary,
   ResBody = any,

@@ -36,7 +36,7 @@ export async function getXml(): Promise<string> {
 
   const [products, categories, topics] = await Promise.all([
     ProductModel.find({ status: ProductStatus.AVAILABLE })
-      .select("slug updatedAt category")
+      .select("sku updatedAt category")
       .populate<{
         category: Pick<ICategory, "slug"> | null;
       }>("category", "slug")

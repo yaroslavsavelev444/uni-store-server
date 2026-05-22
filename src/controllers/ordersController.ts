@@ -329,23 +329,19 @@ class OrdersController {
   ): Promise<void> => {
     try {
       const { id } = req.params;
-      const { filePath } = req.body;
+      const { fileId } = req.body;
+
       const userId = req.user.id;
 
-      if (!filePath) {
+      if (!fileId) {
         throw ApiError.BadRequest("Путь к файлу не указан");
       }
 
-      const order = await OrderService.uploadAttachment(id, filePath, userId);
-      const typedOrder = order as IOrder;
-      const lastAttachment =
-        typedOrder.attachments?.[typedOrder.attachments.length - 1];
+      await OrderService.uploadAttachment(id, fileId, userId);
 
       res.status(200).json({
         success: true,
         message: "Файл успешно загружен",
-        order: typedOrder,
-        attachment: lastAttachment!,
       });
     } catch (error) {
       next(error);

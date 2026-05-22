@@ -4,6 +4,14 @@ import type { IOrder } from "../types/order.types.js";
 export function mapOrderToEmailData(order: IOrder): EmailOrderData {
   const createdAt =
     order.createdAt instanceof Date ? order.createdAt : new Date();
+  const userId = order.user?.toString() || "";
+
+  // Определяем роль инициатора отмены (если заказ отменён)
+  let cancelledByRole: "user" | "admin" | "system" | undefined;
+  if (order.cancellation?.cancelledBy) {
+    const cancelledById = order.cancellation.cancelledBy.toString();
+    cancelledByRole = cancelledById === userId ? "user" : "admin";
+  }
 
   return {
     id: order._id.toString(),
@@ -38,6 +46,7 @@ export function mapOrderToEmailData(order: IOrder): EmailOrderData {
           reason: order.cancellation.reason,
           cancelledBy: order.cancellation.cancelledBy?.toString(),
           cancelledAt: order.cancellation.cancelledAt,
+          cancelledByRole,
         }
       : undefined,
   };

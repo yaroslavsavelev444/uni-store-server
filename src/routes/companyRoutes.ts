@@ -7,7 +7,7 @@ import companyController from "../controllers/companyController.js";
 import authMiddleware from "../middlewares/auth-middleware.js";
 
 // ========== USER ROUTES ==========
-router.use(authMiddleware.requireRole("user"));
+router.use(authMiddleware.requireRole("all"));
 // Создание компании
 router.post("/", companyController.createCompany as any);
 

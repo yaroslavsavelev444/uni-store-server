@@ -58,14 +58,11 @@ declare global {
   }
 }
 
-// ========== Joi Схемы ==========
-const { object, string, number, boolean, array, alternatives } = Joi;
-
-const imageSchema = object<ImageData>({
-  url: string().required(),
-  alt: string().max(255),
-  size: number().integer().positive(),
-  mimetype: string().valid(
+const imageSchema = Joi.object<ImageData>({
+  url: Joi.string().required(),
+  alt: Joi.string().max(255),
+  size: Joi.number().integer().positive(),
+  mimetype: Joi.string().valid(
     "image/jpeg",
     "image/png",
     "image/webp",
@@ -73,57 +70,60 @@ const imageSchema = object<ImageData>({
   ),
 });
 
-export const createCategorySchema = object<CreateCategoryBody>({
-  name: string().required().min(2).max(100).trim().messages({
+export const createCategorySchema = Joi.object<CreateCategoryBody>({
+  name: Joi.string().required().min(2).max(100).trim().messages({
     "string.empty": "Название категории обязательно",
     "string.min": "Название категории должно содержать минимум 2 символа",
     "string.max": "Название категории не должно превышать 100 символов",
   }),
-  slug: string()
+  slug: Joi.string()
     .trim()
     .lowercase()
     .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .message("Slug может содержать только латинские буквы, цифры и дефисы")
     .optional(),
-  subtitle: string().max(200).trim().optional(),
-  description: string().max(2000).trim().optional(),
-  image: alternatives([imageSchema, string().allow(null, "")]).optional(),
-  order: number().integer().min(0).default(0),
-  isActive: boolean().default(true),
-  metaTitle: string().max(255).optional(),
-  metaDescription: string().max(500).optional(),
-  keywords: array().items(string().max(50)).optional(),
+  subtitle: Joi.string().max(200).trim().optional(),
+  description: Joi.string().max(2000).trim().optional(),
+  image: Joi.string().allow(null, ""),
+  order: Joi.number().integer().min(0).default(0),
+  isActive: Joi.boolean().default(true),
+  metaTitle: Joi.string().max(255).optional(),
+  metaDescription: Joi.string().max(500).optional(),
+  keywords: Joi.array().items(Joi.string().max(50)).optional(),
 });
 
-export const updateCategorySchema = object<UpdateCategoryBody>({
-  name: string().min(2).max(100).trim().optional(),
-  slug: string()
+export const updateCategorySchema = Joi.object<UpdateCategoryBody>({
+  name: Joi.string().min(2).max(100).trim().optional(),
+  slug: Joi.string()
     .trim()
     .lowercase()
     .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .message("Slug может содержать только латинские буквы, цифры и дефисы")
     .optional(),
-  subtitle: string().max(200).trim().optional(),
-  description: string().max(2000).trim().optional(),
-  image: alternatives([imageSchema, string().allow(null, "")]).optional(),
-  order: number().integer().min(0).optional(),
-  isActive: boolean().optional(),
-  metaTitle: string().max(255).optional(),
-  metaDescription: string().max(500).optional(),
-  keywords: array().items(string().max(50)).optional(),
+  subtitle: Joi.string().max(200).trim().optional(),
+  description: Joi.string().max(2000).trim().optional(),
+  image: Joi.alternatives([
+    imageSchema,
+    Joi.string().allow(null, ""),
+  ]).optional(),
+  order: Joi.number().integer().min(0).optional(),
+  isActive: Joi.boolean().optional(),
+  metaTitle: Joi.string().max(255).optional(),
+  metaDescription: Joi.string().max(500).optional(),
+  keywords: Joi.array().items(Joi.string().max(50)).optional(),
 }).min(1);
 
-export const categoryQuerySchema = object<CategoryQueryParams>({
-  active: boolean(),
-  search: string(),
-  sortBy: string().valid("name", "order", "createdAt", "productCount"),
-  sortOrder: string().valid("asc", "desc").default("asc"),
-  includeInactive: boolean().default(false),
-  withProductCount: boolean().default(true),
+export const categoryQuerySchema = Joi.object<CategoryQueryParams>({
+  active: Joi.boolean(),
+  search: Joi.string(),
+  sortBy: Joi.string().valid("name", "order", "createdAt", "productCount"),
+  sortOrder: Joi.string().valid("asc", "desc").default("asc"),
+  includeInactive: Joi.boolean().default(false),
+  withProductCount: Joi.boolean().default(true),
 });
 
-export const categoryListQuerySchema = object<CategoryListQueryParams>({
-  includeInactive: boolean().default(false),
+export const categoryListQuerySchema = Joi.object<CategoryListQueryParams>({
+  includeInactive: Joi.boolean().default(false),
 });
 
 // ========== Middleware-валидаторы ==========

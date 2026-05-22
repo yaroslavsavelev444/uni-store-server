@@ -136,6 +136,7 @@ discountSchema.methods.isApplicableToProduct = function (
     this.applicableCategories.length > 0 &&
     typeof product === "object"
   ) {
+    //@ts-expect-error
     const categoryId = product.category;
     if (!categoryId) return false;
     return this.applicableCategories.some((c) => c.equals(categoryId));

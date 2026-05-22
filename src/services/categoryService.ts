@@ -5,6 +5,7 @@ import ApiError from "../exceptions/api-error.js";
 import { CategoryModel, ProductModel } from "../models/index.models.js";
 import type { ICategory } from "../types/category.types.js";
 import fileManager from "../utils/fileManager.js";
+import fileStorageService from "./fileStorage.service.js";
 
 interface GetCategoriesOptions {
   active?: boolean;
@@ -27,24 +28,17 @@ type CategoryWithOptionalProductCount = CategoryWithId & {
 };
 
 class CategoryService {
-  private async processImage(imageUrl: string): Promise<string> {
-    let filePath = imageUrl;
-    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-      const url = new URL(imageUrl);
-      filePath = url.pathname;
-      filePath = decodeURIComponent(filePath);
+  private async processImage(
+    image: string | null | undefined,
+  ): Promise<string | null> {
+    if (!image || image.trim() === "") return null;
+    const existingIds = await fileStorageService.checkIfExists(image);
+    const exists =
+      existingIds && Array.isArray(existingIds) && existingIds.length > 0;
+    if (!exists) {
+      throw new Error(`Файл с ID "${image}" не найден или удалён`);
     }
-
-    if (filePath.includes("/temp/")) {
-      const timestamp = Date.now();
-      const filename = path.basename(filePath);
-      const newWebPath = `/uploads/categories/images/${timestamp}_${filename}`;
-      // await fileManager.moveFile(filePath, newWebPath);
-      return newWebPath;
-    }
-
-    // await fileManager.validateFileExists(filePath);
-    return filePath;
+    return image;
   }
 
   private async addProductCount(
@@ -87,6 +81,11 @@ class CategoryService {
 
     const categories = (await CategoryModel.find(query)
       .sort(sortOptions)
+      .populate({
+        path: "image",
+        select:
+          "_id originalName name sizeBytes mimeType url accessType entityType entityId originalName storedName storagePath",
+      })
       .lean()) as CategoryWithId[];
 
     if (!withProductCount) {
@@ -167,20 +166,13 @@ class CategoryService {
   ): Promise<ICategory> {
     if (categoryData.slug) {
       const existing = await CategoryModel.findOne({ slug: categoryData.slug });
-      if (existing) {
+      if (existing)
         throw ApiError.BadRequest("Категория с таким slug уже существует");
-      }
     }
 
-    let processedImage: ICategory["image"] | undefined;
-    if (categoryData.image?.url) {
-      const processedUrl = await this.processImage(categoryData.image.url);
-      processedImage = {
-        ...categoryData.image,
-        url: processedUrl,
-      };
-    } else {
-      processedImage = categoryData.image;
+    let processedImage = null;
+    if (categoryData.image) {
+      processedImage = await this.processImage(categoryData.image as string);
     }
 
     const category = new CategoryModel({
@@ -191,7 +183,12 @@ class CategoryService {
     });
 
     await category.save();
-    return category.toObject();
+
+    // Возвращаем с populated файлом для клиента
+    const populated = await CategoryModel.findById(category._id).populate(
+      "image",
+    );
+    return this.transformCategory(populated);
   }
 
   async updateCategory(
@@ -204,36 +201,55 @@ class CategoryService {
     }
 
     const existingCategory = await CategoryModel.findById(id);
-    if (!existingCategory) {
-      throw ApiError.NotFoundError("Категория не найдена");
-    }
+    if (!existingCategory) throw ApiError.NotFoundError("Категория не найдена");
 
+    // Проверка уникальности slug
     if (updateData.slug && updateData.slug !== existingCategory.slug) {
       const duplicate = await CategoryModel.findOne({ slug: updateData.slug });
-      if (duplicate) {
+      if (duplicate)
         throw ApiError.BadRequest("Категория с таким slug уже существует");
-      }
     }
 
+    // Обработка изображения
     if (updateData.image !== undefined) {
       if (updateData.image === null) {
-        if (existingCategory.image?.url) {
-          // await fileManager.deleteFile(existingCategory.image.url);
-        }
-        updateData.image = null as unknown as ICategory["image"];
-      } else if (updateData.image?.url) {
-        const newImageUrl = await this.processImage(updateData.image.url);
-        if (existingCategory.image?.url) {
-          // await fileManager.deleteFile(existingCategory.image.url);
-        }
-        updateData.image.url = newImageUrl;
+        // Удаляем изображение
+        updateData.image = null;
+      } else if (updateData.image) {
+        const newImage = await this.processImage(updateData.image as string);
+        updateData.image = newImage;
       }
     }
 
     Object.assign(existingCategory, updateData);
     existingCategory.updatedBy = userId as Types.ObjectId;
     await existingCategory.save();
-    return existingCategory.toObject();
+
+    const populated = await CategoryModel.findById(
+      existingCategory._id,
+    ).populate("image");
+    return this.transformCategory(populated);
+  }
+
+  // -------------------------------------------------------------------
+  // Вспомогательный метод: преобразует поле image в объект image (для фронта)
+  private transformCategory(cat: any): ICategory {
+    const plain = cat.toObject ? cat.toObject() : cat;
+    if (plain.image && typeof plain.image === "object") {
+      const file = plain.image;
+      plain.image = {
+        url: file.url, // виртуальное поле из модели File
+        size: file.sizeBytes,
+        mimetype: file.mimeType,
+        alt: "", // можно добавить позже
+        _id: file._id.toString(),
+        originalName: file.originalName,
+      };
+    } else {
+      plain.image = null;
+    }
+    delete plain.image;
+    return plain;
   }
 
   async deleteCategory(
@@ -253,8 +269,11 @@ class CategoryService {
       throw ApiError.BadRequest("Невозможно удалить категорию с товарами");
     }
 
-    if (category.image?.url) {
-      // await fileManager.deleteFile(category.image.url);
+    if (category.image) {
+      await fileStorageService.deleteFile(
+        category.image.toString(),
+        category.createdBy ? category.createdBy?.toString() : "",
+      );
     }
 
     await category.deleteOne();

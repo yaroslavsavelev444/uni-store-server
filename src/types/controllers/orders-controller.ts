@@ -70,7 +70,7 @@ export interface AdminCancelOrderBody {
 }
 
 export interface UploadAttachmentBody {
-  filePath: string;
+  fileId: string;
 }
 
 // ========== RESPONSES ==========
@@ -97,8 +97,6 @@ export interface UpdateOrderStatusResponse {
 export interface UploadAttachmentResponse {
   success: boolean;
   message: string;
-  order: IOrder;
-  attachment: IAttachment;
 }
 
 export interface DeleteAttachmentResponse {

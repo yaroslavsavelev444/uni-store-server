@@ -107,14 +107,12 @@ class DiscountController {
    */
   getAll = async (
     req: GetAllDiscountsReq,
-    res: Response<
-      ApiResponse<{ discounts: IDiscountDocument[]; pagination: any }>
-    >,
+    res: Response<{ discounts: IDiscountDocument[]; pagination: any }>,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const result = await discountService.listDiscounts(req.query);
-      res.json({ success: true, data: result });
+      res.json(result);
     } catch (error) {
       next(error);
     }

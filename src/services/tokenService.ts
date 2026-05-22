@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import ApiError from "../exceptions/api-error.js";
 import logger from "../logger/logger.js";
 import { UserSecurityModel, UserSessionModel } from "../models/index.models.js";
+import type { UserSecurityStatus } from "../types/userSecurity.types.js";
 import type { UserSessionDocument } from "../types/userSession.types.js";
 
 const { sign, verify } = jwt;
@@ -163,13 +164,13 @@ export async function findToken(
  */
 export async function generatePasswordResetToken(
   userId: string,
-  type: "pending" | "verified",
+  type: UserSecurityStatus,
 ): Promise<string> {
   const rawToken = randomBytes(32).toString("hex");
 
   // JWT для клиента
   const signedToken = sign(
-    { userId, rawToken },
+    { id: userId, rawToken },
     process.env.JWT_RESET_SECRET_KEY!,
     { expiresIn: "15m" } satisfies SignOptions,
   );
@@ -209,7 +210,7 @@ export async function verifyPasswordResetToken(token: string): Promise<{
     throw ApiError.BadRequest("Неверный или истёкший токен");
   }
 
-  const userId = decoded.userId as string;
+  const userId = decoded.id as string;
   const userSecurity = await UserSecurityModel.findOne({ userId });
 
   if (!userSecurity?.resetTokenHash) {

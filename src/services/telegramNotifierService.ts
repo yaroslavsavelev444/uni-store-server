@@ -220,6 +220,7 @@ class TelegramNotifier extends EventEmitter {
         parse_mode: "HTML",
         disable_web_page_preview: true,
         disable_notification: level === "info" || options.silent === true,
+        //@ts-expect-error
         ...(options.replyMarkup && { reply_markup: options.replyMarkup }),
       };
 

@@ -99,7 +99,7 @@ class ProductDiscountService {
     switch (discount.type) {
       case "quantity_based":
         return `Скидка ${discount.discountPercent}% при покупке от ${discount.minTotalQuantity} товаров`;
-      case "amount_based": // в модели поле называется minTotalAmount
+      case "fixed":
         return `Скидка ${discount.discountPercent}% при заказе от ${discount.minTotalAmount} ₽`;
       default:
         return `Скидка ${discount.discountPercent}%`;

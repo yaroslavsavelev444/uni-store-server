@@ -58,6 +58,8 @@ class AuthController {
         throw ApiError.BadRequest("Согласия не переданы");
       }
 
+      logger.info(`Registering user with email: ${acceptedConsents}`);
+
       const acceptedSlugs = acceptedConsents.map((c) => {
         if (!c.slug || !c.version) {
           throw ApiError.BadRequest("Некорректный формат согласий");

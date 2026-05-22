@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/correctness/noVoidTypeReturn: <explanation> */
 /** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
 import type { NextFunction, Request, Response } from "express";
-import type Joi from "joi";
+import type joi from "joi";
 import { Types } from "mongoose";
 import ApiError from "../exceptions/api-error.js";
 
@@ -27,7 +27,7 @@ export interface ValidatedRequest extends Request {
 /* ======================= GENERAL VALIDATOR ======================= */
 
 export const validate = (
-  schema: Joi.Schema,
+  schema: joi.Schema,
   property: RequestProperty = "body",
 ) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
@@ -73,7 +73,7 @@ export const validateObjectId = (paramName: string = "id") => {
 
 /* ======================= QUERY PARAMS ======================= */
 
-export const validateQueryParams = (schema: Joi.Schema) => {
+export const validateQueryParams = (schema: joi.Schema) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const { error, value } = schema.validate(req.query, {
       abortEarly: false,
@@ -162,7 +162,7 @@ const parseJsonFields = (data: Record<string, any>): Record<string, any> => {
   return data;
 };
 
-export const validateProduct = (schema: Joi.Schema) => {
+export const validateProduct = (schema: joi.Schema) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
     let dataToValidate: Record<string, any> = { ...req.body };
 

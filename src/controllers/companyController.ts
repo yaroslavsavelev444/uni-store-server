@@ -19,30 +19,30 @@ import type {
   UpdateCompanyReq,
 } from "../types/controllers/companies-controller.js";
 
-const { object, string } = joi;
-
 // Валидационные схемы (оставлены без изменений, но типизированы)
-const createCompanySchema = object({
-  companyName: string().required().min(2).max(200).trim().messages({
+const createCompanySchema = joi.object({
+  companyName: joi.string().required().min(2).max(200).trim().messages({
     "string.empty": "Название компании обязательно",
     "string.min": "Название компании должно содержать минимум 2 символа",
     "string.max": "Название компании не должно превышать 200 символов",
   }),
-  legalAddress: string().required().min(10).max(300).trim().messages({
+  legalAddress: joi.string().required().min(10).max(300).trim().messages({
     "string.empty": "Юридический адрес обязателен",
     "string.min": "Адрес слишком короткий (минимум 10 символов)",
     "string.max": "Адрес слишком длинный (максимум 300 символов)",
   }),
-  companyAddress: string().allow("").max(300).trim().optional(),
-  taxNumber: string()
+  companyAddress: joi.string().allow("").max(300).trim().optional(),
+  taxNumber: joi
+    .string()
     .required()
     .pattern(/^\d{10}$|^\d{12}$/)
     .messages({
       "string.empty": "ИНН обязателен",
       "string.pattern.base": "ИНН должен содержать 10 или 12 цифр",
     }),
-  contactPerson: string().allow("").max(100).trim().optional(),
-  phone: string()
+  contactPerson: joi.string().allow("").max(100).trim().optional(),
+  phone: joi
+    .string()
     .allow("")
     .pattern(/^[\d\s\-+()]+$/)
     .max(20)
@@ -51,7 +51,8 @@ const createCompanySchema = object({
     .messages({
       "string.pattern.base": "Неверный формат телефона",
     }),
-  email: string()
+  email: joi
+    .string()
     .allow("")
     .email()
     .max(100)
@@ -63,40 +64,45 @@ const createCompanySchema = object({
     }),
 });
 
-const updateCompanySchema = object({
-  companyName: string().min(2).max(200).trim().optional(),
-  legalAddress: string().min(10).max(300).trim().optional(),
-  companyAddress: string().allow("").max(300).trim().optional(),
-  taxNumber: string()
-    .pattern(/^\d{10}$|^\d{12}$/)
-    .optional()
-    .messages({
-      "string.pattern.base": "ИНН должен содержать 10 или 12 цифр",
-    }),
-  contactPerson: string().allow("").max(100).trim().optional(),
-  phone: string()
-    .allow("")
-    .pattern(/^[\d\s\-+()]+$/)
-    .max(20)
-    .trim()
-    .optional()
-    .messages({
-      "string.pattern.base": "Неверный формат телефона",
-    }),
-  email: string()
-    .allow("")
-    .email()
-    .max(100)
-    .trim()
-    .lowercase()
-    .optional()
-    .messages({
-      "string.email": "Неверный формат email",
-    }),
-}).min(1);
+const updateCompanySchema = joi
+  .object({
+    companyName: joi.string().min(2).max(200).trim().optional(),
+    legalAddress: joi.string().min(10).max(300).trim().optional(),
+    companyAddress: joi.string().allow("").max(300).trim().optional(),
+    taxNumber: joi
+      .string()
+      .pattern(/^\d{10}$|^\d{12}$/)
+      .optional()
+      .messages({
+        "string.pattern.base": "ИНН должен содержать 10 или 12 цифр",
+      }),
+    contactPerson: joi.string().allow("").max(100).trim().optional(),
+    phone: joi
+      .string()
+      .allow("")
+      .pattern(/^[\d\s\-+()]+$/)
+      .max(20)
+      .trim()
+      .optional()
+      .messages({
+        "string.pattern.base": "Неверный формат телефона",
+      }),
+    email: joi
+      .string()
+      .allow("")
+      .email()
+      .max(100)
+      .trim()
+      .lowercase()
+      .optional()
+      .messages({
+        "string.email": "Неверный формат email",
+      }),
+  })
+  .min(1);
 
-const searchCompanySchema = object({
-  query: string().required().min(1).max(100).trim().messages({
+const searchCompanySchema = joi.object({
+  query: joi.string().required().min(1).max(100).trim().messages({
     "string.empty": "Поисковый запрос обязателен",
     "string.min": "Запрос должен содержать минимум 1 символ",
     "string.max": "Запрос не должен превышать 100 символов",

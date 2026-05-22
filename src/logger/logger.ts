@@ -79,7 +79,7 @@ export const logger = {
       pinoLogger.info(msgOrObj);
     }
   },
-  warn: (msgOrObj: string | Record<string, unknown>, p0: string) => {
+  warn: (msgOrObj: string | Record<string, unknown>, p0?: string) => {
     if (typeof msgOrObj === "string") {
       pinoLogger.warn(msgOrObj);
     } else {

@@ -1,6 +1,6 @@
 import type { HydratedDocument, Model, Types } from "mongoose";
 import { ORG_ID_REGEX } from "./../constants/regex.js";
-
+import type { UserSecurityStatus } from "./userSecurity.types.js";
 // === Вложенные структуры ===
 export interface IActivations {
   emailToken?: string;
@@ -9,7 +9,7 @@ export interface IActivations {
 
 export interface ITokens {
   resetToken?: string | null;
-  resetTokenStatus?: "pending" | "verified" | null;
+  resetTokenStatus?: UserSecurityStatus;
   resetTokenExpiration?: Date | null;
 }
 

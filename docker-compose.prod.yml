@@ -23,19 +23,12 @@ services:
     volumes:
       - /var/polet/uploads:/app/uploads
       - /var/polet/logs:/app/logs
-    command: ["npm", "run", "start"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
       interval: 10s
       timeout: 5s
       retries: 3
-      
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
 
   worker:
     build:
@@ -49,13 +42,14 @@ services:
         condition: service_healthy
       admin-init:
         condition: service_completed_successfully
-    env_file: .env
+    env_file:
+      - .env
     networks:
       - backend
+    command: ["node", "dist/src/queues/worker/processors.js"]
     volumes:
       - /var/polet/uploads:/app/uploads
       - /var/polet/logs:/app/logs
-    command: ["node", "src/queues/worker/processors.js"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "pgrep", "-f", "processors.js"]
@@ -132,21 +126,17 @@ services:
     restart: unless-stopped
 
   rs-init:
-    image: node:20-alpine
-    container_name: rs-init-prod
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: rs-init-polet-prod
     depends_on:
-      mongo1:
-        condition: service_healthy
-      mongo2:
-        condition: service_healthy
-      mongo3:
-        condition: service_healthy
-    volumes:
-      - ./init-replica.js:/app/init-replica.js
-    working_dir: /app
-    command: sh -c "npm install mongodb && node init-replica.js"
+      mongo1: { condition: service_healthy }
+      mongo2: { condition: service_healthy }
+      mongo3: { condition: service_healthy }
     networks:
       - backend
+    command: ["node", "dist/src/scripts/init-replica.js"]
 
   admin-init:
     build:
@@ -156,7 +146,7 @@ services:
     depends_on:
       rs-init:
         condition: service_completed_successfully
-    command: ["node", "src/scripts/createAdmin.js"]
+    command: ["node", "dist/src/scripts/createAdmin.js"]
     restart: "on-failure"
     env_file:
       - .env

@@ -6,7 +6,7 @@ export interface IKeyEncrypt {
   dekEncrypted: string; // base64 (iv + ciphertext + authTag) — зашифрованный DEK
   active: boolean;
   comment?: string;
-  createdAt?: Date;
+  createdAt: Date;
   updatedAt?: Date;
 }
 

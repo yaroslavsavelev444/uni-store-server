@@ -32,7 +32,6 @@ export interface NewOrderUserData {
     name?: string;
   };
 }
-
 export interface NewOrderAdminData {
   orderNumber: string;
   customer?: {
@@ -104,6 +103,7 @@ export interface EmailOrderData {
     reason?: string;
     cancelledBy?: string;
     cancelledAt?: Date;
+    cancelledByRole?: "user" | "admin" | "system";
   };
 }
 
@@ -116,7 +116,7 @@ export interface OrderShippedData {
 }
 
 export interface OrderReadyForPickupData {
-  orderNumber: string;
+  order: EmailOrderData;
   pickupPoint: {
     name: string;
     address: string;

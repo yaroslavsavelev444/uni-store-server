@@ -112,8 +112,6 @@ export type GetHintsReq = AuthRequest<
   GetHintsQuery
 >;
 
-// Для searchProducts используем специальный тип с validatedQuery
-import type { Request } from "express";
 export interface SearchProductsReq extends Request {
   user: { id: string; email: string; role: string };
   validatedQuery?: SearchProductsValidatedQuery;

@@ -17,8 +17,7 @@ interface CartItemProduct {
   finalPrice: number;
   minOrderQuantity: number;
   maxOrderQuantity?: number;
-  mainImage: string | null;
-  images: Array<{ url: string; alt?: string; order?: number }> | null;
+  image: string;
   status: string;
   weight: number;
   dimensions?: IProduct["dimensions"];
@@ -128,7 +127,21 @@ class CartService {
       throw ApiError.BadRequest("ID пользователя обязателен");
     }
 
-    const cart = await CartModel.findByUser(userId);
+    // 1. Запрашиваем корзину с кастомным populate для товаров и ТОЛЬКО первого изображения
+    const cart = await CartModel.findOne({ user: userId })
+      .populate({
+        path: "items.product",
+        populate: {
+          path: "images",
+          options: {
+            sort: { order: 1 }, // сортируем по полю order (по возрастанию)
+            perDocumentLimit: 1, // загружаем только первый документ
+          },
+          select: "url order", // выбираем только нужные поля
+        },
+      })
+      .lean(); // используем lean() для производительности (если не нужны методы Mongoose)
+
     if (!cart) {
       return this.getEmptyCartResponse();
     }
@@ -141,10 +154,9 @@ class CartService {
     let isCartValid = true;
 
     for (const item of cart.items) {
-      const product = item.product as unknown as
-        | (IProduct & { finalPriceForIndividual?: number })
-        | null;
+      const product = item.product as any; // product уже содержит images (массив из 0 или 1 элемента)
 
+      // Проверка видимости и статуса товара
       if (
         !product?.isVisible ||
         !["available", "preorder"].includes(product.status)
@@ -155,9 +167,10 @@ class CartService {
 
       let quantity = item.quantity;
 
+      // Валидация минимального количества
       if (product.minOrderQuantity && quantity < product.minOrderQuantity) {
         validationIssues.push({
-          productId: product._id as Types.ObjectId,
+          productId: product._id,
           productTitle: product.title,
           currentQuantity: quantity,
           minOrderQuantity: product.minOrderQuantity,
@@ -166,6 +179,7 @@ class CartService {
         isCartValid = false;
       }
 
+      // Корректировка по максимальному количеству
       if (product.maxOrderQuantity && quantity > product.maxOrderQuantity) {
         quantity = product.maxOrderQuantity;
         itemsToUpdate = true;
@@ -187,34 +201,19 @@ class CartService {
       );
       totalPrice = this.roundMoney(totalPrice + itemTotalWithDiscount);
 
-      let mainImage: string | null = null;
+      // ----- НОВАЯ ЛОГИКА ФОРМИРОВАНИЯ ИЗОБРАЖЕНИЯ -----
+      let image: string | null = null;
       if (product.images && product.images.length > 0) {
-        const firstImage = [...product.images].sort(
-          (a, b) => (a.order || 0) - (b.order || 0),
-        )[0];
+        // product.images уже содержит только первый элемент (благодаря perDocumentLimit: 1)
+        const firstImage = product.images[0];
         if (firstImage?.url) {
-          mainImage = fileService.getFileUrl(firstImage.url);
+          image = fileService.getFileUrl(firstImage.url);
         }
       }
-
-      let processedImages: Array<{
-        url: string;
-        alt?: string;
-        order?: number;
-      }> | null = null;
-      if (product.images && Array.isArray(product.images)) {
-        processedImages = product.images
-          .sort((a, b) => (a.order || 0) - (b.order || 0))
-          .map((img) => {
-            if (img?.url) {
-              return { ...img, url: fileService.getFileUrl(img.url) };
-            }
-            return img;
-          });
-      }
+      // -------------------------------------------------
 
       const productResponse: CartItemProduct = {
-        _id: product._id as Types.ObjectId,
+        _id: product._id,
         title: product.title,
         sku: product.sku,
         price,
@@ -222,8 +221,7 @@ class CartService {
         finalPrice,
         minOrderQuantity: product.minOrderQuantity || 1,
         maxOrderQuantity: product.maxOrderQuantity,
-        mainImage,
-        images: processedImages,
+        image: image || "", // новое поле вместо mainImage и images
         status: product.status,
         weight: product.weight || 0,
         dimensions: product.dimensions,
@@ -241,15 +239,17 @@ class CartService {
       });
     }
 
+    // 2. Обновляем корзину, если были изменения количеств или удалены невидимые товары
     if (itemsToUpdate) {
       cart.items = processedItems.map((i) => ({
         product: i.product._id,
         quantity: i.quantity,
         addedAt: i.addedAt,
       }));
-      await cart.save();
+      await CartModel.updateOne({ _id: cart._id }, { items: cart.items });
     }
 
+    // 3. Расчёт центральных скидок (как было раньше)
     const cartDataForDiscounts = {
       items: processedItems.map((i) => ({
         productId: i.product._id,
@@ -273,6 +273,7 @@ class CartService {
       totalPriceWithoutDiscount - totalPrice + centralDiscountAmount,
     );
 
+    // 4. Формируем итоговый ответ
     return {
       items: processedItems,
       summary: {
@@ -315,58 +316,97 @@ class CartService {
       updatedAt: cart.updatedAt,
     };
   }
-
   async addOrUpdateItem(
     userId: string | Types.ObjectId,
     productId: string | Types.ObjectId,
     quantity: number,
   ): Promise<CartResponse | EmptyCartResponse> {
+    console.log(
+      `[addOrUpdateItem] Called with userId=${userId}, productId=${productId}, quantity=${quantity}`,
+    );
+
     if (!userId || !productId || quantity < 1) {
+      console.log(
+        `[addOrUpdateItem] Validation failed: userId=${!!userId}, productId=${!!productId}, quantity=${quantity}`,
+      );
       throw ApiError.BadRequest("Некорректные данные");
     }
 
+    console.log(`[addOrUpdateItem] Fetching product ${productId}...`);
     const product = await ProductModel.findById(productId);
     if (!product) {
+      console.log(`[addOrUpdateItem] Product ${productId} not found`);
       throw ApiError.NotFoundError("Товар не найден");
     }
+    console.log(
+      `[addOrUpdateItem] Product found: name=${product.title}, status=${product.status}, isVisible=${product.isVisible}`,
+    );
 
     if (
       !product.isVisible ||
       !["available", "preorder"].includes(product.status)
     ) {
+      console.log(
+        `[addOrUpdateItem] Product unavailable: isVisible=${product.isVisible}, status=${product.status}`,
+      );
       throw ApiError.BadRequest("Товар недоступен для заказа");
     }
 
     if (product.maxOrderQuantity && quantity > product.maxOrderQuantity) {
+      console.log(
+        `[addOrUpdateItem] Quantity ${quantity} exceeds maxOrderQuantity ${product.maxOrderQuantity}`,
+      );
       throw ApiError.BadRequest(
         `Максимальное количество для заказа: ${product.maxOrderQuantity}`,
       );
     }
 
+    console.log(`[addOrUpdateItem] Looking for cart of user ${userId}...`);
     let cart = await CartModel.findOne({ user: userId });
     if (!cart) {
+      console.log(
+        `[addOrUpdateItem] Cart not found, creating new cart for user ${userId}`,
+      );
       cart = new CartModel({ user: userId, items: [] });
+    } else {
+      console.log(
+        `[addOrUpdateItem] Cart found, items count = ${cart.items.length}`,
+      );
     }
 
     const itemIndex = cart.items.findIndex(
       (item) => item.product.toString() === productId.toString(),
     );
+    console.log(`[addOrUpdateItem] Item index in cart = ${itemIndex}`);
 
     if (itemIndex === -1) {
+      console.log(
+        `[addOrUpdateItem] Adding new product ${productId} with quantity ${quantity}`,
+      );
       cart.items.push({
         product: productId as Types.ObjectId,
         quantity,
         addedAt: new Date(),
       });
     } else {
+      console.log(
+        `[addOrUpdateItem] Updating existing product ${productId} from quantity ${cart.items[itemIndex].quantity} to ${quantity}`,
+      );
       cart.items[itemIndex].quantity = quantity;
       cart.items[itemIndex].addedAt = new Date();
     }
 
+    console.log(`[addOrUpdateItem] Saving cart...`);
     await cart.save();
-    return this.getCart(userId);
-  }
+    console.log(`[addOrUpdateItem] Cart saved successfully`);
 
+    console.log(
+      `[addOrUpdateItem] Fetching updated cart via getCart(${userId})`,
+    );
+    const result = await this.getCart(userId);
+    console.log(`[addOrUpdateItem] Returning result`);
+    return result;
+  }
   async removeItem(
     userId: string | Types.ObjectId,
     productId: string | Types.ObjectId,

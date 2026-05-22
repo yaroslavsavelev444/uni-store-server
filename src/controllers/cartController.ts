@@ -21,14 +21,12 @@ class CartController {
    */
   getCart = async (
     req: GetCartReq,
-    res: Response<
-      SuccessResponse<Awaited<ReturnType<typeof cartService.getCart>>>
-    >,
+    res: Response<Awaited<ReturnType<typeof cartService.getCart>>>,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const cart = await cartService.getCart(req.user.id);
-      res.json({ success: true, data: cart });
+      res.json(cart);
     } catch (error) {
       next(error);
     }
@@ -39,9 +37,7 @@ class CartController {
    */
   addOrUpdateItem = async (
     req: AddOrUpdateItemReq,
-    res: Response<
-      SuccessResponse<Awaited<ReturnType<typeof cartService.getCart>>>
-    >,
+    res: Response<Awaited<ReturnType<typeof cartService.getCart>>>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -58,7 +54,7 @@ class CartController {
         productId,
         quantity,
       );
-      res.status(200).json({ success: true, data: cart });
+      res.status(200).json(cart);
     } catch (error) {
       next(error);
     }
@@ -69,9 +65,7 @@ class CartController {
    */
   removeItem = async (
     req: RemoveItemReq,
-    res: Response<
-      SuccessResponse<Awaited<ReturnType<typeof cartService.getCart>>>
-    >,
+    res: Response<Awaited<ReturnType<typeof cartService.getCart>>>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -81,7 +75,7 @@ class CartController {
       }
 
       const cart = await cartService.removeItem(req.user.id, productId);
-      res.status(200).json({ success: true, data: cart });
+      res.status(200).json(cart);
     } catch (error) {
       next(error);
     }
@@ -92,9 +86,7 @@ class CartController {
    */
   decreaseQuantity = async (
     req: DecreaseQuantityReq,
-    res: Response<
-      SuccessResponse<Awaited<ReturnType<typeof cartService.getCart>>>
-    >,
+    res: Response<Awaited<ReturnType<typeof cartService.getCart>>>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -104,7 +96,7 @@ class CartController {
       }
 
       const cart = await cartService.decreaseQuantity(req.user.id, productId);
-      res.status(200).json({ success: true, data: cart });
+      res.status(200).json(cart);
     } catch (error) {
       next(error);
     }

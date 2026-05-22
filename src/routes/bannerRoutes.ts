@@ -8,7 +8,7 @@ import authMiddleware from "../middlewares/auth-middleware.js";
 // Публичный роут для пользователей
 router.get(
   "/for-user",
-  authMiddleware.requireAuth,
+  authMiddleware.requireAuth(),
   bannerController.getForUser as any,
 );
 

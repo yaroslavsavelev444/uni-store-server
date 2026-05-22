@@ -20,7 +20,7 @@ router.get(
 router.put(
   "/admin",
   authMiddleware.requireRole("admin"),
-  validator.validateCreateUpdate,
+  // validator.validateCreateUpdate,
   organizationContactController.updateContacts as any,
 );
 router.patch(

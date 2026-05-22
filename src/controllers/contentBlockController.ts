@@ -2,6 +2,7 @@
 import type { NextFunction, Response } from "express";
 import ApiError from "../exceptions/api-error.js";
 import auditLogger from "../logger/auditLogger.js";
+import logger from "../logger/logger.js";
 import ContentBlockService from "../services/contentBlockService.js";
 import type { IContentBlockDocument } from "../types/contentBlock.types.js";
 import type {
@@ -29,15 +30,20 @@ class ContentBlockController {
    */
   getAll = async (
     req: GetAllReq,
-    res: Response<ApiResponse<IContentBlockDocument[]>>,
+    res: Response<IContentBlockDocument[]>,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const { includeInactive } = req.query;
+      if (!includeInactive) {
+        throw ApiError.BadRequest("includeInactive обязателен");
+      }
       const items = await this.contentBlockService.getAll(
         includeInactive === "true",
       );
-      res.status(200).json({ success: true, data: items });
+
+      console.log("getAll", items);
+      res.status(200).json(items);
     } catch (err) {
       next(err);
     }

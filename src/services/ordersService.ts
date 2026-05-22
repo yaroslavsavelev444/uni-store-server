@@ -1,5 +1,5 @@
-//@ts-nocheck
 // services/orders.service.ts
+//@ts-nocheck
 import { promises as fs } from "node:fs";
 import { basename, dirname } from "node:path";
 import { type ClientSession, startSession, Types } from "mongoose";
@@ -28,6 +28,7 @@ import { mapOrderToEmailData } from "../utils/orderUtils.js";
 import CartService from "./cartService.js";
 import CompanyService from "./companyService.js";
 import DiscountService from "./discountService.js";
+import fileStorageService from "./fileStorage.service.js";
 import OrderCacheService from "./OrderCacheService.js";
 import ProductService from "./productService.js";
 import type { TokenPayload } from "./tokenService.js";
@@ -505,12 +506,17 @@ class OrderService {
       }
 
       const orders = await OrderModel.find(query)
-        .populate("items.product", "title sku mainImage")
+        .populate("items.product", "title sku images")
         .populate("companyInfo.companyId")
         .populate({
           path: "delivery.pickupPoint",
           model: "PickupPoint",
           select: "name address coordinates workingHours contact description",
+        })
+        .populate({
+          path: "attachments",
+          select:
+            "_id originalName name sizeBytes mimeType url accessType entityType entityId storedName storagePath",
         })
         .populate("appliedDiscounts.discountId", "name type discountPercent")
         .sort({ createdAt: -1 })
@@ -541,6 +547,11 @@ class OrderService {
           model: "PickupPoint",
           select:
             "name address coordinates workingHours contact description isActive",
+        })
+        .populate({
+          path: "attachments",
+          select:
+            "_id originalName name sizeBytes mimeType url accessType entityType entityId storedName storagePath",
         })
         .populate("statusHistory.changedBy", "name email")
         .populate("appliedDiscounts.discountId", "name type discountPercent")
@@ -601,6 +612,7 @@ class OrderService {
           order: mapOrderToEmailData(order.toObject()),
         },
       );
+
       await sendPushNotification({
         userId,
         title: "Заказ отменен",
@@ -668,6 +680,11 @@ class OrderService {
           .populate("items.product", "title sku category")
           .populate("companyInfo.companyId", "name")
           .populate("statusHistory.changedBy", "name email")
+          .populate({
+            path: "attachments",
+            select:
+              "_id originalName name sizeBytes mimeType url accessType entityType entityId storedName storagePath",
+          })
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit)
@@ -703,11 +720,15 @@ class OrderService {
       const order = await OrderModel.findById(orderId)
         .populate("user", "name email address")
         .populate("items.product")
+        .populate({
+          path: "attachments",
+          select:
+            "_id originalName name sizeBytes mimeType url accessType entityType entityId storedName storagePath",
+        })
         .populate("companyInfo.companyId")
         .populate("statusHistory.changedBy", "name email role")
         .populate("cancellation.cancelledBy", "name email")
         .lean();
-
       if (!order) throw ApiError.NotFoundError("Заказ не найден");
       await this.cache.setOrder(order);
       return order;
@@ -956,9 +977,10 @@ class OrderService {
       }
 
       await sendEmailNotification(userEmail, "orderShipped", {
+        orderNumber: order.orderNumber,
         order: mapOrderToEmailData(order),
         trackingNumber: order.delivery.trackingNumber || "отсутствует",
-        carrier: order.delivery.carrier || "не указана", // поле carrier добавлено в IDelivery
+        carrier: order.delivery.carrier || "не указана",
         estimatedDelivery: estimatedDeliveryStr,
       });
     } catch (error) {
@@ -978,38 +1000,50 @@ class OrderService {
         delivery: {
           pickupPoint: {
             name: string;
-            address: string;
+            address: { street?: string };
             workingHours?: string;
           } | null;
         };
       }>("user delivery.pickupPoint");
 
-      if (populatedOrder?.user) {
-        let pickupPointData = null;
-        if (populatedOrder.delivery.pickupPoint) {
-          const pp = populatedOrder.delivery.pickupPoint as any;
-          pickupPointData = {
-            name: pp.name || "Пункт выдачи",
-            address: pp.address?.street || "адрес не указан",
-            hours: pp.workingHours || "не указаны",
-          };
-        }
-
-        await sendEmailNotification(
-          populatedOrder.user.email,
-          "orderReadyForPickup",
-          {
-            orderNumber: order.orderNumber,
-            pickupPoint: pickupPointData,
-            orderData: populatedOrder.toObject(),
-          },
+      if (!populatedOrder?.user) {
+        logger.warn(
+          `[OrderService] Нет пользователя для заказа ${order.orderNumber}`,
         );
-        await sendPushNotification({
-          userId: populatedOrder.user._id.toString(),
-          title: "Ваш заказ готов к выдаче",
-          body: `Заказ №${order.orderNumber} готов к выдаче`,
-        });
+        return;
       }
+
+      const pickupPoint = populatedOrder.delivery.pickupPoint;
+      if (!pickupPoint) {
+        logger.warn(
+          `[OrderService] Нет данных о пункте выдачи для заказа ${order.orderNumber} – уведомление не отправлено`,
+        );
+        return;
+      }
+
+      const pickupPointData = {
+        name: pickupPoint.name || "Пункт выдачи",
+        address: pickupPoint.address?.street || "адрес не указан",
+        hours: pickupPoint.workingHours || "не указаны",
+      };
+
+      // Преобразуем заказ в EmailOrderData
+      const orderForEmail = mapOrderToEmailData(populatedOrder.toObject());
+
+      await sendEmailNotification(
+        populatedOrder.user.email,
+        "orderReadyForPickup",
+        {
+          order: orderForEmail,
+          pickupPoint: pickupPointData,
+        },
+      );
+
+      await sendPushNotification({
+        userId: populatedOrder.user._id.toString(),
+        title: "Ваш заказ готов к выдаче",
+        body: `Заказ №${order.orderNumber} готов к выдаче`,
+      });
     } catch (error) {
       logger.error(
         `[OrderService] Ошибка отправки уведомления о готовности ${order.orderNumber}:`,
@@ -1018,173 +1052,75 @@ class OrderService {
     }
   }
 
+  private async validateFile(fileId: string): Promise<string> {
+    if (!fileId || fileId.trim() === "") {
+      throw ApiError.BadRequest("ID файла не указан");
+    }
+    const exists = await fileStorageService.checkIfExists(fileId);
+    if (!exists || (Array.isArray(exists) && exists.length === 0)) {
+      throw ApiError.BadRequest(`Файл с ID "${fileId}" не найден или удалён`);
+    }
+    return fileId;
+  }
+
+  // ====================== ПРИКРЕПЛЕНИЕ ФАЙЛА ======================
   async uploadAttachment(
     orderId: string,
-    filePath: string,
+    fileId: string,
     userId: string,
-  ): Promise<unknown> {
+  ): Promise<IOrder> {
     const order = await OrderModel.findById(orderId);
     if (!order) throw ApiError.NotFoundError("Заказ не найден");
-    if (!filePath) throw ApiError.BadRequest("Путь к файлу не указан");
 
-    let cleanPath = filePath;
-    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
-      const url = new URL(filePath);
-      cleanPath = decodeURIComponent(url.pathname);
-      logger.info(
-        `[OrderService] Извлечен и декодирован путь из URL: ${cleanPath}`,
-      );
+    // Валидируем файл
+    const validatedId = await this.validateFile(fileId);
+
+    // Добавляем ID, если его ещё нет (защита от дублей)
+
+    if (
+      order.attachments ||
+      order?.attachments.some((id: string) => id.toString() === validatedId)
+    ) {
+      order.attachments.push(validatedId);
+      await order.save();
     }
 
-    if (cleanPath.includes("/temp/")) {
-      const newPath = await this.moveAttachmentFromTemp(
-        cleanPath,
-        order.orderNumber,
-      );
-      cleanPath = newPath;
-    }
-
-    // Получаем информацию о файле (исправлено)
-    const fileInfo = await fileService.getFileInfo(cleanPath);
-    const attachment = {
-      name: basename(cleanPath),
-      path: cleanPath,
-      size: fileInfo.size,
-      mimeType: fileService.getMimeTypeFromName(cleanPath),
-      uploadedAt: new Date(),
-      uploadedBy: new Types.ObjectId(userId),
-    };
-    order.attachments.push(attachment);
-    await order.save();
-
+    // Инвалидация кэша
     await this.cache.invalidateOrderCache(orderId);
     await this.cache.invalidateUserCache(order.user.toString());
 
-    const updatedOrder = await OrderModel.findById(orderId).populate(
-      "attachments.uploadedBy",
-      "name email",
-    );
-    const userData = await UserModel.findById(order.user);
-    if (userData) {
-      await sendEmailNotification(userData.email, "newAttachment", {
-        orderNumber: order.orderNumber,
-        attachment,
-      });
-      await sendPushNotification({
-        userId: userData._id.toString(),
-        title: "Новое вложение в заказе",
-        body: `Менеджер прикрепил файл к вашему заказу №${order.orderNumber}`,
-      });
-    }
-    return updatedOrder?.toObject();
-  }
-
-  private async moveAttachmentFromTemp(
-    tempPath: string,
-    orderNumber: string,
-  ): Promise<string> {
-    logger.info(
-      `[OrderService] moveAttachmentFromTemp вызван с путем: ${tempPath}`,
-    );
-    let cleanPath = tempPath;
-    if (tempPath.startsWith("http://") || tempPath.startsWith("https://")) {
-      const url = new URL(tempPath);
-      cleanPath = decodeURIComponent(url.pathname);
-      logger.info(
-        `[OrderService] Извлечен и декодирован путь из URL: ${cleanPath}`,
-      );
-    }
-    if (!cleanPath.includes("/temp/")) {
-      logger.info(
-        `[OrderService] Путь не из temp, возвращаем как есть: ${cleanPath}`,
-      );
-      return cleanPath;
-    }
-
-    const filename = basename(cleanPath);
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 10);
-    const safeFilename = `${timestamp}_${randomString}_${filename}`;
-    const newWebPath = `/uploads/orders/${orderNumber}/${safeFilename}`;
-    const sourceAbsolute = fileService.getAbsolutePath(cleanPath);
-    const targetAbsolute = fileService.getAbsolutePath(newWebPath);
-    const targetDir = dirname(targetAbsolute);
-    await fs.mkdir(targetDir, { recursive: true });
-
-    logger.info(`[OrderService] Перемещение файла вложения:
-      Из (абсолютный): ${sourceAbsolute}
-      В (абсолютный): ${targetAbsolute}
-      В (веб-путь): ${newWebPath}`);
-
-    try {
-      await fs.access(sourceAbsolute);
-      logger.info(`[OrderService] Исходный файл существует: ${sourceAbsolute}`);
-    } catch (error) {
-      logger.error(
-        `[OrderService] Исходный файл не найден: ${sourceAbsolute}`,
-        error,
-      );
-      throw ApiError.BadRequest(`Исходный файл не найден: ${tempPath}`);
-    }
-
-    try {
-      await fs.rename(sourceAbsolute, targetAbsolute);
-      logger.info(`[OrderService] Файл успешно перемещен`);
-    } catch (error) {
-      logger.error(`[OrderService] Ошибка при перемещении файла:`, error);
-      try {
-        await fs.copyFile(sourceAbsolute, targetAbsolute);
-        await fs.unlink(sourceAbsolute);
-        logger.info(`[OrderService] Файл скопирован и оригинал удален`);
-      } catch (copyError) {
-        logger.error(`[OrderService] Ошибка при копировании файла:`, copyError);
-        throw new ApiError(
-          500,
-          `Ошибка при перемещении файла: ${(copyError as Error).message}`,
-        ); // Исправлено: ApiError.InternalError не существует
-      }
-    }
-    return newWebPath;
+    // Возвращаем заказ с populated файлами
+    const updatedOrder = await OrderModel.findById(orderId)
+      .populate("attachments")
+      .lean();
+    return updatedOrder as IOrder;
   }
 
   async deleteAttachment(
     orderId: string,
     fileId: string,
-    _userId: string,
-  ): Promise<unknown> {
-    logger.info(
-      `[OrderService] Удаление вложения ${fileId} из заказа ${orderId}`,
-    );
+    userId: string,
+  ): Promise<IOrder> {
     const order = await OrderModel.findById(orderId);
     if (!order) throw ApiError.NotFoundError("Заказ не найден");
 
-    const attachmentIndex = order.attachments.findIndex(
-      (a) => a._id?.toString() === fileId,
-    );
-    if (attachmentIndex === -1)
-      throw ApiError.NotFoundError("Файл не найден в заказе");
-
-    const attachment = order.attachments[attachmentIndex];
-    if (attachment.path) {
-      try {
-        // await fileService.deleteFile(attachment.path);
-        logger.info(
-          `[OrderService] Физический файл удален: ${attachment.path}`,
-        );
-      } catch (error) {
-        logger.warn(
-          `[OrderService] Не удалось удалить физический файл: ${(error as Error).message}`,
-        );
-      }
+    if (!order.attachments.some((id) => id.equals(fileId))) {
+      throw ApiError.NotFoundError("Файл не прикреплён к заказу");
     }
-    order.attachments.splice(attachmentIndex, 1);
+
+    // Удаляем ID из массива
+    order.attachments = order.attachments.filter((id) => !id.equals(fileId));
     await order.save();
 
+    await fileStorageService.deleteFile(fileId, userId);
+    // Инвалидация кэша
     await this.cache.invalidateOrderCache(orderId);
     await this.cache.invalidateUserCache(order.user.toString());
 
-    logger.info(`[OrderService] Вложение успешно удалено из заказа ${orderId}`);
-    return order.toObject();
+    const updatedOrder = await OrderModel.findById(orderId)
+      .populate("attachments")
+      .lean();
+    return updatedOrder as IOrder;
   }
 
   private async sendOrderCancelledNotification(

@@ -47,8 +47,8 @@ router.get(
 
 router.get(
   "/sku/:sku",
-  authMiddleware.optionalAuth,
-  productController.getProductBySku,
+  authMiddleware.optionalAuth(),
+  productController.getProductBySku as any,
 );
 
 router.get(

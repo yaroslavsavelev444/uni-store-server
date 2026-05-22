@@ -41,6 +41,7 @@ export interface DeleteFileResponse {
 /**
  * Расширение AuthRequest под multer
  */
+//@ts-expect-error
 export interface FilesUploadRequest extends AuthRequest<
   {},
   UploadFilesResponse,

@@ -6,10 +6,10 @@ import consentController from "../controllers/consentController.js";
 import authMiddleware from "../middlewares/auth-middleware.js";
 
 // Публичные роуты (доступны всем)
-router.get("/", consentController.list);
-router.get("/registration", consentController.getForRegistration);
-router.get("/required", consentController.getRequiredForAcceptance);
-router.get("/:slug", consentController.getBySlug);
+router.get("/", consentController.list as any);
+router.get("/registration", consentController.getForRegistration as any);
+router.get("/required", consentController.getRequiredForAcceptance as any);
+router.get("/:slug", consentController.getBySlug as any);
 
 // Защищенные роуты (требуют аутентификации)
 router.use(authMiddleware.requireRole("admin"));

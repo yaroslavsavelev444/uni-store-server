@@ -1,4 +1,5 @@
-import type { HydratedDocument, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, PopulatedDoc, Types } from "mongoose";
+import type { IFile } from "./file.types.js";
 
 export interface ICategoryImage {
   url?: string;
@@ -14,7 +15,7 @@ export interface ICategory {
   slug: string;
   subtitle?: string;
   description?: string;
-  image?: ICategoryImage;
+  image?: string | PopulatedDoc<IFile> | null;
   order: number;
   isActive: boolean;
   metaTitle?: string;
@@ -30,6 +31,7 @@ export interface ICategory {
 export type ICategoryMethods = {};
 
 // === Статические методы модели ===
+//@ts-expect-error
 export interface ICategoryModel extends Model<ICategory, {}, ICategoryMethods> {
   exists(id: string | Types.ObjectId): Promise<boolean>;
 }

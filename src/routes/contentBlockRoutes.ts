@@ -1,41 +1,31 @@
 import { Router } from "express";
-
-const router = Router();
-
-import ContentBlockController from "../controllers/contentBlockController.js";
+import contentBlockController from "../controllers/contentBlockController.js";
 import authMiddleware from "../middlewares/auth-middleware.js";
-import validate from "../middlewares/validators.js";
+import { validate } from "../middlewares/validators.js";
 import {
   contentBlockSchema,
   idSchema,
   updateSchema,
 } from "../validators/contentBlock.validator.js";
 
-// Инициализация контроллера
-const contentBlockController = new ContentBlockController();
+const router = Router();
 
-// ==== Публичные маршруты ====
-router.get("/", contentBlockController.getAll.bind(contentBlockController));
-router.get(
-  "/stats",
-  contentBlockController.getStats.bind(contentBlockController),
-);
-router.get(
-  "/tag/:tag",
-  contentBlockController.getByTag.bind(contentBlockController),
-);
+// ===== Публичные маршруты (без авторизации) =====
+router.get("/", contentBlockController.getAll as any);
+router.get("/stats", contentBlockController.getStats);
+router.get("/tag/:tag", contentBlockController.getByTag);
 router.get(
   "/:id",
   validate(idSchema, "params"),
-  contentBlockController.getById.bind(contentBlockController),
+  contentBlockController.getById as any,
 );
 
-// ==== Административные маршруты ====
+// ===== Административные маршруты (только admin) =====
 router.post(
   "/",
   authMiddleware(["admin"]),
   validate(contentBlockSchema),
-  contentBlockController.create.bind(contentBlockController),
+  contentBlockController.create as any,
 );
 
 router.patch(
@@ -43,21 +33,21 @@ router.patch(
   authMiddleware(["admin"]),
   validate(idSchema, "params"),
   validate(updateSchema),
-  contentBlockController.update.bind(contentBlockController),
+  contentBlockController.update as any,
 );
 
 router.delete(
   "/:id",
   authMiddleware(["admin"]),
   validate(idSchema, "params"),
-  contentBlockController.delete.bind(contentBlockController),
+  contentBlockController.delete as any,
 );
 
 router.patch(
   "/:id/toggle-active",
   authMiddleware(["admin"]),
   validate(idSchema, "params"),
-  contentBlockController.toggleActive.bind(contentBlockController),
+  contentBlockController.toggleActive as any,
 );
 
 export default router;

@@ -1,18 +1,22 @@
 //@ts-nocheck
 // services/ProductService.ts
+/** biome-ignore-all lint/suspicious/noImplicitAnyLet: <explanation> */
+/** biome-ignore-all lint/correctness/noUnusedFunctionParameters: <explanation> */
+/** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
+/** biome-ignore-all lint/complexity/useOptionalChain: <explanation> */
 import { Types } from "mongoose";
 import ApiError from "../exceptions/api-error.js";
-import { ProductModel } from "../models/index.models.js";
+import { CategoryModel, ProductModel } from "../models/index.models.js";
+import type { CreateProductBody } from "../types/controllers/product-controller.js";
 import type {
-  IInstruction,
   IProduct,
-  IProductImage,
   ProductDocument,
   ProductStatusType,
 } from "../types/product.types.js";
 import { ProductStatus } from "../types/product.types.js";
 import fileManager from "../utils/fileManager.js";
 import categoryService from "./categoryService.js"; // нужно импортировать
+import fileStorageService from "./fileStorage.service.js";
 import ProductDiscountService from "./ProductDiscountService.js";
 import purchaseCheckService from "./purchaseCheckService.js";
 import { ReviewsService } from "./reviewService.js";
@@ -112,6 +116,7 @@ class ProductService {
 
     const filter: any = {};
 
+    // Фильтр по статусу и видимости
     if (isAdmin) {
       if (status && Object.values(ProductStatus).includes(status)) {
         filter.status = status;
@@ -127,54 +132,70 @@ class ProductService {
       filter.isVisible = true;
     }
 
+    // Фильтр по категории (прямой ID)
     if (category) {
       if (!Types.ObjectId.isValid(category))
         throw ApiError.BadRequest("Некорректный ID категории");
       filter.category = category;
     }
 
+    // ИСПРАВЛЕНО: поиск категории по slug через CategoryModel
     let categoryIdFromSlug: Types.ObjectId | null = null;
     if (slug) {
-      const categoryDoc = await ProductModel.findOne({ slug }); // поиск категории по slug – неверно, надо искать в CategoryModel
-      // Исправляем: нужно искать в CategoryModel, но здесь ProductModel – ошибка в оригинале. Допустим, есть CategoryModel.
-      // Для простоты оставим как есть, но в реальности нужно импортировать CategoryModel.
-      if (!categoryDoc) {
-        return {
-          products: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            pages: 0,
-            hasNext: false,
-            hasPrev: false,
-          },
-        };
+      try {
+        const categoryDoc = await CategoryModel.findOne({ slug }).lean();
+        if (!categoryDoc) {
+          // возвращаем пустой результат, если категория не найдена
+          return {
+            products: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              pages: 0,
+              hasNext: false,
+              hasPrev: false,
+            },
+          };
+        }
+        categoryIdFromSlug = categoryDoc._id;
+        filter.category = categoryIdFromSlug;
+      } catch (err) {
+        console.error(
+          `[getAllProducts] Ошибка при поиске категории по slug "${slug}":`,
+          err,
+        );
+        throw ApiError.DatabaseError(
+          `Ошибка при поиске категории по slug: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
-      categoryIdFromSlug = categoryDoc._id as Types.ObjectId;
-      filter.category = categoryIdFromSlug;
     }
 
+    // Фильтр по цене
     if (minPrice || maxPrice) {
       filter.priceForIndividual = {};
       if (minPrice) filter.priceForIndividual.$gte = minPrice;
       if (maxPrice) filter.priceForIndividual.$lte = maxPrice;
     }
 
+    // Текстовый поиск
     if (search?.trim()) {
       filter.$text = { $search: search.trim() };
     }
 
+    // Исключение ID
     if (excludeIds?.length) {
       const valid = excludeIds.filter((id) => Types.ObjectId.isValid(id));
       if (valid.length) filter._id = { $nin: valid };
     }
 
+    // Дополнительные фильтры
     if (showOnMainPage) filter.showOnMainPage = true;
     if (manufacturer)
       filter.manufacturer = { $regex: manufacturer, $options: "i" };
     if (warrantyMonths) filter.warrantyMonths = { $gte: warrantyMonths };
 
+    // Сортировка
     const sortOptions: any = {};
     const sortField = this.getSortField(sortBy);
     sortOptions[sortField] = sortOrder === "asc" ? 1 : -1;
@@ -184,12 +205,15 @@ class ProductService {
     const limitNum = Number(limit);
 
     try {
+      // Базовый запрос
       let queryBuilder = ProductModel.find(filter)
         .sort(sortOptions)
         .skip(skip)
+        .populate("category", "slug name _id")
         .limit(limitNum)
         .lean({ virtuals: true });
 
+      // Опциональный populate связанных продуктов
       if (populate === "relatedProducts" || populate === "all") {
         const relatedFilter: any = {};
         if (!isAdmin) {
@@ -200,31 +224,44 @@ class ProductService {
         }
         queryBuilder = queryBuilder.populate({
           path: "relatedProducts",
-          select:
-            "title priceForIndividual mainImage status discount _id sku category",
+          select: "title priceForIndividual status discount _id sku category",
           match: relatedFilter,
           options: { limit: 10 },
           populate: { path: "category", select: "slug name _id" },
         });
       }
 
+      // Получение продуктов и общего количества
       const [products, total] = await Promise.all([
         queryBuilder,
         ProductModel.countDocuments(filter),
       ]);
 
-      const productsWithReviews = await Promise.all(
-        (products as any[]).map(async (product) => {
-          const reviewsCount =
-            await ReviewsService.getProductReviewsCountStatic(product._id);
-          return {
-            ...product,
-            finalPriceForIndividual: this.calculateFinalPrice(product),
-            reviewsCount,
-          };
-        }),
-      );
+      // Получение количества отзывов (с отдельной обработкой ошибок)
+      let productsWithReviews;
+      try {
+        productsWithReviews = await Promise.all(
+          (products as any[]).map(async (product) => {
+            const reviewsCount =
+              await ReviewsService.getProductReviewsCountStatic(product._id);
+            return {
+              ...product,
+              finalPriceForIndividual: this.calculateFinalPrice(product),
+              reviewsCount,
+            };
+          }),
+        );
+      } catch (err) {
+        console.error(
+          "[getAllProducts] Ошибка при получении отзывов для продуктов:",
+          err,
+        );
+        throw ApiError.DatabaseError(
+          `Ошибка при получении отзывов: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
 
+      // Получение скидок (ошибки не прерывают выполнение)
       let productsWithDiscounts = productsWithReviews;
       if (!(query as any).skipDiscountCheck) {
         try {
@@ -233,40 +270,54 @@ class ProductService {
               productsWithReviews,
             );
         } catch (err) {
-          console.error("Ошибка при получении скидок для продуктов:", err);
+          console.error(
+            "[getAllProducts] Ошибка при получении скидок для продуктов:",
+            err,
+          );
+          // продолжаем без скидок
         }
       }
 
+      // Обработка URL и дополнительных полей (с защитой от ошибок в отдельных продуктах)
       const processedProducts = productsWithDiscounts.map((product: any) => {
-        const processed = { ...product };
-        if (processed.mainImage && !processed.mainImage.startsWith("http")) {
-          processed.mainImage = fileManager.getFileUrl(processed.mainImage);
-        }
-        if (Array.isArray(processed.images)) {
-          processed.images = processed.images.map((img: any) => ({
-            ...img,
-            url: fileManager.getFileUrl(img.url),
-          }));
-        }
-        if (
-          processed.instruction?.url &&
-          !processed.instruction.url.startsWith("http")
-        ) {
-          processed.instruction.url = fileManager.getFileUrl(
-            processed.instruction.url,
-          );
-        }
-        if (processed.centralDiscounts?.length) {
-          const mainDisc = processed.centralDiscounts[0];
-          processed.hasCentralDiscount = true;
-          processed.centralDiscountPercent = mainDisc.discountPercent;
-          processed.discountMessage = mainDisc.message;
-          if (mainDisc.type === "quantity_based") {
-            processed.centralDiscountMinQuantity = mainDisc.minTotalQuantity;
-            processed.discountType = "quantity_based";
+        try {
+          const processed = { ...product };
+          // Обработка изображений
+          if (Array.isArray(processed.images)) {
+            processed.images = processed.images.map((img: any) => ({
+              ...img,
+              url: fileManager.getFileUrl(img.url),
+            }));
           }
+          // Обработка инструкции (файл)
+          if (
+            processed.instruction?.url &&
+            !processed.instruction.url.startsWith("http")
+          ) {
+            processed.instruction.url = fileManager.getFileUrl(
+              processed.instruction.url,
+            );
+          }
+          // Центральные скидки
+          if (processed.centralDiscounts?.length) {
+            const mainDisc = processed.centralDiscounts[0];
+            processed.hasCentralDiscount = true;
+            processed.centralDiscountPercent = mainDisc.discountPercent;
+            processed.discountMessage = mainDisc.message;
+            if (mainDisc.type === "quantity_based") {
+              processed.centralDiscountMinQuantity = mainDisc.minTotalQuantity;
+              processed.discountType = "quantity_based";
+            }
+          }
+          return processed;
+        } catch (err) {
+          console.error(
+            `[getAllProducts] Ошибка обработки продукта ${product._id}:`,
+            err,
+          );
+          // Возвращаем продукт без изменений, чтобы не ломать весь список
+          return product;
         }
-        return processed;
       });
 
       return {
@@ -281,7 +332,20 @@ class ProductService {
         },
       };
     } catch (err) {
-      throw ApiError.DatabaseError("Ошибка при получении продуктов");
+      // Полное логирование ошибки с контекстом
+      console.error("[getAllProducts] КРИТИЧЕСКАЯ ОШИБКА:", err);
+      console.error(
+        "[getAllProducts] Параметры запроса:",
+        JSON.stringify(query, null, 2),
+      );
+      console.error(
+        "[getAllProducts] Фильтр MongoDB:",
+        JSON.stringify(filter, null, 2),
+      );
+
+      throw ApiError.DatabaseError(
+        `Ошибка при получении продуктов: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -347,7 +411,7 @@ class ProductService {
       ) {
         query = query.populate(
           "relatedProducts",
-          "title sku priceForIndividual mainImage status _id",
+          "title sku priceForIndividual status _id",
         );
       }
       const product = await query.lean({ virtuals: true });
@@ -379,7 +443,7 @@ class ProductService {
       ) {
         query = query.populate(
           "relatedProducts",
-          "title sku priceForIndividual mainImage status _id",
+          "title sku priceForIndividual status _id",
         );
       }
       const product = await query.lean({ virtuals: true });
@@ -436,126 +500,308 @@ class ProductService {
     }
   }
 
+  private async processImagesForCreate(
+    imageIds: string[] | undefined,
+    _userId: string,
+  ): Promise<string[]> {
+    if (!imageIds?.length) return [];
+
+    // Убираем только пустые/невалидные строки
+    const validIds = imageIds.filter(
+      (id) => typeof id === "string" && id.trim().length > 0,
+    );
+
+    if (validIds.length === 0) return [];
+
+    // Проверяем существование через fileStorageService
+    const existing = await fileStorageService.checkIfExists(validIds);
+    const existingSet = new Set(Array.isArray(existing) ? existing : []);
+
+    const missing = validIds.filter((id) => !existingSet.has(id));
+    if (missing.length) {
+      throw ApiError.BadRequest(`Файлы не найдены: ${missing.join(", ")}`);
+    }
+
+    console.log("✅ processImagesForCreate → passed IDs:", validIds); // дебажный лог
+    return validIds;
+  }
+
+  /**
+   * Обновление — с поддержкой removedImageIds
+   */
+  private async processImagesForUpdate(
+    newImageIds: string[] | undefined,
+    removedImageIds: string[],
+    oldImageIds: string[],
+    userId: string,
+  ): Promise<string[]> {
+    if (newImageIds === undefined) return oldImageIds;
+
+    const finalIds = newImageIds.filter(
+      (id) => typeof id === "string" && id.trim().length > 0,
+    );
+
+    // Удаляем файлы
+    const idsToDelete = removedImageIds.filter((id) =>
+      oldImageIds.includes(id),
+    );
+    if (idsToDelete.length > 0) {
+      await fileStorageService.deleteFiles(idsToDelete, userId).catch((err) => {
+        console.error("Ошибка удаления файлов:", err);
+      });
+    }
+
+    // Проверка существования
+    if (finalIds.length > 0) {
+      const existing = await fileStorageService.checkIfExists(finalIds);
+      const existingSet = new Set(Array.isArray(existing) ? existing : []);
+      const missing = finalIds.filter((id) => !existingSet.has(id));
+
+      if (missing.length) {
+        throw ApiError.BadRequest(`Файлы не найдены: ${missing.join(", ")}`);
+      }
+    }
+
+    console.log("✅ processImagesForUpdate → final IDs:", finalIds);
+    return finalIds;
+  }
+
+  /**
+   * Создание — обработка инструкции
+   */
+  private async processInstructionForCreate(
+    instruction: any,
+    _userId: string,
+  ): Promise<any> {
+    if (!instruction) return null;
+
+    const { type, file, link } = instruction;
+
+    if (type === "file") {
+      if (!file)
+        throw ApiError.BadRequest("Для типа 'file' требуется ID файла");
+
+      const fileId = file.toString();
+      const exists = await fileStorageService.checkIfExists([fileId]);
+
+      if (!exists || !exists.includes(fileId)) {
+        throw ApiError.BadRequest("Файл инструкции не найден");
+      }
+
+      return { type: "file", file: new Types.ObjectId(fileId) };
+    }
+
+    if (type === "link") {
+      if (!link || typeof link !== "string") {
+        throw ApiError.BadRequest("Для типа 'link' требуется ссылка");
+      }
+
+      try {
+        new URL(link);
+      } catch {
+        throw ApiError.BadRequest("Некорректная ссылка");
+      }
+
+      return { type: "link", link };
+    }
+
+    throw ApiError.BadRequest("Некорректный тип инструкции");
+  }
+
+  /**
+   * Обновление — обработка инструкции с поддержкой removedInstruction
+   */
+  private async processInstructionForUpdate(
+    newInstruction: any,
+    removedInstruction: boolean,
+    oldInstruction: any | null,
+    userId: string,
+  ): Promise<any> {
+    // Полное удаление инструкции
+    if (removedInstruction === true || newInstruction === null) {
+      if (oldInstruction?.type === "file" && oldInstruction.file) {
+        await fileStorageService
+          .deleteFiles([oldInstruction.file.toString()], userId)
+          .catch(() => {});
+      }
+      return null;
+    }
+
+    // Инструкция не меняется
+    if (newInstruction === undefined) {
+      return oldInstruction;
+    }
+
+    // Новая инструкция пришла
+    const { type, file, link } = newInstruction;
+
+    if (type === "file") {
+      if (!file) throw ApiError.BadRequest("Для file нужен ID файла");
+
+      const fileId = file.toString();
+      const exists = await fileStorageService.checkIfExists([fileId]);
+
+      if (!exists || !exists.includes(fileId)) {
+        throw ApiError.BadRequest("Файл инструкции не найден");
+      }
+
+      // Удаляем старый файл, если он был и отличается
+      if (
+        oldInstruction?.type === "file" &&
+        oldInstruction.file?.toString() !== fileId
+      ) {
+        await fileStorageService
+          .deleteFiles([oldInstruction.file.toString()], userId)
+          .catch(() => {});
+      }
+
+      return { type: "file", file: new Types.ObjectId(fileId) };
+    }
+
+    if (type === "link") {
+      if (!link) throw ApiError.BadRequest("Для link нужна ссылка");
+
+      try {
+        new URL(link);
+      } catch {
+        throw ApiError.BadRequest("Некорректная ссылка");
+      }
+
+      // Удаляем старый файл, если был
+      if (oldInstruction?.type === "file" && oldInstruction.file) {
+        await fileStorageService
+          .deleteFiles([oldInstruction.file.toString()], userId)
+          .catch(() => {});
+      }
+
+      return { type: "link", link };
+    }
+
+    throw ApiError.BadRequest("Некорректный тип инструкции");
+  }
   async createProduct(
-    productData: any,
-    userId: string | Types.ObjectId,
+    productData: CreateProductBody,
+    userId: string,
   ): Promise<any> {
     try {
       const existing = await ProductModel.findOne({ sku: productData.sku });
       if (existing)
         throw ApiError.BadRequest("Продукт с таким SKU уже существует");
-      const categoryExists = await this.findCategoryById(productData.category);
-      if (!categoryExists)
-        throw ApiError.BadRequest("Указанная категория не существует");
+
+      await this.findCategoryById(productData.category);
       await this.validateRelatedProducts(productData);
-      const processedImages = await this.processImagesForDb(productData.images);
-      const processedInstruction =
-        productData.instruction !== null
-          ? await this.processInstructionForDb(productData.instruction)
-          : undefined;
+
+      const finalImages = await this.processImagesForCreate(
+        productData.images || [],
+        userId,
+      );
+      console.log("✅ After processImagesForCreate:", finalImages);
+
+      const finalInstruction = await this.processInstructionForCreate(
+        productData.instruction,
+        userId,
+      );
+
       const product = new ProductModel({
         ...productData,
-        images: processedImages,
-        instruction: processedInstruction,
+        images: finalImages, // ← массив строк
+        instruction: finalInstruction,
         createdBy: userId,
         updatedBy: userId,
       });
+
       await product.save();
+
+      console.log("✅ Product created with images:", finalImages); // для дебага
+
       return this.formatProductForResponse(product);
     } catch (err) {
       await this.rollbackProductFiles(productData);
       if (err instanceof ApiError) throw err;
-      throw ApiError.DatabaseError("Ошибка при создании продукта");
+      throw ApiError.DatabaseError("Ошибка создания продукта");
     }
   }
 
+  /**
+   * Обновление продукта
+   */
+  /**
+   * Обновление продукта
+   */
   async updateProduct(
     id: string,
     updateData: any,
-    userId: string | Types.ObjectId,
+    userId: string,
   ): Promise<any> {
-    if (!Types.ObjectId.isValid(id))
-      throw ApiError.BadRequest("Некорректный формат ID продукта");
-    try {
-      const product = await ProductModel.findById(id);
-      if (!product) throw ApiError.NotFoundError("Продукт не найден");
-
-      if (updateData.sku && updateData.sku !== product.sku) {
-        const existing = await ProductModel.findOne({
-          sku: updateData.sku,
-          _id: { $ne: id },
-        });
-        if (existing)
-          throw ApiError.BadRequest("Продукт с таким SKU уже существует");
-      }
-      if (updateData.category) {
-        const catExists = await this.findCategoryById(updateData.category);
-        if (!catExists)
-          throw ApiError.BadRequest("Указанная категория не существует");
-      }
-      await this.validateRelatedProducts(updateData, id);
-
-      const oldImages = [...(product.images as IProductImage[])];
-      const oldMainImage = product.mainImage;
-      const oldInstruction = product.instruction;
-
-      if (updateData.images !== undefined) {
-        if (updateData.images === null) product.images = [];
-        else if (Array.isArray(updateData.images)) {
-          try {
-            const processed = await this.processImagesForDb(
-              updateData.images,
-              oldImages,
-            );
-            product.images = processed;
-          } catch (err) {
-            console.error(
-              "[UPDATE_PRODUCT] Ошибка при обработке изображений:",
-              (err as Error).message,
-            );
-            product.images = oldImages;
-          }
-        }
-      }
-      if (updateData.mainImage !== undefined) {
-        if (updateData.mainImage === null) product.mainImage = null;
-        else if (updateData.mainImage.url) {
-          // await fileManager.validateFileExists(updateData.mainImage.url);
-          product.mainImage = updateData.mainImage;
-        }
-      }
-      if (updateData.instruction !== undefined) {
-        if (updateData.instruction === null) product.instruction = null;
-        else {
-          const processed = await this.processInstructionForDb(
-            updateData.instruction,
-            oldInstruction,
-          );
-          product.instruction = processed;
-        }
-      }
-      Object.keys(updateData).forEach((key) => {
-        if (!["images", "mainImage", "instruction"].includes(key)) {
-          (product as any)[key] = updateData[key];
-        }
-      });
-      product.updatedBy = userId as Types.ObjectId;
-      product.updatedAt = new Date();
-      await product.save();
-
-      await this.cleanupUnusedFiles(
-        oldImages,
-        product.images as IProductImage[],
-        oldMainImage,
-        product.mainImage,
-        oldInstruction,
-        product.instruction,
-      );
-      return this.formatProductForResponse(product);
-    } catch (err) {
-      if (err instanceof ApiError) throw err;
-      throw ApiError.DatabaseError("Ошибка при обновлении продукта");
+    if (!Types.ObjectId.isValid(id)) {
+      throw ApiError.BadRequest("Некорректный ID продукта");
     }
+
+    const product = await ProductModel.findById(id);
+    if (!product) throw ApiError.NotFoundError("Продукт не найден");
+
+    // Проверки SKU, категории и связанных товаров...
+    if (updateData.sku && updateData.sku !== product.sku) {
+      const existing = await ProductModel.findOne({
+        sku: updateData.sku,
+        _id: { $ne: id },
+      });
+      if (existing) throw ApiError.BadRequest("SKU уже занят");
+    }
+
+    if (updateData.category) await this.findCategoryById(updateData.category);
+    await this.validateRelatedProducts(updateData, id);
+
+    // === Обработка изображений ===
+    if (
+      updateData.images !== undefined ||
+      updateData.removedImageIds !== undefined
+    ) {
+      const oldImageIds = (product.images as string[]).map((id) =>
+        id.toString(),
+      );
+
+      const newImageIds = updateData.images || oldImageIds;
+      const removedIds = updateData.removedImageIds || [];
+
+      const processedImageIds = await this.processImagesForUpdate(
+        newImageIds,
+        removedIds,
+        oldImageIds,
+        userId,
+      );
+
+      product.images = processedImageIds.map((id) => id);
+    }
+
+    if (
+      updateData.instruction !== undefined ||
+      updateData.removedInstruction === true
+    ) {
+      const oldInstruction = product.instruction || null;
+
+      const processedInstruction = await this.processInstructionForUpdate(
+        updateData.instruction,
+        updateData.removedInstruction || false,
+        oldInstruction,
+        userId,
+      );
+
+      product.instruction = processedInstruction;
+    }
+
+    // Обновляем остальные поля
+    Object.keys(updateData).forEach((key) => {
+      if (!["images", "removedImageIds"].includes(key)) {
+        (product as any)[key] = updateData[key];
+      }
+    });
+
+    product.updatedBy = new Types.ObjectId(userId);
+    product.updatedAt = new Date();
+
+    await product.save();
+    return this.formatProductForResponse(product);
   }
 
   async updateProductStatus(
@@ -633,7 +879,7 @@ class ProductService {
       const product = await ProductModel.findById(productId)
         .populate({
           path: "relatedProducts",
-          select: "title sku priceForIndividual mainImage status discount",
+          select: "title sku priceForIndividual status discount",
           match: {
             status: { $in: [ProductStatus.AVAILABLE, ProductStatus.PREORDER] },
             isVisible: true,
@@ -684,130 +930,29 @@ class ProductService {
     }
   }
 
-  private async processImagesForDb(
-    images: any[],
-    existingImages: IProductImage[] = [],
-  ): Promise<IProductImage[]> {
-    if (!images || !Array.isArray(images)) return [];
-    const processed: IProductImage[] = [];
-    const existingUrls = existingImages.map((img) => {
-      let url = img.url;
-      if (url.startsWith("http://") || url.startsWith("https://"))
-        url = new URL(url).pathname;
-      return url;
-    });
-    for (const img of images) {
-      if (img._shouldDelete) continue;
-      if (img.url) {
-        let compareUrl = img.url;
-        if (
-          compareUrl.startsWith("http://") ||
-          compareUrl.startsWith("https://")
-        ) {
-          compareUrl = new URL(compareUrl).pathname;
-        }
-        if (existingUrls.includes(compareUrl)) {
-          const existing = existingImages.find((ei) => {
-            let u = ei.url;
-            if (u.startsWith("http://") || u.startsWith("https://"))
-              u = new URL(u).pathname;
-            return u === compareUrl;
-          });
-          if (existing) {
-            processed.push(existing);
-            continue;
-          }
-        }
-        try {
-          // await fileManager.validateFileExists(img.url);
-          processed.push({
-            url: img.url,
-            alt: img.alt || "",
-            order: img.order ?? processed.length,
-          });
-        } catch (err) {
-          console.error(
-            `Предупреждение: Пропускаем недействительное новое изображение: ${img.url} - ${(err as Error).message}`,
-          );
-        }
-      }
-    }
-    return processed;
-  }
-
-  private async processInstructionForDb(
-    instructionData: any,
-    _oldInstruction: any = null,
-  ): Promise<IInstruction | null> {
-    if (!instructionData) return null;
-    if (instructionData._shouldDelete) return null;
-    const processed: IInstruction = { ...instructionData };
-    if (instructionData.type === "file") {
-      if (instructionData.url && !instructionData.url.startsWith("http")) {
-        // await fileManager.validateFileExists(instructionData.url);
-      }
-      if (!processed.alt)
-        processed.alt = instructionData.originalName || "Инструкция";
-    }
-    if (instructionData.type === "link") {
-      try {
-        new URL(instructionData.url);
-      } catch {
-        throw ApiError.BadRequest("Некорректный URL инструкции");
-      }
-      if (!processed.title) processed.title = "Инструкция";
-    }
-    return processed;
-  }
-
-  private async cleanupUnusedFiles(
-    oldImages: IProductImage[],
-    newImages: IProductImage[],
-    oldMainImage: any,
-    newMainImage: any,
-    oldInstruction: any,
-    newInstruction: any,
-  ): Promise<void> {
-    const oldUrls = oldImages.map((i) => i.url);
-    const newUrls = newImages.map((i) => i.url);
-    const toDeleteGallery = oldUrls.filter((url) => !newUrls.includes(url));
-    for (const url of toDeleteGallery) {
-      try {
-        // await fileManager.deleteFile(url);
-      } catch (err) {}
-    }
-    if (
-      oldMainImage?.url &&
-      (!newMainImage || newMainImage.url !== oldMainImage.url)
-    ) {
-      try {
-        // await fileManager.deleteFile(oldMainImage.url);
-      } catch {}
-    }
-    if (
-      oldInstruction?.url &&
-      (!newInstruction || newInstruction.url !== oldInstruction.url)
-    ) {
-      try {
-        // await fileManager.deleteFile(oldInstruction.url);
-      } catch {}
-    }
-  }
-
+  /**
+   * Роллбэк файлов при ошибке создания — удаляем через fileStorageService
+   */
   private async rollbackProductFiles(productData: any): Promise<void> {
-    const files: string[] = [];
-    if (productData.mainImage?.url) files.push(productData.mainImage.url);
-    if (productData.images) {
-      productData.images.forEach((img: any) => {
-        if (img.url) files.push(img.url);
-      });
+    const fileIds: string[] = [];
+
+    if (Array.isArray(productData.images)) {
+      fileIds.push(
+        ...productData.images.filter((id: any) => typeof id === "string"),
+      );
     }
-    if (productData.instructionFile?.url)
-      files.push(productData.instructionFile.url);
-    for (const url of files) {
-      try {
-        // await fileManager.deleteFile(url);
-      } catch {}
+
+    if (
+      productData.instruction?.type === "file" &&
+      productData.instruction.file
+    ) {
+      fileIds.push(productData.instruction.file.toString());
+    }
+
+    if (fileIds.length) {
+      await fileStorageService
+        .deleteFiles(fileIds, productData.createdBy || "")
+        .catch(() => {});
     }
   }
 
@@ -815,18 +960,47 @@ class ProductService {
     const obj = product.toObject
       ? product.toObject({ virtuals: true })
       : product;
-    if (obj.mainImage?.url) {
-      obj.mainImage.url = fileManager.getFileUrl(obj.mainImage.url);
+
+    // images уже populated через pre-hook
+    if (Array.isArray(obj.images)) {
+      obj.images = obj.images.map((item: any) => {
+        if (item && typeof item === "object" && item._id) {
+          return {
+            _id: item._id,
+            url: item.url, // уже обработан в FileManager.getFileUrl при необходимости
+            originalName: item.originalName,
+            mimetype: item.mimetype,
+            size: item.size,
+          };
+        }
+        return { _id: item?.toString?.() || item, url: null };
+      });
+    } else {
+      obj.images = [];
     }
-    if (obj.images) {
-      obj.images = obj.images.map((img: any) => ({
-        ...img,
-        url: fileManager.getFileUrl(img.url),
-      }));
+
+    // instruction
+    if (obj.instruction) {
+      const { type, file, link } = obj.instruction;
+
+      if (type === "file") {
+        obj.instruction = {
+          type: "file",
+          file: file?._id || file,
+          url: file?.url || null,
+          originalName: file?.originalName,
+          mimetype: file?.mimetype,
+          size: file?.size,
+        };
+      } else if (type === "link") {
+        obj.instruction = {
+          type: "link",
+          link,
+          url: link,
+        };
+      }
     }
-    if (obj.instructionFile?.url) {
-      obj.instructionFile.url = fileManager.getFileUrl(obj.instructionFile.url);
-    }
+
     obj.finalPriceForIndividual = this.calculateFinalPrice(obj);
     return obj;
   }

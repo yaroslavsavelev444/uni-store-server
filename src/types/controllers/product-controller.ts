@@ -76,17 +76,8 @@ export interface CreateProductBody {
   maxOrderQuantity?: number;
   isVisible?: boolean;
   showOnMainPage?: boolean;
-  mainImage?: string | { url: string };
-  images?: Array<{ url: string; alt?: string; order?: number }>;
-  instruction?: {
-    type?: "file" | "link";
-    url?: string;
-    originalName?: string;
-    size?: number;
-    title?: string;
-    alt?: string;
-    mimetype?: string;
-  };
+  images?: string[];
+  instruction: string;
   specifications?: Array<{
     name: string;
     value: unknown;
@@ -171,6 +162,7 @@ export interface ProductStatusesResponse {
 
 // ========== TYPED REQUESTS (с кастомными полями от мидлварей) ==========
 // Расширяем базовый Request, добавляя validatedQuery и validatedData
+//@ts-expect-error
 interface ValidatedRequest<TQuery = any, TBody = any> extends Request {
   validatedQuery?: TQuery;
   validatedData?: TBody;

@@ -36,16 +36,11 @@ const feedbackSchema = new Schema<IFeedback, IFeedbackModel, IFeedbackMethods>(
       enum: ["low", "medium", "high", "critical"],
       default: "low",
     },
-    attachments: [
-      {
-        url: { type: String, required: true },
-        tempName: String,
-        originalName: String,
-        size: Number,
-        mimeType: String,
-        uploadedAt: { type: Date, default: Date.now },
-      },
-    ],
+    attachments: {
+      type: [String],
+      ref: "File",
+      default: [],
+    },
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
     tags: [{ type: String, trim: true }],
     internalNotes: [

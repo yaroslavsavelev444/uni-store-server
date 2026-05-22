@@ -171,28 +171,6 @@ class CategoryController {
       const { id } = req.params;
       const updateData = req.validatedData || req.body;
 
-      // Приводим поле image к типу ICategoryImage | undefined
-      if (updateData.image !== undefined) {
-        if (updateData.image === null) {
-          updateData.image = undefined; // удалить изображение
-        } else if (typeof updateData.image === "string") {
-          // Если пришла строка URL, преобразуем в объект
-          updateData.image = { url: updateData.image };
-        } else if (
-          typeof updateData.image === "object" &&
-          updateData.image !== null
-        ) {
-          // Оставляем как есть, но убеждаемся, что это ICategoryImage
-          const img = updateData.image as Record<string, unknown>;
-          updateData.image = {
-            url: img.url as string | undefined,
-            alt: img.alt as string | undefined,
-            size: img.size as number | undefined,
-            mimetype: img.mimetype as string | undefined,
-          };
-        }
-      }
-
       const userId = req.user.id;
       const category = await categoryService.updateCategory(
         id,

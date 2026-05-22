@@ -1,5 +1,4 @@
-//@ts-nocheck
-import IORedis, {
+import Redis, {
   type ChainableCommander,
   type Redis as RedisInstance,
 } from "ioredis";
@@ -17,7 +16,6 @@ class RedisClient implements IRedisClient {
   private client: RedisInstance | null = null;
   private isConnected: boolean = false;
   private connectionPromise: Promise<RedisInstance> | null = null;
-  private readonly defaultTTL: number = 3600; // 1 hour default TTL
 
   constructor() {
     // Автоматическое подключение при создании экземпляра
@@ -40,36 +38,39 @@ class RedisClient implements IRedisClient {
 
     this.connectionPromise = new Promise((resolve, reject) => {
       try {
-        this.client = new IORedis(redisConfig);
+        // Исправлено: используем локальную переменную вместо прямой работы с this.client
+        //@ts-expect-error
+        const client = new Redis(redisConfig);
 
-        if (this.client) {
-          this.client.on("connect", () => {
-            this.isConnected = true;
-            logger.info("[Redis] Connected successfully");
-            resolve(this.client!);
-          });
+        // Присваиваем this.client после успешного создания
+        this.client = client;
 
-          this.client.on("ready", () => {
-            logger.info("[Redis] Ready to accept commands");
-          });
+        client.on("connect", () => {
+          this.isConnected = true;
+          logger.info("[Redis] Connected successfully");
+          resolve(client); // Исправлено: убран non-null assertion
+        });
 
-          this.client.on("error", (err: Error) => {
-            logger.error(`[Redis] Connection error: ${err.message}`);
-            if (!this.isConnected) {
-              reject(err);
-            }
-          });
+        client.on("ready", () => {
+          logger.info("[Redis] Ready to accept commands");
+        });
 
-          this.client.on("reconnecting", (delay: number) => {
-            logger.warn(`[Redis] Reconnecting in ${delay}ms...`);
-          });
+        client.on("error", (err: Error) => {
+          logger.error(`[Redis] Connection error: ${err.message}`);
+          if (!this.isConnected) {
+            reject(err);
+          }
+        });
 
-          this.client.on("end", () => {
-            this.isConnected = false;
-            this.connectionPromise = null;
-            logger.info("[Redis] Connection closed");
-          });
-        }
+        client.on("reconnecting", (delay: number) => {
+          logger.warn(`[Redis] Reconnecting in ${delay}ms...`);
+        });
+
+        client.on("end", () => {
+          this.isConnected = false;
+          this.connectionPromise = null;
+          logger.info("[Redis] Connection closed");
+        });
       } catch (err) {
         reject(err);
       }
@@ -77,7 +78,6 @@ class RedisClient implements IRedisClient {
 
     return this.connectionPromise;
   }
-
   /**
    * Disconnect from Redis server
    */

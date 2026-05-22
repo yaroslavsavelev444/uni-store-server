@@ -95,17 +95,19 @@ class WishlistService {
   private async getPopulatedWishlist(
     userId: string | Types.ObjectId,
   ): Promise<PopulatedWishlist | null> {
-    const wishlist = await WishlistModel.findOne({ user: userId }).populate<{
-      items: PopulatedWishlistItem[];
-    }>({
-      path: "items.product",
-      select:
-        "title sku priceForIndividual discount minOrderQuantity maxOrderQuantity status isVisible mainImage manufacturer category specifications weight warrantyMonths viewsCount purchasesCount",
-      populate: {
-        path: "category",
-        select: "name slug",
-      },
-    });
+    const wishlist = await WishlistModel.findOne({ user: userId })
+      .populate<{
+        items: PopulatedWishlistItem[];
+      }>({
+        path: "items.product",
+        select:
+          "title sku priceForIndividual discount minOrderQuantity maxOrderQuantity status isVisible mainImage manufacturer category specifications weight warrantyMonths viewsCount purchasesCount",
+        populate: {
+          path: "category",
+          select: "name slug",
+        },
+      })
+      .lean();
     return wishlist as PopulatedWishlist | null;
   }
 

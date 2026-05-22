@@ -12,14 +12,17 @@ dotenv.config();
 
 // MongoDB connection options
 const connectionOptions: MongoConnectionOptions = {
-  serverSelectionTimeoutMS: 30000,
-  socketTimeoutMS: 45000,
+  serverSelectionTimeoutMS: 45000, // было 30000
+  socketTimeoutMS: 90000, // было 45000 — очень важно!
+  connectTimeoutMS: 30000,
+  heartbeatFrequencyMS: 10000, // добавь
+  retryWrites: true,
+  w: "majority", // для replicaSet
 };
-
 // Connection URI from environment or default
 const MONGODB_URI =
   process.env.MONGODB_URI ||
-  "mongodb://mongo1:27017,mongo2:27017,mongo3:27017/polet?replicaSet=rs0"; //comersi в проде
+  "mongodb://mongo1:27017,mongo2:27017,mongo3:27017/polet?replicaSet=rs0";
 
 /**
  * Connect to MongoDB database
@@ -68,7 +71,23 @@ const getDB = (): Connection => {
  */
 const disconnect = async (): Promise<void> => {
   await mongoose.disconnect();
-  logger.info("✅ Отключено от MongoDB");
+  console.warn("✅ Отключено от MongoDB");
 };
+
+mongoose.connection.on("connected", () => {
+  console.warn("🟢 MongoDB connected");
+});
+
+mongoose.connection.on("disconnected", () => {
+  console.warn("🔴 MongoDB disconnected");
+});
+
+mongoose.connection.on("error", (err) => {
+  console.warn("❌ MongoDB connection error", { error: err.message });
+});
+
+mongoose.connection.on("reconnected", () => {
+  console.warn("🔄 MongoDB reconnected");
+});
 
 export { connectDB, disconnect, getDB };

@@ -1,6 +1,5 @@
 // config/routes.config.ts
 import type { Application } from "express";
-import authMiddleware from "../src/middlewares/auth-middleware.js";
 import bullBoardMiddleware from "../src/queues/bullBoard.js";
 import authRoutes from "../src/routes/authRoutes.js";
 import bannerRoutes from "../src/routes/bannerRoutes.js";
@@ -33,7 +32,7 @@ export default (app: Application): void => {
   app.use("/health", healthRoutes);
   app.use("/consent", consentRoutes);
   app.use("/contacts", contactsRoutes);
-  app.use("/notifications", authMiddleware.requireAuth, notificationsRoutes);
+  app.use("/notifications", notificationsRoutes);
   app.use("/feedback", feedbackRoutes);
   app.use("/topics", topicRoutes);
   app.use("/files", filesRoutes);
@@ -52,7 +51,7 @@ export default (app: Application): void => {
   app.use("/delivery", deliveryRoutes);
   app.use("/discounts", discountRoutes);
   app.use("/orders", ordersRoutes);
-  app.use("/cart", authMiddleware.requireAuth, cartRoutes);
-  app.use("/wishlist", authMiddleware.requireAuth, wishlistRoutes);
+  app.use("/cart", cartRoutes);
+  app.use("/wishlist", wishlistRoutes);
   app.use("/admin/queues", bullBoardMiddleware);
 };

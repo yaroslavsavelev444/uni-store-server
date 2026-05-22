@@ -83,7 +83,7 @@ export const createRedisRateLimiter = ({
       if (current > max) {
         const ttl = await redisClient.ttl(key);
         logger.warn(
-          `[RATE LIMIT] ${key} превысил лимит (${current}/${max}). Retry after ${ttl}s`,
+          `[RATE LIMIT] ${key} превысил лимит (${current}/${max}). Осталось ${ttl}s`,
         );
 
         const response: RateLimitResponse = {

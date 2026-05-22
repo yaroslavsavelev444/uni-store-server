@@ -37,10 +37,9 @@ const CategorySchema = new Schema<ICategory, ICategoryModel, ICategoryMethods>(
       maxlength: 2000,
     },
     image: {
-      url: { type: String },
-      alt: { type: String, maxlength: 255 },
-      size: Number,
-      mimetype: String,
+      type: String,
+      ref: "File",
+      default: null,
     },
     order: {
       type: Number,
@@ -94,25 +93,6 @@ CategorySchema.pre("save", function (this: CategoryDocument, next) {
       .replace(/--+/g, "-");
   }
   next();
-});
-
-// Middleware для преобразования URL изображения
-//@ts-expect-error
-CategorySchema.post(["find", "findOne", "findById"], (docs: any) => {
-  if (!docs) return;
-
-  const processDocument = (doc: CategoryDocument | null) => {
-    if (doc?.image?.url && !doc.image.url.startsWith("http")) {
-      doc.image.url = fileService.getFileUrl(doc.image.url);
-    }
-    return doc;
-  };
-
-  if (Array.isArray(docs)) {
-    return docs.map(processDocument);
-  } else {
-    return processDocument(docs);
-  }
 });
 
 // Middleware для lean-документов (aggregate)

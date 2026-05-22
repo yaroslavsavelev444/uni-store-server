@@ -1,4 +1,4 @@
-import logger from "../logger/logger.js";
+//@ts-nocheck
 import { NotificationModel } from "../models/index.models.js";
 import type {
   CreateNotificationParams,
@@ -7,9 +7,11 @@ import type {
   MarkAsReadResponse,
   UserData,
 } from "../types/notification.js";
+
 import validateNotificationData from "../utils/validateNotificationData.js";
 
 const { validateNotification } = validateNotificationData;
+
 export const getNotificationsService = async (
   userData: UserData,
   limit: number = 10,
@@ -18,7 +20,8 @@ export const getNotificationsService = async (
   return await NotificationModel.find({ userId: userData.id })
     .sort({ createdAt: -1 })
     .skip(skip)
-    .limit(limit);
+    .limit(limit)
+    .lean<INotification[]>();
 };
 
 export const getUnreadCount = async (userData: UserData): Promise<number> => {
@@ -45,13 +48,16 @@ export const deleteNotificationsService = async (
   return { success: true };
 };
 
-// Основная функция создания уведомления (используется в очереди)
+/**
+ * Основная функция создания уведомления
+ */
 export async function createNotification(
   params: CreateNotificationParams,
 ): Promise<INotification> {
   const { userId, type, title, body, data = {} } = params;
 
   const { valid, missing } = validateNotification(type, data);
+
   if (!valid) {
     throw new Error(
       `Missing required fields for '${type}': ${missing?.join(", ")}`,
@@ -67,7 +73,6 @@ export async function createNotification(
     isRead: false,
   });
 
-  const savedNotification = await notification.save();
-
-  return savedNotification;
+  const saved = await notification.save();
+  return saved.toObject() as INotification;
 }

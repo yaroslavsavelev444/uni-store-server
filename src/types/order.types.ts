@@ -1,4 +1,5 @@
-import type { HydratedDocument, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, PopulatedDoc, Types } from "mongoose";
+import type { IFile } from "./file.types.js";
 
 // === Enum‑объекты (as const) ===
 export const OrderStatus = {
@@ -165,7 +166,7 @@ export interface IOrder {
   statusHistory: IStatusHistoryEntry[];
   appliedDiscounts: IAppliedDiscount[];
   cancellation?: ICancellation;
-  attachments: IAttachment[];
+  attachments: string[] | PopulatedDoc<IFile>[] | null;
   notes?: string;
   internalNotes?: string;
   tags: string[];
@@ -198,14 +199,4 @@ export interface IDelivery {
   estimatedDelivery?: Date;
   notes?: string;
   carrier?: string; // <-- добавлено
-}
-
-export interface IAttachment {
-  _id?: Types.ObjectId; // <-- добавлено
-  name?: string;
-  path?: string;
-  size?: number;
-  mimeType?: string;
-  uploadedAt?: Date;
-  uploadedBy?: Types.ObjectId;
 }

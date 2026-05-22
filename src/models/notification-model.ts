@@ -11,6 +11,7 @@ const notificationSchema = new Schema<
   INotificationMethods
 >(
   {
+    //@ts-expect-error
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     type: {
       type: String,

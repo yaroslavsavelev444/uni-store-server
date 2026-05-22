@@ -22,9 +22,7 @@ export interface SubmitFeedbackData {
   ipAddress?: string;
 }
 
-export interface SubmitFeedbackResult extends IFeedback {
-  attachments: IAttachment[];
-}
+export interface SubmitFeedbackResult extends IFeedback {}
 
 export interface GetFeedbackParams {
   id: string;

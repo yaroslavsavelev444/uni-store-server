@@ -17,7 +17,7 @@ router.use(authMiddleware(["admin"]));
 // CRUD операции для скидок
 router.post("/", discountController.create as any);
 router.put("/:id", discountController.update as any);
-router.get("/", discountController.getAll);
+router.get("/", discountController.getAll as any);
 router.get("/:id", discountController.getById);
 router.delete("/:id", discountController.remove as any);
 router.patch("/:id/status", discountController.changeStatus as any);

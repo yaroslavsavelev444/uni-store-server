@@ -8,25 +8,25 @@ const router = Router();
 // Стрелочные методы контроллера уже привязаны к экземпляру
 router.get(
   "/products/:productId/reviews",
-  authMiddleware.optionalAuth,
-  ReviewsController.getProductReviews, // без bind
+  authMiddleware.optionalAuth(),
+  ReviewsController.getProductReviews as any,
 );
 
 router.get(
   "/products/:productId/reviews/stats",
-  authMiddleware.optionalAuth,
+  authMiddleware.optionalAuth(),
   ReviewsController.getProductReviewsStats as any,
 );
 
 router.get(
   "/users/reviews",
-  authMiddleware.requireRole("user"),
+  authMiddleware.requireRole("admin"),
   ReviewsController.getUserReviews as any,
 );
 
 router.post(
   "/products/:productId/reviews",
-  authMiddleware(["user", "admin"]),
+  authMiddleware(["all"]),
   ReviewsController.createReview as any,
 );
 

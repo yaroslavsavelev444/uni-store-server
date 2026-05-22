@@ -4,7 +4,7 @@ import { body } from "express-validator";
 import userController from "../controllers/usersController.js";
 import authMiddleware from "../middlewares/auth-middleware.js";
 
-const router = new Router();
+const router = Router();
 
 const adminOnly = authMiddleware.withRoles(["admin", "superadmin"]);
 
@@ -15,10 +15,10 @@ router.get("/", adminOnly, userController.getAllUsers);
 router.get("/search", adminOnly, userController.searchUsers);
 
 // Получение пользователя по ID
-router.get("/:userId", adminOnly, userController.getUserById);
+router.get("/:userId", adminOnly, userController.getUserById as any);
 
 // Получение детальной информации о пользователе
-router.get("/:userId/details", adminOnly, userController.getUserDetails);
+router.get("/:userId/details", adminOnly, userController.getUserDetails as any);
 
 // Обновление роли пользователя
 router.patch(
@@ -32,11 +32,11 @@ router.patch(
         "Роль должна быть одним из значений: user, admin, superadmin",
       ),
   ],
-  userController.updateUserRole,
+  userController.updateUserRole as any,
 );
 
 // Понижение до пользователя
-router.post("/:userId/demote", adminOnly, userController.demoteToUser);
+router.post("/:userId/demote", adminOnly, userController.demoteToUser as any);
 
 // Блокировка пользователя
 router.post(
@@ -60,16 +60,24 @@ router.post(
         "Тип санкции должен быть одним из: block, warning, restriction",
       ),
   ],
-  userController.blockUser,
+  userController.blockUser as any,
 );
 
 // Разблокировка пользователя
-router.post("/:userId/unblock", adminOnly, userController.unblockUser);
+router.post("/:userId/unblock", adminOnly, userController.unblockUser as any);
 
 // Получение истории санкций
-router.get("/:userId/sanctions", adminOnly, userController.getUserSanctions);
+router.get(
+  "/:userId/sanctions",
+  adminOnly,
+  userController.getUserSanctions as any,
+);
 
 // Получение статуса блокировки
-router.get("/:userId/block-status", adminOnly, userController.getBlockStatus);
+router.get(
+  "/:userId/block-status",
+  adminOnly,
+  userController.getBlockStatus as any,
+);
 
 export default router;

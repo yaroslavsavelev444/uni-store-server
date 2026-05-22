@@ -107,7 +107,7 @@ router.get("/reasons", refundController.getRefundReasons as any);
 router.get("/statuses", refundController.getRefundStatuses as any);
 
 // ======================= Защищённые маршруты =======================
-router.use(authMiddleware.requireAuth);
+router.use(authMiddleware.requireAuth());
 
 // ----- Пользовательские -----
 router.post(

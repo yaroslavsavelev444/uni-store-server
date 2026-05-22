@@ -1,8 +1,9 @@
 // src/routes/healthcheckRoutes.ts
 import { type Request, type Response, Router } from "express";
-import { connection } from "mongoose";
+import mongoose from "mongoose";
 import redis from "../redis/redis.client.js";
 
+const connection = mongoose.connection;
 interface HealthCheckResponse {
   status: "ok" | "degraded" | "down";
   app: boolean;

@@ -34,7 +34,7 @@ class ConsentController {
    */
   create = async (
     req: CreateConsentReq,
-    res: Response<ConsentResponse<IConsent>>,
+    res: Response<IConsent>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -98,7 +98,7 @@ class ConsentController {
         `Создано новое соглашение: "${title}"`,
       );
 
-      res.status(201).json({ success: true, data: consent });
+      res.status(201).json(consent);
     } catch (error) {
       await auditLogger.logAdminEvent(
         req.user?.id || "unknown",
@@ -122,7 +122,7 @@ class ConsentController {
    */
   update = async (
     req: UpdateConsentReq,
-    res: Response<ConsentResponse<ConsentWithNotificationStats>>,
+    res: Response<ConsentWithNotificationStats>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -229,11 +229,8 @@ class ConsentController {
       );
 
       res.json({
-        success: true,
-        data: {
-          ...consent,
-          notificationStats,
-        },
+        ...consent,
+        notificationStats,
       });
     } catch (error) {
       await auditLogger.logAdminEvent(
@@ -258,7 +255,7 @@ class ConsentController {
    */
   activate = async (
     req: ActivateConsentReq,
-    res: Response<ConsentResponse<IConsent>>,
+    res: Response<IConsent>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -280,7 +277,7 @@ class ConsentController {
         `Активировано соглашение "${slug}"`,
       );
 
-      res.json({ success: true, data: consent });
+      res.json(consent);
     } catch (error) {
       await auditLogger.logAdminEvent(
         req.user.id,
@@ -301,7 +298,7 @@ class ConsentController {
    */
   deactivate = async (
     req: DeactivateConsentReq,
-    res: Response<ConsentResponse<IConsent>>,
+    res: Response<IConsent>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -323,7 +320,7 @@ class ConsentController {
         `Деактивировано соглашение "${slug}"`,
       );
 
-      res.json({ success: true, data: consent });
+      res.json(consent);
     } catch (error) {
       await auditLogger.logAdminEvent(
         req.user.id,
@@ -344,7 +341,7 @@ class ConsentController {
    */
   delete = async (
     req: DeleteConsentReq,
-    res: Response<ConsentResponse<{ message: string }>>,
+    res: Response<{ message: string }>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -366,10 +363,7 @@ class ConsentController {
         `Удалено соглашение "${slug}"`,
       );
 
-      res.json({
-        success: true,
-        data: { message: "Соглашение успешно удалено" },
-      });
+      res.json({ message: "Соглашение успешно удалено" });
     } catch (error) {
       await auditLogger.logAdminEvent(
         req.user.id,
@@ -390,12 +384,13 @@ class ConsentController {
    */
   getForRegistration = async (
     req: GetForRegistrationReq,
-    res: Response<ConsentResponse<IConsent[]>>,
+    res: Response<IConsent[]>,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const consents = await consentService.getConsentsForRegistration();
-      res.json({ success: true, data: consents });
+      console.log("consents", consents);
+      res.json(consents);
     } catch (error) {
       next(error);
     }
@@ -406,12 +401,12 @@ class ConsentController {
    */
   getRequiredForAcceptance = async (
     req: GetRequiredForAcceptanceReq,
-    res: Response<ConsentResponse<IConsent[]>>,
+    res: Response<IConsent[]>,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const consents = await consentService.getConsentsRequiringAcceptance();
-      res.json({ success: true, data: consents });
+      res.json(consents);
     } catch (error) {
       next(error);
     }
@@ -422,12 +417,12 @@ class ConsentController {
    */
   list = async (
     req: ListConsentsReq,
-    res: Response<ConsentResponse<IConsent[]>>,
+    res: Response<IConsent[]>,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const consents = await consentService.listConsents();
-      res.json({ success: true, data: consents });
+      res.json(consents);
     } catch (error) {
       next(error);
     }
@@ -438,7 +433,7 @@ class ConsentController {
    */
   getBySlug = async (
     req: GetBySlugReq,
-    res: Response<ConsentResponse<IConsent>>,
+    res: Response<IConsent>,
     next: NextFunction,
   ): Promise<void> => {
     try {
@@ -449,7 +444,7 @@ class ConsentController {
         );
       }
       const consent = await consentService.getConsentBySlug(slug);
-      res.json({ success: true, data: consent });
+      res.json(consent);
     } catch (error) {
       next(error);
     }

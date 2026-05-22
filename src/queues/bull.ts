@@ -31,11 +31,14 @@ const settings: QueueOptions["settings"] = {
   drainDelay: 60, // задержка перед завершением, если очередь пуста
 };
 
+const { enableReadyCheck, maxRetriesPerRequest, ...bullSafeRedisConfig } =
+  redis;
+
 /**
  * Общие параметры для всех очередей.
  */
 const queueOptions: QueueOptions = {
-  redis,
+  redis: bullSafeRedisConfig,
   defaultJobOptions,
   settings,
   limiter,

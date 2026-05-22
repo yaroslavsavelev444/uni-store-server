@@ -1,4 +1,5 @@
-import type { Document, Model, Types } from "mongoose";
+import type { Document, Model, PopulatedDoc, Types } from "mongoose";
+import type { IFile } from "./file.types.js";
 
 export interface IButton {
   text?: string | null;
@@ -10,7 +11,7 @@ export interface IButton {
 export interface IContentBlock {
   title: string;
   subtitle: string;
-  imageUrl?: string | null;
+  imageUrl?: string | PopulatedDoc<IFile> | null; // теперь может быть populate
   button?: IButton;
   description?: string;
   position: number;

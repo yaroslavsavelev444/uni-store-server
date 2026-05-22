@@ -1,9 +1,10 @@
 // src/models/UserSecurity.model.ts
 import { model, Schema, Types } from "mongoose";
-import type {
-  IUserSecurity,
-  IUserSecurityMethods,
-  IUserSecurityModel,
+import {
+  type IUserSecurity,
+  type IUserSecurityMethods,
+  type IUserSecurityModel,
+  UserSecurityStatus,
 } from "../types/userSecurity.types.js";
 
 const UserSecuritySchema = new Schema<
@@ -18,7 +19,11 @@ const UserSecuritySchema = new Schema<
     twoFAAttempts: { type: Number, default: 0 },
     resetTokenExpiration: { type: Date, default: null },
     resetTokenHash: { type: String, default: null },
-    resetTokenStatus: { type: String, default: "pending" },
+    resetTokenStatus: {
+      type: String,
+      default: UserSecurityStatus.Pending,
+      enum: UserSecurityStatus,
+    },
     resetTokenAttempts: { type: Number, default: 0 }, // добавлено
   },
   {

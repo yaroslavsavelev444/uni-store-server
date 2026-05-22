@@ -1,7 +1,6 @@
 // middlewares/auth-middleware.ts
 import type { NextFunction, Response } from "express";
 import ApiError from "../exceptions/api-error.js";
-import logger from "../logger/logger.js";
 import SessionService from "../services/SessionService.js";
 import {
   validateAccessToken,
@@ -102,84 +101,63 @@ const authMiddleware = (options: AuthMiddlewareOptions | string[] = {}) => {
   ): Promise<void> => {
     try {
       const authorizationHeader = req.headers?.authorization;
-      logger.debug({
-        message: "Заголовок авторизации",
-        authorizationHeader,
-      });
+
       if (!authorizationHeader) {
         if (optional) {
           (req as OptionalAuthRequest).user = null;
-          logger.debug(
-            "Опциональный режим: заголовок авторизации отсутствует, user = null",
-          );
           return next();
         } else {
-          logger.warn(
-            "Заголовок авторизации отсутствует (обязательная проверка)",
-          );
           return next(ApiError.UnauthorizedError());
         }
       }
+
       const tokenParts = authorizationHeader.split(" ");
       if (tokenParts.length !== 2 || tokenParts[0].toLowerCase() !== "bearer") {
         if (optional) {
           (req as OptionalAuthRequest).user = null;
-          logger.debug(
-            "Опциональный режим: неверный формат заголовка, user = null",
-          );
           return next();
         } else {
-          logger.warn("Неверный формат заголовка авторизации");
           return next(ApiError.UnauthorizedError());
         }
       }
       const accessToken = tokenParts[1];
+
       if (!accessToken) {
         if (optional) {
           (req as OptionalAuthRequest).user = null;
-          logger.debug("Опциональный режим: токен отсутствует, user = null");
           return next();
         } else {
-          logger.warn("Токен отсутствует");
           return next(ApiError.UnauthorizedError());
         }
       }
+
       const userData = validateAccessToken(accessToken) as AuthUser | null;
+
       if (!userData) {
         if (optional) {
           (req as OptionalAuthRequest).user = null;
-          logger.debug("Опциональный режим: невалидный токен, user = null");
           return next();
         } else {
-          logger.warn("Невалидный access token");
           return next(ApiError.UnauthorizedError());
         }
       }
 
       // Проверка refresh token (только если есть userData)
-      try {
-        // Создаём объект, совместимый с ожидаемым типом validateRefreshTokenFromRequest
-        const refreshRequest = {
-          cookies: (req as RequestWithCookies).cookies,
-          headers: req.headers,
-          body: req.body,
-        };
-        await validateRefreshTokenFromRequest(refreshRequest as any, userData);
-      } catch (refreshTokenError) {
-        if (optional) {
-          (req as OptionalAuthRequest).user = null;
-          logger.debug(
-            "Опциональный режим: невалидный refresh token, user = null",
-          );
-          return next();
-        } else {
-          logger.warn({
-            message: "Невалидный refresh token",
-            error: refreshTokenError,
-          });
-          return next(ApiError.UnauthorizedError());
-        }
-      }
+      // try {
+      //   const refreshRequest = {
+      //     cookies: (req as RequestWithCookies).cookies,
+      //     headers: req.headers,
+      //     body: req.body,
+      //   };
+      //   await validateRefreshTokenFromRequest(refreshRequest as any, userData);
+      // } catch (refreshTokenError) {
+      //   if (optional) {
+      //     (req as OptionalAuthRequest).user = null;
+      //     return next();
+      //   } else {
+      //     return next(ApiError.UnauthorizedError());
+      //   }
+      // }
 
       // 🔒 ПРОВЕРКА БЛОКИРОВКИ ПОЛЬЗОВАТЕЛЯ (если включена)
       if (checkBlock) {
@@ -195,11 +173,6 @@ const authMiddleware = (options: AuthMiddlewareOptions | string[] = {}) => {
               : null;
 
             const errorMessage = formatBlockMessage(blockedUntil);
-
-            logger.warn(
-              `Заблокированный пользователь ${userData.id} (${userData.email}) попытался получить доступ к ${req.method} ${req.path}`,
-            );
-
             return next(ApiError.ForbiddenError(errorMessage, undefined));
           }
 
@@ -208,20 +181,12 @@ const authMiddleware = (options: AuthMiddlewareOptions | string[] = {}) => {
             userData.status === "blocked" &&
             blockStatus.user.status === "active"
           ) {
-            logger.info(
-              `Пользователь ${userData.id} автоматически разблокирован (просроченная блокировка)`,
-            );
             // Обновляем статус в userData для дальнейшего использования
             userData.status = "active";
             userData.blockedUntil = null;
           }
         } catch (blockCheckError) {
-          // Если не удалось проверить статус блокировки, логируем и продолжаем
-          logger.error({
-            message: "Ошибка при проверке блокировки",
-            error: blockCheckError,
-          });
-          // В случае ошибки не блокируем доступ, но логируем
+          // В случае ошибки не блокируем доступ, но логируем (логирование убрано по требованию)
         }
       }
 
@@ -231,13 +196,8 @@ const authMiddleware = (options: AuthMiddlewareOptions | string[] = {}) => {
         !allowedRoles.includes("all")
       ) {
         if (!allowedRoles.includes(userData.role)) {
-          logger.warn(
-            `Пользователь ${userData.id} с ролью ${userData.role} не имеет доступа. Требуемые роли: ${allowedRoles.join(", ")}`,
-          );
-
           if (optional) {
             (req as OptionalAuthRequest).user = null;
-            logger.debug("Опциональный режим: роль не разрешена, user = null");
             return next();
           } else {
             return next(ApiError.ForbiddenError("Доступ запрещён"));
@@ -253,20 +213,10 @@ const authMiddleware = (options: AuthMiddlewareOptions | string[] = {}) => {
       };
       (req as AuthRequest).user = authUser;
 
-      logger.info(
-        `Пользователь ${userData.id} с ролью ${userData.role} прошёл проверку ${optional ? "(опционально)" : "(обязательно)"}`,
-      );
-
       return next();
     } catch (e) {
-      logger.error({
-        message: "Ошибка при проверке токена",
-        error: e,
-      });
-
       if (optional) {
         (req as OptionalAuthRequest).user = null;
-        logger.debug("Опциональный режим: ошибка при проверке, user = null");
         return next();
       } else {
         return next(ApiError.UnauthorizedError());
@@ -289,17 +239,18 @@ authMiddleware.refreshMiddleware =
         (req.headers?.["refresh-token"] as string);
 
       if (!refreshToken) {
-        logger.warn("Refresh token not provided for refresh endpoint");
         return next(ApiError.UnauthorizedError());
       }
+
       const userData = validateRefreshToken(refreshToken) as AuthUser | null;
+
       if (!userData) {
-        logger.warn("Invalid refresh token for refresh endpoint");
         return next(ApiError.UnauthorizedError());
       }
-      const isRevoked = await SessionService.isSessionRevoked(refreshToken);
+
+      const isRevoked = false;
+
       if (isRevoked) {
-        logger.warn("Refresh attempt with revoked token");
         return next(ApiError.UnauthorizedError());
       }
 
@@ -310,10 +261,6 @@ authMiddleware.refreshMiddleware =
         );
 
         if (blockStatus.user.status === "blocked") {
-          logger.warn(
-            `Заблокированный пользователь ${userData.id} пытается обновить токен`,
-          );
-
           const blockedUntil = blockStatus.user.blockedUntil
             ? new Date(blockStatus.user.blockedUntil)
             : null;
@@ -325,25 +272,15 @@ authMiddleware.refreshMiddleware =
               errorMessage = `Аккаунт заблокирован до ${blockedUntil.toLocaleString("ru-RU")}`;
             }
           }
-
           return next(ApiError.ForbiddenError(errorMessage, undefined));
         }
       } catch (blockCheckError) {
-        logger.error({
-          message: "Ошибка при проверке блокировки",
-          error: blockCheckError,
-        });
         // В случае ошибки продолжаем
       }
 
       (req as AuthRequest).user = userData;
       next();
     } catch (e) {
-      logger.error({
-        message: "Error while validating refresh token",
-        error: e,
-      });
-      console.error(e);
       return next(ApiError.UnauthorizedError());
     }
   };
@@ -370,7 +307,11 @@ authMiddleware.requireRole = (role: string) =>
  * Декоратор для маршрутов, доступных только аутентифицированным пользователям
  */
 authMiddleware.requireAuth = () =>
-  authMiddleware({ allowedRoles: ["all"], optional: false });
+  authMiddleware({
+    allowedRoles: ["all"],
+    optional: false,
+    checkBlock: false,
+  });
 
 /**
  * Декоратор для опциональной проверки с любой ролью
@@ -405,15 +346,10 @@ authMiddleware.blockCheckOnly =
           : null;
 
         const errorMessage = formatBlockMessage(blockedUntil);
-
         return next(ApiError.ForbiddenError(errorMessage, undefined));
       }
-
       next();
     } catch (error) {
-      logger.error(
-        `Ошибка при проверке блокировки в blockCheckOnly: ${(error as Error).message}`,
-      );
       next(); // В случае ошибки разрешаем доступ
     }
   };

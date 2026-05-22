@@ -138,6 +138,19 @@ class FileStorageService {
     return results;
   }
 
+  async checkIfExists(
+    fileId: string | string[],
+  ): Promise<string | string[] | null> {
+    const fileDocs = await FileModel.find({
+      _id: { $in: Array.isArray(fileId) ? fileId : [fileId] },
+      deletedAt: null,
+    });
+
+    const ids = fileDocs.map((f) => f._id);
+
+    return ids.length ? ids : null;
+  }
+
   // ====================== ОТДАЧА ======================
   async serveFile(
     fileId: string,

@@ -10,26 +10,26 @@ import { validateCreateOrder } from "../validators/order.validator.js";
 // ========== USER ROUTES ==========
 router.get(
   "/",
-  authMiddleware.requireRole("user"),
+  authMiddleware.requireRole("all"),
   ordersController.getOrders as any,
 );
 
 router.get(
   "/:id",
-  authMiddleware.requireRole("user"),
+  authMiddleware.requireRole("all"),
   ordersController.getOrder as any,
 );
 
 router.post(
   "/",
-  authMiddleware.requireRole("user"),
+  authMiddleware.requireRole("all"),
   validateCreateOrder,
   ordersController.createOrder as any,
 );
 
 router.post(
   "/:id/cancel",
-  authMiddleware.requireRole("user"),
+  authMiddleware.requireRole("all"),
   ordersController.cancelOrder as any,
 );
 

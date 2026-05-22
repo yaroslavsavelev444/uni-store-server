@@ -1,4 +1,5 @@
-import type { HydratedDocument, Model, Types } from "mongoose";
+import type { HydratedDocument, Model, PopulatedDoc, Types } from "mongoose";
+import type { IFile } from "./file.types.js";
 import type { UserRole } from "./user.types.js";
 
 // === Вспомогательные типы ===
@@ -48,7 +49,7 @@ export interface IFeedback {
   userRole?: UserRole;
   status: FeedbackStatus;
   priority: FeedbackPriority;
-  attachments: IAttachment[];
+  attachments: string[] | PopulatedDoc<IFile>[] | null;
   assignedTo?: Types.ObjectId;
   tags: string[];
   internalNotes: IInternalNote[];

@@ -151,56 +151,66 @@ class SearchService {
           .select(
             "title sku mainImage priceForIndividual discount status category",
           )
+
+          .populate({
+            path: "images",
+            select:
+              "_id originalName name sizeBytes mimeType url accessType entityType entityId originalName storedName storagePath",
+          })
           .populate("category", "name slug")
           .limit(10)
           .lean();
       }
 
       // Форматирование результатов
-      const formattedResults: SearchHintResult[] = results.map((product) => {
-        let finalPrice = product.priceForIndividual;
+      const formattedResults: SearchHintResult[] = results.map(
+        (product: IProduct) => {
+          let finalPrice = product.priceForIndividual;
 
-        if (product.discount?.isActive) {
-          const now = new Date();
-          const validFrom = product.discount.validFrom
-            ? new Date(product.discount.validFrom)
-            : new Date(0);
-          const validUntil = product.discount.validUntil
-            ? new Date(product.discount.validUntil)
-            : new Date("9999-12-31");
+          if (product.discount?.isActive) {
+            const now = new Date();
+            const validFrom = product.discount.validFrom
+              ? new Date(product.discount.validFrom)
+              : new Date(0);
+            const validUntil = product.discount.validUntil
+              ? new Date(product.discount.validUntil)
+              : new Date("9999-12-31");
 
-          if (now >= validFrom && now <= validUntil) {
-            if (
-              product.discount.percentage &&
-              product.discount.percentage > 0
-            ) {
-              finalPrice *= 1 - product.discount.percentage / 100;
+            if (now >= validFrom && now <= validUntil) {
+              if (
+                product.discount.percentage &&
+                product.discount.percentage > 0
+              ) {
+                finalPrice *= 1 - product.discount.percentage / 100;
+              }
+              if (product.discount.amount && product.discount.amount > 0) {
+                finalPrice = Math.max(0, finalPrice - product.discount.amount);
+              }
+              finalPrice = Math.round(finalPrice * 100) / 100;
             }
-            if (product.discount.amount && product.discount.amount > 0) {
-              finalPrice = Math.max(0, finalPrice - product.discount.amount);
-            }
-            finalPrice = Math.round(finalPrice * 100) / 100;
           }
-        }
 
-        const isPreorder = product.status === ProductStatus.PREORDER;
+          const isPreorder = product.status === ProductStatus.PREORDER;
 
-        return {
-          value: product._id.toString(),
-          label: product.title,
-          sku: product.sku,
-          price: finalPrice,
-          originalPrice: product.discount?.isActive
-            ? product.priceForIndividual
-            : null,
-          hasDiscount: !!product.discount?.isActive,
-          image: product.mainImage,
-          //@ts-expect-error
-          category: product.category?.name || undefined,
-          isPreorder,
-          raw: product,
-        };
-      });
+          return {
+            value: product._id.toString(),
+            label: product.title,
+            sku: product.sku,
+            price: finalPrice,
+            originalPrice: product.discount?.isActive
+              ? product.priceForIndividual
+              : null,
+            hasDiscount: !!product.discount?.isActive,
+            image:
+              //@ts-expect-error
+              product.images.length > 0 ? product.images[0].url : undefined,
+            //@ts-expect-error
+            category: product.category?.name || undefined,
+            isPreorder,
+            raw: product,
+          };
+        },
+      );
 
       console.log(
         `[SearchService] getHints: query="${query}" results=${formattedResults.length}`,

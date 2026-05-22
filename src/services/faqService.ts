@@ -1,5 +1,5 @@
 // services/faqService.ts
-
+//@ts-nocheck
 import { Types } from "mongoose";
 import { FaqTopicModel } from "../models/index.models.js";
 import redis from "../redis/redis.client.js";

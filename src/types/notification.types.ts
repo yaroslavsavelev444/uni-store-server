@@ -4,25 +4,28 @@ export type NotificationType =
   | "system"
   | "subscription_match"
   | "chat"
-  | "review"
-  | "order"
-  | "login_from_new_device";
+  | "leave-review"
+  | "order-updated"
+  | "login-from-new-device"
+  | "new_complaint_admin"
+  | "complaint_created"
+  | "complaint_status_changed";
 
-export type PushStatus = "pending" | "sent" | "failed";
-
-// === Базовые поля, сохраняемые в БД ===
 export interface INotification {
-  userId: Types.ObjectId;
+  _id: string; // или Types.ObjectId
+  userId: string;
   type: NotificationType;
   title: string;
   body: string;
-  data?: Record<string, any>;
+  data: Record<string, any>;
   link?: string;
   isRead: boolean;
   delivered: boolean;
-  pushStatus: PushStatus;
-  createdAt?: Date;
+  pushStatus: "pending" | "sent" | "failed";
+  createdAt: Date;
+  updatedAt?: Date;
 }
+export type PushStatus = "pending" | "sent" | "failed";
 
 // === Методы экземпляра (если появятся) ===
 export type INotificationMethods = {};

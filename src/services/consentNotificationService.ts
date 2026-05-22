@@ -1,4 +1,3 @@
-// services/consentNotificationService.ts
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import ApiError from "../exceptions/api-error.js";
@@ -39,7 +38,14 @@ interface SendEmailData {
   changeDescription: string;
   documentUrl?: string;
   effectiveDate: string;
-  userName: string;
+  userName?: string; // сделано опциональным, если не используется
+}
+
+// Для push-уведомления
+interface SendPushData {
+  consentTitle: string;
+  changeDescription: string;
+  // version не нужен
 }
 
 interface UserWithId extends Pick<IUser, "email" | "name"> {
@@ -57,7 +63,7 @@ class ConsentNotificationService {
         email: u.email,
         name: u.name,
       }));
-    } catch (error) {
+    } catch (_error) {
       throw ApiError.InternalServerError(
         "Ошибка при получении списка пользователей",
       );
@@ -87,6 +93,7 @@ class ConsentNotificationService {
       const notificationPromises: Promise<{
         success: boolean;
         email: string;
+        error?: string;
       }>[] = [];
 
       if (notificationTypes.includes("email")) {
@@ -99,7 +106,6 @@ class ConsentNotificationService {
               changeDescription,
               documentUrl,
               effectiveDate,
-              notificationTypes,
             }),
           ),
         );
@@ -116,12 +122,7 @@ class ConsentNotificationService {
           ...users.map((user) =>
             this.sendPush(user, {
               consentTitle,
-              version,
-              updateDate,
               changeDescription,
-              documentUrl,
-              effectiveDate,
-              notificationTypes,
             }),
           ),
         );
@@ -165,9 +166,8 @@ class ConsentNotificationService {
   private async sendEmail(
     user: UserWithId,
     data: Omit<SendEmailData, "userName">,
-  ): Promise<{ success: boolean; email: string }> {
+  ): Promise<{ success: boolean; email: string; error?: string }> {
     try {
-      const userName = user.name?.trim() || "Уважаемый пользователь";
       await sendEmailNotification(user.email, "consentUpdated", {
         consentTitle: data.consentTitle,
         version: data.version,
@@ -191,11 +191,8 @@ class ConsentNotificationService {
 
   private async sendPush(
     user: UserWithId,
-    data: {
-      consentTitle: string;
-      changeDescription: string;
-    },
-  ): Promise<{ success: boolean; email: string }> {
+    data: SendPushData,
+  ): Promise<{ success: boolean; email: string; error?: string }> {
     try {
       await sendPushNotification({
         userId: user._id,

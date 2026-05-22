@@ -1,54 +1,77 @@
-// src/loaders/expressLoader.ts
-
-import pkg from "body-parser";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import type { Application } from "express";
-import { json } from "express";
-import expressUseragent from "express-useragent";
+import express from "express";
+import { express as useragentExpress } from "express-useragent";
 import helmet from "helmet";
+
 import auditConfig from "../config/audit.js";
 import corsConfig from "../config/cors.js";
+
 import logger from "../src/logger/logger.js";
+
 import auditRequestMiddleware from "../src/middlewares/audit-request-middleware.js";
 import requestContextMiddleware from "../src/middlewares/request-context-middleware.js";
 
-const { urlencoded } = pkg;
-
-/**
- * Настройка middleware для Express приложения
- * @param app - экземпляр Express приложения
- */
 export default (app: Application): void => {
-  // Helmet – защита HTTP заголовков
+  /**
+   * Request context / requestId
+   * Должен быть максимально рано
+   */
+  app.use(requestContextMiddleware);
+
+  /**
+   * Security headers
+   */
   app.use(
     helmet({
       crossOriginResourcePolicy: false,
     }),
   );
 
-  // CORS
+  /**
+   * CORS
+   */
   app.use(cors(corsConfig));
 
-  // Парсинг JSON и URL-encoded тел запросов
-  app.use(json({ limit: "100mb" }));
-  app.use(urlencoded({ extended: true, limit: "100mb" }));
+  /**
+   * Body parsers
+   */
+  app.use(
+    express.json({
+      limit: "10mb",
+    }),
+  );
 
-  // Cookie парсер
+  app.use(
+    express.urlencoded({
+      extended: true,
+      limit: "10mb",
+    }),
+  );
+
+  /**
+   * Cookies
+   */
   app.use(cookieParser());
 
-  // User-Agent парсер
-  app.use(expressUseragent.express());
+  /**
+   * User-Agent
+   */
+  app.use(useragentExpress());
 
-  // Логирование каждого запроса (IP, метод, URL)
+  /**
+   * Request logging
+   */
   app.use((req, _res, next) => {
-    logger.info(`${req.method} ${req.url} | IP: ${req.ip}`);
+    logger.info(`${req.method} ${req.originalUrl} | IP: ${req.ip}`);
     next();
   });
 
-  // Контекст запроса (requestId, correlationId и т.д.)
-  app.use(requestContextMiddleware);
-
-  // Аудит запросов (логирование действий)
+  /**
+   * Audit middleware
+   * Должен использовать req.body,
+   * а не читать stream руками
+   */
   app.use(auditRequestMiddleware(auditConfig));
 };

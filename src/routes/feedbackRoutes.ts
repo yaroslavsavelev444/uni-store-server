@@ -22,18 +22,10 @@ import {
 } from "../controllers/feedbackController.js";
 import authMiddleware from "../middlewares/auth-middleware.js";
 
-// Лимитер для отправки фидбека (5 запросов в час на пользователя)
-// const feedbackSubmitLimiter = createRedisRateLimiter({
-//   keyPrefix: "feedback:submit",
-//   windowSec: 3600, // 1 час
-//   getMax: () => 5,
-//   keyGenerator: (req) => req.user?.id || req.ip
-// });
-
 // Пользовательские роуты
-router.post("/create", authMiddleware.requireAuth, submitFeedback);
+router.post("/create", authMiddleware.requireAuth(), submitFeedback);
 
-router.get("/:id", authMiddleware.requireAuth, getFeedback);
+router.get("/:id", authMiddleware.requireAuth(), getFeedback as any);
 
 // Админские роуты (только для админов и модераторов)
 router.get("/", authMiddleware(["admin"]), getAllFeedbacks);
@@ -71,7 +63,7 @@ router.delete("/:id", authMiddleware(["admin"]), deleteFeedback as any);
 // Статистика (для админов)
 router.get("/stats/admin", authMiddleware(["admin"]), getAdminStats);
 
-router.get("/stats/user", authMiddleware.requireAuth, getUserStats);
+router.get("/stats/user", authMiddleware.requireAuth(), getUserStats);
 
 // Экспорт (для админов)
 router.get("/export/csv", authMiddleware(["admin"]), exportToCSV);

@@ -2,7 +2,6 @@ import joi from "joi";
 import validator from "validator";
 import xss from "xss";
 
-const { array, object, string } = joi;
 const { isAlpha, isStrongPassword } = validator;
 
 // Типизируем функцию санитайзинга
@@ -12,8 +11,9 @@ const sanitizeString = (value: unknown): unknown => {
 };
 
 // Схема для согласия пользователя
-const acceptedConsentSchema = object({
-  slug: string()
+const acceptedConsentSchema = joi.object({
+  slug: joi
+    .string()
     .custom((value: unknown, helpers: joi.CustomHelpers) => {
       return sanitizeString(value);
     }, "Slug sanitization")
@@ -21,7 +21,8 @@ const acceptedConsentSchema = object({
     .max(100)
     .required(),
 
-  version: string()
+  version: joi
+    .string()
     .custom((value: unknown) => sanitizeString(value))
     .min(1)
     .max(20)
@@ -29,8 +30,9 @@ const acceptedConsentSchema = object({
 });
 
 // Схема регистрации
-const registerSchema = object({
-  name: string()
+const registerSchema = joi.object({
+  name: joi
+    .string()
     .custom((value: unknown, helpers: joi.CustomHelpers) => {
       const clean = sanitizeString(value);
       if (typeof clean !== "string") {
@@ -52,12 +54,14 @@ const registerSchema = object({
     .max(50)
     .required(),
 
-  email: string()
+  email: joi
+    .string()
     .email({ tlds: { allow: false } })
     .custom((value: unknown) => sanitizeString(value))
     .required(),
 
-  password: string()
+  password: joi
+    .string()
     .custom((value: unknown, helpers: joi.CustomHelpers) => {
       if (typeof value !== "string") {
         return helpers.error("string.base");
@@ -77,7 +81,7 @@ const registerSchema = object({
     .max(64)
     .required(),
 
-  acceptedConsents: array().items(acceptedConsentSchema).min(1).required(),
+  acceptedConsents: joi.array().items(acceptedConsentSchema).min(1).required(),
 });
 
 export default { registerSchema };

@@ -1,4 +1,6 @@
 // services/BannerStatsService.ts
+/** biome-ignore-all lint/suspicious/noDuplicateObjectKeys: <explanation> */
+/** biome-ignore-all lint/complexity/useOptionalChain: <explanation> */
 import ApiError from "../exceptions/api-error.js";
 import { BannerModel, BannerViewModel } from "../models/index.models.js";
 import type { IBanner } from "../types/banner.types.js";
@@ -16,16 +18,22 @@ class BannerStatsService {
 
     const banner = await BannerModel.findOne({
       _id: bannerId,
-      $or: [{ status: "active" }, { status: "draft" }],
-      $or: [
-        { startAt: { $exists: false } },
-        { startAt: null },
-        { startAt: { $lte: now } },
-      ],
-      $or: [
-        { endAt: { $exists: false } },
-        { endAt: null },
-        { endAt: { $gte: now } },
+      status: { $in: ["active", "draft"] },
+      $and: [
+        {
+          $or: [
+            { startAt: { $exists: false } },
+            { startAt: null },
+            { startAt: { $lte: now } },
+          ],
+        },
+        {
+          $or: [
+            { endAt: { $exists: false } },
+            { endAt: null },
+            { endAt: { $gte: now } },
+          ],
+        },
       ],
     }).lean();
 

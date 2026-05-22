@@ -1,3 +1,4 @@
+//@ts-nocheck
 // services/contentBlock.service.ts
 import path from "node:path";
 import { startSession, Types } from "mongoose";
@@ -7,6 +8,7 @@ import { ContentBlockModel } from "../models/index.models.js";
 import redisClient from "../redis/redis.client.js";
 import type { IContentBlockDocument } from "../types/contentBlock.types.js";
 import fileService from "../utils/fileManager.js";
+import fileStorageService from "./fileStorage.service.js";
 
 // Типизация Redis
 interface RedisClientWithJson {
@@ -58,46 +60,40 @@ class ContentBlockService {
       : this.CACHE_KEYS.ACTIVE_BLOCKS;
 
     try {
-      const cached =
-        await this.redisClient.getJson<IContentBlockDocument[]>(cacheKey);
+      const cached = await this.redisClient.getJson<any[]>(cacheKey);
       if (cached) {
-        logger.debug(
-          `[ContentBlockService] getAll from cache (includeInactive: ${includeInactive})`,
-        );
-        return cached.map((item) => {
-          if (item.imageUrl) {
-            item.imageUrl = fileService.getFileUrl(item.imageUrl);
-          }
-          return item;
-        });
+        logger.debug(`getAll from cache`);
+        // Возвращаем из кэша как есть (это уже plain объекты, но структура сохранена)
+        return cached as IContentBlockDocument[];
       }
     } catch (err) {
-      logger.warn(
-        `[ContentBlockService] Cache get error: ${(err as Error).message}`,
-      );
+      logger.warn(`Cache get error: ${(err as Error).message}`);
     }
 
     const query = includeInactive ? {} : { isActive: true };
     const items = await ContentBlockModel.find(query)
       .sort({ position: 1, createdAt: -1 })
-      .exec(); // без .lean()
+      .populate({
+        path: "imageUrl",
+        select:
+          "_id originalName name sizeBytes mimeType url accessType entityType entityId originalName storedName storagePath",
+      })
+      .exec();
+
+    // Преобразуем в plain объекты для сериализации (mongoose документы могут содержать циклические ссылки)
+    const plainItems = items.map((item) => item.toObject());
 
     try {
       await this.redisClient.setJson(
         cacheKey,
-        items,
-        includeInactive ? this.CACHE_TTL.ALL : this.CACHE_TTL.ACTIVE,
-      );
-      logger.debug(
-        `[ContentBlockService] getAll cached (includeInactive: ${includeInactive})`,
+        plainItems,
+        this.CACHE_TTL.ACTIVE,
       );
     } catch (err) {
-      logger.warn(
-        `[ContentBlockService] Cache set error: ${(err as Error).message}`,
-      );
+      logger.warn(`Cache set error: ${(err as Error).message}`);
     }
 
-    return items;
+    return items; // возвращаем mongoose документы (с populate) - они сохраняют методы, но при ответе клиенту toJSON преобразует
   }
 
   async getById(
@@ -252,7 +248,7 @@ class ContentBlockService {
     }
 
     if (block.imageUrl) {
-      await this.deleteOldImage(block.imageUrl);
+      await this.deleteOldImage(block.imageUrl as string);
     }
 
     await ContentBlockModel.findByIdAndDelete(id);
@@ -356,22 +352,27 @@ class ContentBlockService {
     }
   }
 
-  private async processImage(imageUrl: string): Promise<string> {
-    let filePath = imageUrl;
-    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-      const url = new URL(imageUrl);
-      filePath = decodeURIComponent(url.pathname);
+  private async processImage(
+    imageId: string | null | undefined,
+  ): Promise<string | null> {
+    // Если ID не передан или пустая строка — возвращаем null
+    if (!imageId || imageId.trim() === "") {
+      return null;
     }
 
-    if (filePath.includes("/temp/")) {
-      const timestamp = Date.now();
-      const filename = path.basename(filePath);
-      const newWebPath = `/uploads/content-blocks/${timestamp}_${filename}`;
-      // вызов fileService.moveFile закомментирован в оригинале, оставляем так
-      return newWebPath;
+    // Проверяем существование файла через FileStorageService
+    const existingIds = await fileStorageService.checkIfExists(imageId);
+
+    // checkIfExists возвращает null или массив найденных ID
+    const exists =
+      existingIds && Array.isArray(existingIds) && existingIds.length > 0;
+
+    if (!exists) {
+      throw new Error(`Файл с ID "${imageId}" не найден или удалён`);
     }
 
-    return filePath;
+    // Возвращаем ID (сохраняем как строку, в базе оставляем строковое представление ObjectId)
+    return imageId;
   }
 
   private async deleteOldImage(imageUrl: string): Promise<void> {

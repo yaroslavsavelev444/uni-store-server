@@ -1,4 +1,3 @@
-//@ts-nocheck
 import type { NextFunction, Response } from "express";
 import mongoose from "mongoose";
 import ApiError from "../exceptions/api-error.js";
@@ -26,8 +25,6 @@ import type {
 } from "../types/controllers/product-controller.js";
 import type { IProduct, ProductStatusType } from "../types/product.types.js";
 
-import { processProductFiles } from "../utils/productFileProcessor.js";
-
 class ProductController {
   /**
    * GET /api/products
@@ -51,7 +48,7 @@ class ProductController {
           );
         }
       }
-
+      //@ts-expect-error
       const result = await productService.getAllProducts(query);
 
       res.json({
@@ -131,9 +128,8 @@ class ProductController {
     try {
       const productData = req.validatedData || req.body;
       const userId = req.user.id;
-
-      const processedData = await processProductFiles(productData);
-      const product = await productService.createProduct(processedData, userId);
+      console.log("productData", productData);
+      const product = await productService.createProduct(productData, userId);
 
       res.status(201).json({
         success: true,
@@ -158,12 +154,14 @@ class ProductController {
       const updateData = req.validatedData || req.body;
       const userId = req.user.id;
 
-      const processedData = await processProductFiles(updateData);
+      console.log("updateData", updateData);
       // Проверяем существование продукта (можно через сервис)
-      await productService.getProductById(id, { isAdmin: true });
+      await productService.getProductById(id, {
+        isAdmin: req.user.role === "admin",
+      });
       const product = await productService.updateProduct(
         id,
-        processedData,
+        updateData,
         userId,
       );
 

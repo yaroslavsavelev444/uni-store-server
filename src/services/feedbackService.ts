@@ -2,7 +2,7 @@ import { formatDate } from "date-fns";
 import mongoose, { Types } from "mongoose";
 import ApiError from "../exceptions/api-error.js";
 import logger from "../logger/logger.js";
-import { FeedbackModel, FileModel, UserModel } from "../models/index.models.js";
+import { FeedbackModel, UserModel } from "../models/index.models.js";
 import { sendEmailNotification } from "../queues/taskQueues.js";
 import type {
   FeedbackAssignedData,
@@ -29,7 +29,6 @@ import type {
   NotifyUserStatusChangeParams,
   RemoveTagParams,
   SubmitFeedbackData,
-  SubmitFeedbackResult,
   UpdateInternalNoteParams,
   UpdatePriorityParams,
   UpdateStatusParams,
@@ -41,9 +40,7 @@ import fileStorageService from "./fileStorage.service.js";
 class FeedbackService {
   // Пользовательские методы
 
-  async submitFeedback(
-    data: SubmitFeedbackData,
-  ): Promise<SubmitFeedbackResult> {
+  async submitFeedback(data: SubmitFeedbackData): Promise<IFeedback> {
     try {
       const {
         title,
@@ -68,11 +65,14 @@ class FeedbackService {
       const attachmentIds = attachments;
 
       // Проверяем существование файлов
+      let exists = null;
+      // Проверяем существование файлов
       if (attachmentIds.length > 0) {
-        const files = await FileModel.find({ _id: { $in: attachmentIds } });
-        if (files.length !== attachmentIds.length) {
-          throw ApiError.BadRequest("Некоторые файлы не существуют");
-        }
+        exists = await fileStorageService.checkIfExists(attachmentIds);
+      }
+
+      if (exists && exists.length !== attachmentIds.length) {
+        throw ApiError.BadRequest("Некоторые файлы не существуют");
       }
 
       let allowedIds: string[] = [];
@@ -105,7 +105,7 @@ class FeedbackService {
         ipAddress,
         createdBy: userId ? new Types.ObjectId(userId) : undefined,
         status: "new",
-        // attachments: attachmentIds, // ← массив строк
+        attachments: attachmentIds,
       };
 
       const feedback = new FeedbackModel(feedbackData);
@@ -115,7 +115,7 @@ class FeedbackService {
         attachmentIds,
         allowedIds,
         "feedback",
-        String(feedback._id), // ← теперь entityId привязан к фидбеку
+        String(feedback._id),
       );
 
       await this.notifyAdminsAboutNewFeedback({ feedback });
@@ -137,9 +137,12 @@ class FeedbackService {
     userRole,
   }: GetFeedbackParams): Promise<IFeedback> {
     try {
-      // Добавляем populate('attachments') для подгрузки данных файлов
       const feedback = await FeedbackModel.findById(id)
-        .populate<{ attachments: any[] }>("attachments") // типизация может быть расширена
+        .populate({
+          path: "attachments",
+          select:
+            "_id originalName name sizeBytes mimeType url accessType entityType entityId originalName storedName storagePath",
+        })
         .lean<IFeedback>();
 
       if (!feedback) {
@@ -224,7 +227,11 @@ class FeedbackService {
         FeedbackModel.find(query)
           .populate<{ assignedTo: IUser }>("assignedTo", "name email role")
           .populate<{ createdBy: IUser }>("createdBy", "name email")
-          .populate("attachments") // ← добавлено
+          .populate({
+            path: "attachments",
+            select:
+              "_id originalName name sizeBytes mimeType url accessType entityType entityId originalName storedName storagePath",
+          })
           .sort(sort)
           .skip(skip)
           .limit(limit)

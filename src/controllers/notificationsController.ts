@@ -42,6 +42,8 @@ class NotificationsController {
         limit,
         skip,
       );
+
+      console.log("notifications", notifications);
       res.status(200).json(notifications);
     } catch (e) {
       next(e);
