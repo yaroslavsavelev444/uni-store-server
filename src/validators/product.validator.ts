@@ -43,8 +43,7 @@ const instructionFileSchema = Joi.object({
 
 const instructionLinkSchema = Joi.object({
   type: Joi.string().valid("link").required(),
-  url: Joi.string().required().uri().message("Некорректный формат ссылки"),
-  title: Joi.string().max(255).optional().allow("", null).default("Инструкция"),
+  link: Joi.string().required().uri().message("Некорректный формат ссылки"),
 });
 
 const instructionSchema = Joi.alternatives()

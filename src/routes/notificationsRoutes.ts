@@ -11,5 +11,8 @@ router.get(
   notificationsController.getNotifications as any,
 );
 router.get("/getUnreadCount", notificationsController.getUnreadCount as any);
-
+router.put(
+  "/markNotificationsAsRead",
+  notificationsController.markNotificationAsRead as any,
+);
 export default router;
