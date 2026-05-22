@@ -134,7 +134,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prod
-    container_name: polet-rs-init-prod
+    container_name: rs-init-prod
     depends_on:
       mongo1:
         condition: service_healthy
