@@ -1,5 +1,4 @@
 // validators/order.validator.ts
-/** biome-ignore-all lint/suspicious/noThenProperty: <explanation> */
 
 import type { NextFunction, Request, Response } from "express";
 import Joi from "joi";

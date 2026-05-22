@@ -16,7 +16,7 @@ export interface ContentBlock {
   position?: number;
   isActive?: boolean;
   tags?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdateContentBlock extends Partial<ContentBlock> {}

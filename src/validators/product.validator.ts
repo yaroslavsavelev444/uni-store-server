@@ -5,6 +5,14 @@ import Joi from "joi";
 import type { ProductStatusType } from "../types/product.types.js";
 import { ProductStatus } from "../types/product.types.js";
 
+// Вспомогательная функция для безопасного доступа к полям unknown объекта
+function getValue(obj: unknown, key: string): unknown {
+  if (obj && typeof obj === "object" && key in obj) {
+    return (obj as Record<string, unknown>)[key];
+  }
+  return undefined;
+}
+
 // Вспомогательные схемы
 const imageSchema = Joi.object({
   url: Joi.string()
@@ -211,13 +219,13 @@ export const updateStockSchema = Joi.object({
 });
 
 // Тип для результата валидации
-interface ValidationResult<T = any> {
+interface ValidationResult<T = unknown> {
   error: Joi.ValidationError | null;
   value: T;
 }
 
 // Функция валидации с логированием
-export function validateProductWithLogging<T = any>(
+export function validateProductWithLogging<T = unknown>(
   schema: Joi.ObjectSchema<T>,
   data: unknown,
   context = "",
@@ -226,17 +234,22 @@ export function validateProductWithLogging<T = any>(
     timestamp: new Date().toISOString(),
     dataType: typeof data,
     isArray: Array.isArray(data),
-    keys: Object.keys((data as any) || {}),
-    hasImages: !!(data as any)?.images,
-    imagesCount: Array.isArray((data as any)?.images)
-      ? (data as any).images.length
+    keys: Object.keys((data as Record<string, unknown>) || {}),
+    hasImages: !!getValue(data, "images"),
+    imagesCount: Array.isArray(getValue(data, "images"))
+      ? (getValue(data, "images") as unknown[]).length
       : 0,
-    hasMainImage: !!(data as any)?.mainImage,
-    imageUrls: Array.isArray((data as any)?.images)
-      ? (data as any).images.map((img: any) => ({
-          url: img.url ? `${img.url.substring(0, 50)}...` : "нет",
-          alt: img.alt || "нет",
-        }))
+    hasMainImage: !!getValue(data, "mainImage"),
+    imageUrls: Array.isArray(getValue(data, "images"))
+      ? (getValue(data, "images") as unknown[]).map((img) => {
+          const imgRecord = img as Record<string, unknown>;
+          return {
+            url: imgRecord.url
+              ? `${String(imgRecord.url).substring(0, 50)}...`
+              : "нет",
+            alt: imgRecord.alt || "нет",
+          };
+        })
       : "нет изображений",
   });
 
@@ -244,12 +257,12 @@ export function validateProductWithLogging<T = any>(
     `[VALIDATOR${context ? ` ${context}` : ""}] Полные данные:`,
     JSON.stringify(
       {
-        sku: (data as any)?.sku,
-        title: (data as any)?.title,
-        images: (data as any)?.images,
-        mainImage: (data as any)?.mainImage,
-        specifications: (data as any)?.specifications
-          ? `[массив из ${(data as any).specifications.length} элементов]`
+        sku: getValue(data, "sku"),
+        title: getValue(data, "title"),
+        images: getValue(data, "images"),
+        mainImage: getValue(data, "mainImage"),
+        specifications: getValue(data, "specifications")
+          ? `[массив из ${(getValue(data, "specifications") as unknown[]).length} элементов]`
           : "нет",
       },
       null,

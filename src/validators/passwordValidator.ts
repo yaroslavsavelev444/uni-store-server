@@ -9,7 +9,7 @@
  * @param {string} password - Пароль для проверки
  * @returns {string|null} - Возвращает сообщение об ошибке или null если пароль валиден
  */
-const validatePassword = (password: string | any[]) => {
+const validatePassword = (password: string | unknown[]) => {
   if (!password || typeof password !== "string") {
     return "Пароль не указан";
   }
