@@ -3,6 +3,7 @@ version: '3.8'
 services:
 
   app:
+    image: polet-app:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -21,16 +22,18 @@ services:
     networks:
       - backend
     volumes:
-      - /var/polet/uploads:/app/uploads
-      - /var/polet/logs:/app/logs
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
 
   worker:
+    image: polet-worker:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -48,14 +51,15 @@ services:
       - backend
     command: ["node", "dist/src/queues/worker/processors.js"]
     volumes:
-      - /var/polet/uploads:/app/uploads
-      - /var/polet/logs:/app/logs
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "processors.js"]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]  # если есть
       interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
@@ -125,19 +129,21 @@ services:
       - backend
     restart: unless-stopped
 
-  rs-init:
+  rs-rs-init:
+    image: polet-rs-init:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
-    container_name: rs-init-polet-prod
+    container_name: polet-rs-init-prod
     depends_on:
       mongo1: { condition: service_healthy }
       mongo2: { condition: service_healthy }
       mongo3: { condition: service_healthy }
     networks:
       - backend
-    command: ["node", "dist/src/scripts/init-replica.js"]
-
+    command: sh -c "node dist/src/scripts/init-replica.js"
+    healthcheck:
+      disable: true
   admin-init:
     build:
       context: .

@@ -13,15 +13,6 @@ export type FeedbackStatus =
   | "wont_fix";
 export type FeedbackPriority = "low" | "medium" | "high" | "critical";
 
-export interface IAttachment {
-  url: string;
-  tempName?: string;
-  originalName?: string;
-  size?: number;
-  mimeType?: string;
-  uploadedAt?: Date;
-}
-
 export interface IInternalNote {
   note: string;
   createdBy?: Types.ObjectId;

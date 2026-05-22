@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
 import { Types } from "mongoose";
 import { UserDTO } from "../dtos/user.dto.js";
 import ApiError from "../exceptions/api-error.js";
@@ -80,6 +81,7 @@ const create2FACodeAndNotify = async (
 
 /**
  * Транзакционная часть: создаёт код, хэширует, сохраняет в UserSecurity
+ * С fallback-созданием UserSecurity, если его нет
  */
 const create2FACodeTransaction = async (
   userId: string | Types.ObjectId,
@@ -91,31 +93,36 @@ const create2FACodeTransaction = async (
 
   try {
     const userData = await UserModel.findById(userId);
-    const _userSecurity = await UserSecurityModel.findOne({ userId });
-
     if (!userData) {
       throw ApiError.BadRequest("Пользователь не найден");
     }
 
     const code = generate2FACode();
-    // Исправлен console.log
     console.log(`2FA code for ${userData.email}: ${code}`);
 
     const hashedCode = hashCode(code);
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
-    const updateResult = await UserSecurityModel.updateOne(
-      { userId },
+    // Используем upsert — создаст документ, если его нет
+    const updateResult = await UserSecurityModel.findOneAndUpdate(
+      { userId: userData._id },
       {
         $set: {
           twoFACodeHash: hashedCode,
           twoFACodeExpiresAt: expiresAt,
           twoFAAttempts: 0,
+          // Можно добавить другие дефолтные поля, если они есть в схеме
+        },
+        $setOnInsert: {
+          userId: userData._id,
+          // twoFALastAttempt: null,
+          // twoFAEnabled: false, // если есть такое поле
         },
       },
+      { upsert: true, new: true },
     );
 
-    if (updateResult.matchedCount === 0) {
+    if (!updateResult) {
       throw ApiError.InternalServerError("Ошибка при сохранении 2FA-кода");
     }
 
@@ -126,9 +133,7 @@ const create2FACodeTransaction = async (
     };
   } catch (error) {
     logger.error("Ошибка в create2FACodeTransaction:", error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
+    if (error instanceof ApiError) throw error;
     throw ApiError.InternalServerError("Не удалось создать 2FA-код");
   }
 };

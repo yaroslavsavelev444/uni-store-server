@@ -3,7 +3,6 @@ import type {
   FeedbackPriority,
   FeedbackStatus,
   FeedbackType,
-  IAttachment,
   IDeviceInfo,
   IFeedback,
 } from "./feedback.types.js";

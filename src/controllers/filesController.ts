@@ -98,3 +98,30 @@ export const deleteFile = async (
     next(e);
   }
 };
+export const downloadFile = async (
+  req: ServeFileRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { fileId } = req.params;
+    const userId = req.user?.id || "";
+
+    const { absolutePath, mimeType, filename } =
+      await fileStorageService.serveFile(fileId, userId);
+
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encodeURIComponent(filename || "file")}`,
+    );
+    res.setHeader("Cache-Control", "private, no-cache");
+
+    return res.sendFile(absolutePath);
+  } catch (e: any) {
+    if (e.message.includes("Нет прав")) {
+      return res.status(403).json({ message: e.message });
+    }
+    return res.status(404).json({ message: "Файл не найден" });
+  }
+};
