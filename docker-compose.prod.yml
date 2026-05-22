@@ -129,7 +129,7 @@ services:
       - backend
     restart: unless-stopped
 
-  rs-rs-init:
+  rs-init:
     image: polet-rs-init:${IMAGE_TAG:-latest}
     build:
       context: .
