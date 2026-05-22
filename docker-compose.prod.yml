@@ -130,24 +130,21 @@ services:
     restart: unless-stopped
 
   rs-init:
-    image: polet-rs-init:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
     container_name: rs-init-prod
     depends_on:
-      mongo1:
-        condition: service_healthy
-      mongo2:
-        condition: service_healthy
-      mongo3:
-        condition: service_healthy
+      mongo1: { condition: service_healthy }
+      mongo2: { condition: service_healthy }
+      mongo3: { condition: service_healthy }
     networks:
       - backend
     command: sh -c "node dist/init-replica.js"
     healthcheck:
       disable: true
-    restart: "no"  
+    restart: "no"
+  
   admin-init:
     build:
       context: .
@@ -157,13 +154,12 @@ services:
       rs-init:
         condition: service_completed_successfully
     command: ["node", "dist/src/scripts/createAdmin.js"]
-    restart: "on-failure"
+    restart: "no"
     env_file:
       - .env
     networks:
       - backend
-    volumes:
-      - ./src/scripts:/app/src/scripts
+
 
 networks:
   backend:
