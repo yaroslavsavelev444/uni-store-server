@@ -15,6 +15,7 @@ import type {
 } from "../types/product.types.js";
 import { ProductStatus } from "../types/product.types.js";
 import fileManager from "../utils/fileManager.js";
+import { normalizeProduct } from "../utils/normalizeProduct.js";
 import categoryService from "./categoryService.js"; // нужно импортировать
 import fileStorageService from "./fileStorage.service.js";
 import ProductDiscountService from "./ProductDiscountService.js";
@@ -320,8 +321,12 @@ class ProductService {
         }
       });
 
+      const normalizedProducts = processedProducts.map((product: any) =>
+        normalizeProduct(product),
+      );
+
       return {
-        products: processedProducts,
+        products: normalizedProducts,
         pagination: {
           page: Number(page),
           limit: limitNum,
@@ -739,6 +744,14 @@ class ProductService {
 
     const product = await ProductModel.findById(id);
     if (!product) throw ApiError.NotFoundError("Продукт не найден");
+
+    // === ИГНОРИРУЕМ ПОЛЕ specifications ПРИ ОБНОВЛЕНИИ ===
+    if (updateData.specifications !== undefined) {
+      delete updateData.specifications;
+      console.log(
+        `[UPDATE_PRODUCT] Поле specifications удалено из запроса, оставляем текущее значение в БД`,
+      );
+    }
 
     // Проверки SKU, категории и связанных товаров...
     if (updateData.sku && updateData.sku !== product.sku) {

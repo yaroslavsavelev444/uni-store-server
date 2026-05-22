@@ -50,7 +50,7 @@ class ProductController {
       }
       //@ts-expect-error
       const result = await productService.getAllProducts(query);
-
+      console.log("productService.getAllProducts", result);
       res.json({
         success: true,
         data: result.products,
@@ -106,7 +106,7 @@ class ProductController {
         isAdmin,
         userId,
       });
-      console.log("product", product);
+      console.log("product", JSON.stringify(product));
 
       res.json({
         success: true,

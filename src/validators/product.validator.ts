@@ -171,6 +171,9 @@ export const updateProductSchema = createProductSchema
   .fork(Object.keys(createProductSchema.describe().keys), (schema) =>
     schema.optional(),
   )
+  .keys({
+    specifications: Joi.any().optional(),
+  })
   .min(1);
 
 export const productQuerySchema = Joi.object({
