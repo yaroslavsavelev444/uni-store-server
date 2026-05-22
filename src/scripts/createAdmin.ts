@@ -18,13 +18,6 @@ const SALT_ROUNDS: number = (() => {
 
 // ========== Функции ==========
 
-/**
- * Подключение к MongoDB через существующую конфигурацию.
- * Предполагается, что в ../config/mongo.js есть функции connectDB и disconnect.
- * Вместо прямого вызова используем импорт (если есть), либо вызов стандартного mongoose.connect.
- * Здесь я предполагаю, что файл ../config/mongo.js экспортирует объект с методами.
- * Если нет — можно напрямую использовать mongoose.connect(process.env.MONGODB_URI).
- */
 import { connectDB, disconnect } from "../config/mongo.js";
 
 /**
