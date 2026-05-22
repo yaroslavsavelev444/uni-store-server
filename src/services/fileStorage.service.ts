@@ -47,7 +47,7 @@ export interface UploadResult {
 export interface ServeFileResult {
   absolutePath: string;
   mimeType: string;
-  filename?: string;
+  filename?: string; //
 }
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join("/var/data/uploads");
