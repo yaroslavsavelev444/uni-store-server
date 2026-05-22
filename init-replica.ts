@@ -1,6 +1,14 @@
 import { MongoClient, MongoServerError } from "mongodb";
+import logger from "./src/logger/logger.js";
 
-const MONGO_URI = "mongodb://mongo1:27017";
+const MONGO_URL =
+  process.env.MONGO_URL ||
+  "mongodb://mongo1:27017,mongo2:27017,mongo3:27017/polet?replicaSet=rs0";
+
+// Добавь это для надёжности
+if (!process.env.MONGO_URL) {
+  logger.warn("MONGODB_URI не задан в .env, используется дефолтный");
+}
 const REPLICA_SET_NAME = "rs0";
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -24,7 +32,7 @@ const REPLICA_SET_MEMBERS: ReplMemberConfig[] = [
 ];
 
 async function waitForMongo(timeoutMs = 120_000): Promise<void> {
-  const client = new MongoClient(MONGO_URI);
+  const client = new MongoClient(MONGO_URL);
   const start = Date.now();
 
   try {
@@ -102,7 +110,7 @@ async function waitForPrimary(
 }
 
 async function initReplicaSet(): Promise<void> {
-  const client = new MongoClient(MONGO_URI);
+  const client = new MongoClient(MONGO_URL);
 
   try {
     await client.connect();

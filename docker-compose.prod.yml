@@ -137,14 +137,19 @@ services:
       dockerfile: Dockerfile.prod
     container_name: polet-rs-init-prod
     depends_on:
-      mongo1: { condition: service_healthy }
-      mongo2: { condition: service_healthy }
-      mongo3: { condition: service_healthy }
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
     networks:
       - backend
     command: sh -c "node dist/src/scripts/init-replica.js"
+    # Добавляем healthcheck disable, чтобы не мешал
     healthcheck:
       disable: true
+    restart: "no"   # один раз выполнился 
   admin-init:
     build:
       context: .
