@@ -50,8 +50,7 @@ export interface ServeFileResult {
   filename?: string;
 }
 
-const UPLOAD_DIR =
-  process.env.UPLOAD_DIR || path.join(process.cwd(), "private_uploads");
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join("/var/data/uploads");
 
 const TEMP_DIR = path.join(UPLOAD_DIR, "temp");
 

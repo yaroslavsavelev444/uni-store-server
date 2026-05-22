@@ -22,8 +22,8 @@ services:
     networks:
       - backend
     volumes:
-      - uploads_data:/app/uploads
-      - logs_data:/app/logs
+      - uploads_data:/var/data/uploads
+      - logs_data:/var/data/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health/healthcheck"]
@@ -51,8 +51,8 @@ services:
       - backend
     command: ["node", "dist/src/queues/worker/processors.js"]
     volumes:
-      - uploads_data:/app/uploads
-      - logs_data:/app/logs
+      - uploads_data:/var/data/uploads
+      - logs_data:/var/data/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/health"]  # если есть
