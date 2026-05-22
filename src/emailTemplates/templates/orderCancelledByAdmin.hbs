@@ -1,72 +1,84 @@
 {{#extend "baseLayout" title="Заказ отменен"}}
   {{#content "body"}}
-
     <tr>
-      <td style="
-        padding: 24px;
-        font-size: 14px;
-        color: #1E1E1E;
-        line-height: 1.5;
-      ">
-
-        <h2 style="
-          margin: 0 0 16px;
-          font-size: 18px;
-          font-weight: 600;
-        ">
-          Заказ отменен
-        </h2>
-
-        <p style="margin: 0 0 16px;">
-          Заказ №{{orderNumber}} отменен.
+      <td style="padding: 28px; font-family: Arial, sans-serif; background-color: #1A1D24; border-radius: 8px;">
+        <h2 style="color: #FF4500; margin-bottom: 16px;">Заказ №{{order.orderNumber}} отменен</h2>
+        <p style="color: #e6e6e6; margin-bottom: 24px;">
+          Ваш заказ от {{formatDate order.createdAt}} был отменен администратором.
         </p>
 
-      </td>
-    </tr>
-
-    <!-- Детали -->
-    <tr>
-      <td style="padding: 0 24px 24px 24px;">
-
-        <table width="100%" cellpadding="0" cellspacing="0"
-          style="
-            border: 1px solid #e5e5e5;
-            border-radius: 6px;
-          "
-        >
-
-          <tr>
-            <td style="padding: 12px; font-size: 13px; color: #666;">
-              Причина
-            </td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">
-              {{reason}}
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 12px; font-size: 13px; color: #666;">
-              Дата отмены
-            </td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">
-              {{orderData.cancellation.cancelledAt}}
-            </td>
-          </tr>
-
+        <!-- Таблица товаров -->
+        <h3 style="color: #FF4500; margin: 0 0 12px;">Состав заказа</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 24px;">
+          <thead>
+            <tr style="background:#2c2f36; color:#ccc;">
+              <th style="padding:10px 8px; text-align:left;">Товар</th>
+              <th style="padding:10px 8px; text-align:center;">Кол-во</th>
+              <th style="padding:10px 8px; text-align:right;">Цена</th>
+              <th style="padding:10px 8px; text-align:right;">Сумма</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each order.items}}
+              <tr style="border-bottom:1px solid #3a3f48;">
+                <td style="padding:10px 8px; color:#e6e6e6;">{{this.name}}</td>
+                <td style="padding:10px 8px; text-align:center;">{{this.quantity}}</td>
+                <td style="padding:10px 8px; text-align:right;">{{this.unitPrice}} {{../order.pricing.currency}}</td>
+                <td style="padding:10px 8px; text-align:right;">{{this.totalPrice}} {{../order.pricing.currency}}</td>
+              </tr>
+            {{/each}}
+          </tbody>
         </table>
 
+        <!-- Итоговая сумма -->
+        <div style="text-align:right; margin-bottom:24px; font-size:16px; font-weight:bold; color:#FF4500;">
+          Итого: {{order.pricing.total}} {{order.pricing.currency}}
+        </div>
+
+        <!-- Детали отмены -->
+        <h3 style="color: #FF4500; margin: 20px 0 12px;">Причина отмены</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom:24px;">
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6; width:160px;">Причина</td>
+            <td style="padding:6px 0;">{{reason}}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6;">Дата отмены</td>
+            <td style="padding:6px 0;">{{formattedDate}}</td>
+          </tr>
+          {{#if refundAmount}}
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6;">Сумма возврата</td>
+            <td style="padding:6px 0;">{{refundAmount}} {{order.pricing.currency}}</td>
+          </tr>
+          {{/if}}
+        </table>
+
+        <!-- Получатель -->
+        <h3 style="color: #FF4500; margin: 20px 0 12px;">Получатель</h3>
+        <table style="width:100%; border-collapse: collapse; margin-bottom:24px;">
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6; width:160px;">ФИО</td>
+            <td style="padding:6px 0;">{{order.recipient.fullName}}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6;">Телефон</td>
+            <td style="padding:6px 0;">{{order.recipient.phone}}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#9aa0a6;">Email</td>
+            <td style="padding:6px 0;">{{order.recipient.email}}</td>
+          </tr>
+        </table>
+
+        <a href="https://yourdomain.com/orders/{{order.id}}"
+           style="display:inline-block; padding:10px 16px; background:#FF4500; color:#fff; text-decoration:none; border-radius:6px;">
+          Детали заказа
+        </a>
+        <p style="margin-top: 22px; font-size: 12px; color: #777;">
+          По вопросам обратитесь в службу поддержки.
+        </p>
       </td>
     </tr>
-
-    <tr>
-      <td style="
-        padding: 16px 24px 24px 24px;
-        font-size: 13px;
-        color: #666;
-      ">
-        По вопросам обратитесь в службу поддержки.
-      </td>
-    </tr>
-
   {{/content}}
 {{/extend}}

@@ -3,6 +3,7 @@ version: '3.8'
 services:
 
   app:
+    image: polet-app:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -21,23 +22,18 @@ services:
     networks:
       - backend
     volumes:
-      - /var/polet/uploads:/app/uploads
-      - /var/polet/logs:/app/logs
-    command: ["npm", "run", "start"]
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
       interval: 10s
       timeout: 5s
       retries: 3
-      
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
+      start_period: 30s
 
   worker:
+    image: polet-worker:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -49,19 +45,21 @@ services:
         condition: service_healthy
       admin-init:
         condition: service_completed_successfully
-    env_file: .env
+    env_file:
+      - .env
     networks:
       - backend
+    command: ["node", "dist/src/queues/worker/processors.js"]
     volumes:
-      - /var/polet/uploads:/app/uploads
-      - /var/polet/logs:/app/logs
-    command: ["node", "src/queues/worker/processors.js"]
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "processors.js"]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]  # если есть
       interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
@@ -131,23 +129,21 @@ services:
       - backend
     restart: unless-stopped
 
-  rs-init:
-    image: node:20-alpine
-    container_name: rs-init-prod
+  rs-rs-init:
+    image: polet-rs-init:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: polet-rs-init-prod
     depends_on:
-      mongo1:
-        condition: service_healthy
-      mongo2:
-        condition: service_healthy
-      mongo3:
-        condition: service_healthy
-    volumes:
-      - ./init-replica.js:/app/init-replica.js
-    working_dir: /app
-    command: sh -c "npm install mongodb && node init-replica.js"
+      mongo1: { condition: service_healthy }
+      mongo2: { condition: service_healthy }
+      mongo3: { condition: service_healthy }
     networks:
       - backend
-
+    command: sh -c "node dist/src/scripts/init-replica.js"
+    healthcheck:
+      disable: true
   admin-init:
     build:
       context: .
@@ -156,7 +152,7 @@ services:
     depends_on:
       rs-init:
         condition: service_completed_successfully
-    command: ["node", "src/scripts/createAdmin.js"]
+    command: ["node", "dist/src/scripts/createAdmin.js"]
     restart: "on-failure"
     env_file:
       - .env

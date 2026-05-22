@@ -1,0 +1,83 @@
+// routes/admin-user-routes.js
+import { Router } from "express";
+import { body } from "express-validator";
+import userController from "../controllers/usersController.js";
+import authMiddleware from "../middlewares/auth-middleware.js";
+
+const router = Router();
+
+const adminOnly = authMiddleware.withRoles(["admin", "superadmin"]);
+
+// Получение всех пользователей
+router.get("/", adminOnly, userController.getAllUsers);
+
+// Поиск пользователей (новый эндпоинт)
+router.get("/search", adminOnly, userController.searchUsers);
+
+// Получение пользователя по ID
+router.get("/:userId", adminOnly, userController.getUserById as any);
+
+// Получение детальной информации о пользователе
+router.get("/:userId/details", adminOnly, userController.getUserDetails as any);
+
+// Обновление роли пользователя
+router.patch(
+  "/:userId/role",
+  adminOnly,
+  [
+    body("role")
+      .isString()
+      .isIn(["user", "admin", "superadmin"])
+      .withMessage(
+        "Роль должна быть одним из значений: user, admin, superadmin",
+      ),
+  ],
+  userController.updateUserRole as any,
+);
+
+// Понижение до пользователя
+router.post("/:userId/demote", adminOnly, userController.demoteToUser as any);
+
+// Блокировка пользователя
+router.post(
+  "/:userId/block",
+  adminOnly,
+  [
+    body("duration")
+      .isInt({ min: 0 })
+      .withMessage(
+        "Длительность блокировки должна быть числом (0 для бессрочной)",
+      ),
+    body("reason")
+      .optional()
+      .isString()
+      .isLength({ max: 500 })
+      .withMessage("Причина блокировки не должна превышать 500 символов"),
+    body("type")
+      .optional()
+      .isIn(["block", "warning", "restriction"])
+      .withMessage(
+        "Тип санкции должен быть одним из: block, warning, restriction",
+      ),
+  ],
+  userController.blockUser as any,
+);
+
+// Разблокировка пользователя
+router.post("/:userId/unblock", adminOnly, userController.unblockUser as any);
+
+// Получение истории санкций
+router.get(
+  "/:userId/sanctions",
+  adminOnly,
+  userController.getUserSanctions as any,
+);
+
+// Получение статуса блокировки
+router.get(
+  "/:userId/block-status",
+  adminOnly,
+  userController.getBlockStatus as any,
+);
+
+export default router;

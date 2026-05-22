@@ -1,5 +1,6 @@
 FROM node:20
 
+# Устанавливаем зависимости для нативных модулей
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -9,11 +10,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY package*.json ./
-
 RUN npm install
 
 COPY . .
 
 EXPOSE 3003
 
+# Будет переопределён в docker-compose через command
 CMD ["npm", "run", "dev"]
