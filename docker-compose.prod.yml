@@ -1,4 +1,3 @@
-name: polet
 version: '3.8'
 
 services:
@@ -146,10 +145,9 @@ services:
     networks:
       - backend
     command: sh -c "node dist/src/scripts/init-replica.js"
-    # Добавляем healthcheck disable, чтобы не мешал
     healthcheck:
       disable: true
-    restart: "no"   # один раз выполнился 
+    restart: "no"  
   admin-init:
     build:
       context: .
