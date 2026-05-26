@@ -637,7 +637,7 @@ class ProductService {
       return oldInstruction;
     }
 
-    // Новая инструкция пришла
+    // Новая инструкция
     const { type, file, link } = newInstruction;
 
     if (type === "file") {
@@ -672,7 +672,6 @@ class ProductService {
         throw ApiError.BadRequest("Некорректная ссылка");
       }
 
-      // Удаляем старый файл, если был
       if (oldInstruction?.type === "file" && oldInstruction.file) {
         await fileStorageService
           .deleteFiles([oldInstruction.file.toString()], userId)
@@ -684,6 +683,7 @@ class ProductService {
 
     throw ApiError.BadRequest("Некорректный тип инструкции");
   }
+
   async createProduct(
     productData: CreateProductBody,
     userId: string,
@@ -733,6 +733,9 @@ class ProductService {
   /**
    * Обновление продукта
    */
+  /**
+   * Обновление продукта
+   */
   async updateProduct(
     id: string,
     updateData: any,
@@ -745,15 +748,7 @@ class ProductService {
     const product = await ProductModel.findById(id);
     if (!product) throw ApiError.NotFoundError("Продукт не найден");
 
-    // === ИГНОРИРУЕМ ПОЛЕ specifications ПРИ ОБНОВЛЕНИИ ===
-    if (updateData.specifications !== undefined) {
-      delete updateData.specifications;
-      console.log(
-        `[UPDATE_PRODUCT] Поле specifications удалено из запроса, оставляем текущее значение в БД`,
-      );
-    }
-
-    // Проверки SKU, категории и связанных товаров...
+    // Проверка SKU
     if (updateData.sku && updateData.sku !== product.sku) {
       const existing = await ProductModel.findOne({
         sku: updateData.sku,
@@ -762,10 +757,11 @@ class ProductService {
       if (existing) throw ApiError.BadRequest("SKU уже занят");
     }
 
+    // Проверка категории и связанных товаров
     if (updateData.category) await this.findCategoryById(updateData.category);
     await this.validateRelatedProducts(updateData, id);
 
-    // === Обработка изображений ===
+    // ========== Обработка изображений (без изменений) ==========
     if (
       updateData.images !== undefined ||
       updateData.removedImageIds !== undefined
@@ -773,7 +769,6 @@ class ProductService {
       const oldImageIds = (product.images as string[]).map((id) =>
         id.toString(),
       );
-
       const newImageIds = updateData.images || oldImageIds;
       const removedIds = updateData.removedImageIds || [];
 
@@ -787,29 +782,62 @@ class ProductService {
       product.images = processedImageIds.map((id) => id);
     }
 
+    // ========== Обработка инструкции (без изменений) ==========
     if (
       updateData.instruction !== undefined ||
       updateData.removedInstruction === true
     ) {
       const oldInstruction = product.instruction || null;
-
       const processedInstruction = await this.processInstructionForUpdate(
         updateData.instruction,
         updateData.removedInstruction || false,
         oldInstruction,
         userId,
       );
-
       product.instruction = processedInstruction;
     }
 
-    // Обновляем остальные поля
-    Object.keys(updateData).forEach((key) => {
-      if (!["images", "removedImageIds"].includes(key)) {
+    // ========== FIXED: Обновление простых полей + specifications ==========
+    // Список полей, которые можно безопасно скопировать
+    const simpleFields = [
+      "sku",
+      "title",
+      "description",
+      "priceForIndividual",
+      "category",
+      "status",
+      "isVisible",
+      "showOnMainPage",
+      "weight",
+      "dimensions",
+      "manufacturer",
+      "warrantyMonths",
+      "minOrderQuantity",
+      "maxOrderQuantity",
+      "metaTitle",
+      "metaDescription",
+      "keywords",
+      "customAttributes",
+      "relatedProducts",
+      "upsellProducts",
+      "crossSellProducts",
+    ];
+
+    simpleFields.forEach((key) => {
+      if (updateData[key] !== undefined) {
         (product as any)[key] = updateData[key];
       }
     });
 
+    // FIXED: Обновление specifications – разрешено явно
+    if (Array.isArray(updateData.specifications)) {
+      product.specifications = updateData.specifications;
+    } else if (updateData.specifications === null) {
+      // Если клиент явно прислал null – очищаем массив
+      product.specifications = [];
+    }
+
+    // Остальные поля, не вошедшие в simpleFields (например, removedImageIds и т.п.) не трогаем
     product.updatedBy = new Types.ObjectId(userId);
     product.updatedAt = new Date();
 
