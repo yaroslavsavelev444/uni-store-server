@@ -13,6 +13,7 @@ import contentBlockRoutes from "../src/routes/contentBlockRoutes.js";
 import deliveryRoutes from "../src/routes/deliveryRoutes.js";
 import discountRoutes from "../src/routes/discountRoutes.js";
 import faqRoutes from "../src/routes/faqRoutes.js";
+import feedRoutes from "../src/routes/feed.routes.js";
 import feedbackRoutes from "../src/routes/feedbackRoutes.js";
 import filesRoutes from "../src/routes/filesRoutes.js";
 import healthRoutes from "../src/routes/healthcheckRoutes.js";
@@ -26,11 +27,11 @@ import sitemapRoutes from "../src/routes/sitemapRoutes.js";
 import topicRoutes from "../src/routes/topicRoutes.js";
 import usersRoutes from "../src/routes/usersRoutes.js";
 import wishlistRoutes from "../src/routes/wishlistRoutes.js";
-
 export default (app: Application): void => {
   app.use("/auth", authRoutes);
   app.use("/health", healthRoutes);
   app.use("/consent", consentRoutes);
+  app.use("/feed", feedRoutes);
   app.use("/contacts", contactsRoutes);
   app.use("/notifications", notificationsRoutes);
   app.use("/feedback", feedbackRoutes);
